@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Administrator\\\\Downloads\\\\FrontEnd_Syntera\" -Recurse -Name)",
+      "Bash(Sort-Object)",
+      "Bash(dotnet run *)"
+    ]
+  }
+}
