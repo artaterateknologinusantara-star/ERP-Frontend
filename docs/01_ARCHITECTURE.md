@@ -232,7 +232,7 @@ Tidak terdeteksi integrasi sistem eksternal apa pun di backend (tidak ada SDK/HT
 
 ## Expense Management
 
-**Status: Belum diimplementasikan sama sekali** — desain sudah final (keputusan urutan fase, pola approval, dan sumber data vendor sudah dikonfirmasi), siap jadi acuan implementasi Fase 4. Lihat status implementasi & urutan fase di [`00_PROJECT_STATUS.md`](./00_PROJECT_STATUS.md) dan [`03_DEVELOPMENT_ROADMAP.md`](./03_DEVELOPMENT_ROADMAP.md) (Fase 4 — nomor ditukar dengan Inventory Costing karena Costing dikerjakan lebih dulu, lihat bagian "Catatan" di dokumen itu).
+**Status: Belum diimplementasikan sama sekali** — desain sudah final (keputusan urutan fase, pola approval, dan sumber data vendor sudah dikonfirmasi), siap jadi acuan implementasi Fase 5. Lihat status implementasi & urutan fase di [`00_PROJECT_STATUS.md`](./00_PROJECT_STATUS.md) dan [`03_DEVELOPMENT_ROADMAP.md`](./03_DEVELOPMENT_ROADMAP.md) (Fase 5 — didahulukan oleh Fase 4 SupplierInvoice, lihat bagian "Catatan" di dokumen itu).
 
 Modul terpisah untuk mencatat **Operational Expense (OPEX)** perusahaan — sewa kantor, ATK, listrik, air, internet, telepon, BBM, parkir, business trip, entertainment, kurir, maintenance, bank charges, insurance, training, pajak, lain-lain. Lihat aturan pemisahan tegas dari Purchasing di bagian [Business Rules — Pemisahan Project Expense vs Operational Expense](#business-rules--pemisahan-project-expense-vs-operational-expense) di atas.
 
@@ -258,7 +258,7 @@ Expense Created → (optional Approval, pola sama seperti Quotation/PurchaseRequ
 
 **Integrasi dengan Chart of Accounts (`02_ACCOUNTING_MODULE_PROPOSAL.md` Fase 1):** setiap `ExpenseCategory` di-mapping 1:1 ke akun anak di bawah akun induk "Beban Operasional" di COA — misalnya kategori "Office Rent" → akun "5-1001 Beban Sewa Kantor". Mapping ini adalah field baru di `ExpenseCategory` (`AccountId`), sama polanya dengan `TaxRate.AccountId` yang diusulkan di `02_ACCOUNTING_MODULE_PROPOSAL.md` bagian 3.5.
 
-**Posting jurnal saat Expense dibayar (future, Fase 4 di `03_DEVELOPMENT_ROADMAP.md`):**
+**Posting jurnal saat Expense dibayar (future, Fase 5 di `03_DEVELOPMENT_ROADMAP.md`):**
 
 | Debit | Kredit |
 |---|---|
