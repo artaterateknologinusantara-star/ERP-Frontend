@@ -31,6 +31,19 @@ export interface JournalEntryDetail extends JournalEntryListItem {
   createdAt: string;
 }
 
+export interface CreateOpeningBalanceLine {
+  accountId: string;
+  debit: number;
+  credit: number;
+  memo?: string;
+}
+
+export interface CreateOpeningBalanceRequest {
+  date?: string;
+  description?: string;
+  lines: CreateOpeningBalanceLine[];
+}
+
 // ── Functions ──────────────────────────────────
 
 export async function getJournalEntriesBySourceId(sourceId: string): Promise<JournalEntryListItem[]> {
@@ -40,5 +53,19 @@ export async function getJournalEntriesBySourceId(sourceId: string): Promise<Jou
 
 export async function getJournalEntryDetail(id: string): Promise<JournalEntryDetail> {
   const res = await api.get<JournalEntryDetail>(`/journal-entries/${id}`);
+  return res.data;
+}
+
+/** Cek Opening Balance yang sudah Posted sebelumnya — dipakai untuk peringatan anti-duplikasi. */
+export async function getExistingPostedOpeningBalances(): Promise<JournalEntryListItem[]> {
+  return api.getList<JournalEntryListItem>('/journal-entries', {
+    sourceType: 'OpeningBalance',
+    status: 'Posted',
+    perPage: 5,
+  }).then((res) => res.data);
+}
+
+export async function createOpeningBalance(payload: CreateOpeningBalanceRequest): Promise<JournalEntryDetail> {
+  const res = await api.post<JournalEntryDetail>('/journal-entries/opening-balance', payload);
   return res.data;
 }

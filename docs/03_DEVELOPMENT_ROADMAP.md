@@ -157,18 +157,45 @@ Prioritas berdasarkan dampak ke akurasi AR/Laba Rugi dan kesiapan pelaporan resm
 pemilik proyek):
 
 ### 2. Opening Balance (Saldo Awal)
-**Prioritas: Tinggi — WAJIB SELESAI SEBELUM GO-LIVE**
+**Status: ✅ Selesai**
 
 - **Business need**: perusahaan sudah beroperasi sebelum sistem ini ada. Perlu mekanisme memasukkan
   saldo Kas/Piutang/Persediaan/Utang/Modal yang sudah ada dari pembukuan lama ke GL sistem baru,
   sebagai Journal Entry pembuka (opening balance) per tanggal cut-off go-live.
-- **Kenapa prioritas tinggi**: tanpa ini, Neraca di hari pertama go-live akan mulai dari nol, padahal
-  kenyataannya perusahaan sudah punya aset/utang riil. Ini **wajib selesai sebelum go-live**, bukan
-  sekadar peningkatan yang bisa menyusul.
-- **Catatan desain awal** (belum final, akan diverifikasi ulang saat waktunya tiba): kemungkinan
-  berbentuk 1 Journal Entry khusus dengan `SourceType` baru (misal `OpeningBalance`), diinput manual
-  oleh accounting/finance sekali di awal, dengan validasi Debit=Kredit seperti jurnal manual biasa
-  (`CreateManualEntryAsync`, Fase 1).
+- **Solusi yang diimplementasikan**: `JournalSourceType.OpeningBalance` (enum baru, tanpa migration —
+  kolom `SourceType` sudah `HasConversion<string>().HasMaxLength(30)` sejak Fase 1) + endpoint khusus
+  `POST /api/journal-entries/opening-balance` (`JournalEntryController.CreateOpeningBalance`).
+- **Keputusan desain**: endpoint ini adalah wrapper tipis (`JournalPostingService.CreateOpeningBalanceAsync`)
+  di atas `CreateManualEntryAsync` (Fase 1) — bukan duplikasi logic. Validasi "tidak boleh menyentuh akun
+  Revenue/Expense" sengaja diisolasi di wrapper ini, bukan di `CreateManualEntryAsync`, supaya method
+  generik itu tidak menumpuk percabangan khusus per-SourceType (pola sama seperti keputusan desain GRNI
+  di Fase 4) dan supaya validasi ini tidak bisa "ketarik hilang" kalau `CreateManualEntryAsync` di-refactor
+  nanti untuk keperluan lain. Pesan error menyebutkan kode akun yang bermasalah secara eksplisit.
+- **Numbering**: reuse `NumberingConfig` `JOURNAL_ENTRY` yang sudah ada (Fase 1) — tidak ada
+  `NumberingConfig` baru, karena Opening Balance tetaplah sebuah `JournalEntry` biasa, hanya dibedakan
+  lewat `SourceType`.
+- **Anti-duplikasi (soft warning, bukan hard-block)**: reuse endpoint generik `GET /api/journal-entries?
+  sourceType=OpeningBalance&status=Posted` (filter yang sudah ada sejak Fase 1) — tidak ada endpoint
+  backend baru untuk pengecekan ini. Frontend memanggilnya saat halaman dibuka; kalau ada entry Posted
+  sebelumnya, tampilkan banner + `ConfirmModal` sebelum submit. Sengaja tidak hard-block karena revisi/
+  koreksi opening balance yang legitimate harus tetap bisa dilakukan.
+- **Keterbatasan diketahui (diterima sementara)**: tidak ada lock tanggal — setelah Opening Balance
+  di-Posted, JE manual lain (`ManualAdjustment`) masih bisa dibuat dengan `Date` sebelum cut-off. Ditutup
+  permanen nanti oleh Period Closing (item #13). Didokumentasikan di komentar kode
+  (`JournalPostingService.CreateOpeningBalanceAsync`) dan `00_PROJECT_STATUS.md` Known Gaps.
+- **Frontend**: halaman baru `/opening-balance` (grup nav "Accounting"), pola `useFieldArray` (react-hook-form
+  + zod) direplikasi persis dari `purchase-request/buat/page.tsx`, dropdown akun per baris pakai
+  `getFlatAccounts()` (`account.service.ts`, pola sama seperti dipakai di `expense/buat/page.tsx`) tanpa
+  filter tipe akun (validasi Revenue/Expense sepenuhnya di backend). Panel live Total Debit/Kredit/Selisih
+  mencegah submit sebelum balance.
+- **Teruji end-to-end** (database development sungguhan, bukan scratch DB): (a) entry balanced 5 baris
+  Asset/Liability/Equity (Rp100.000.000 debit=kredit) — Trial Balance (`/api/reports/trial-balance`) dan
+  Neraca mencerminkannya dengan benar, Selisih Neraca tetap Rp0; (b) baris ke akun Revenue (`4-1000`) dan
+  akun Expense (`5-1000`) masing-masing ditolak HTTP 400 dengan pesan menyebutkan kode akun; (c) Opening
+  Balance kedua tetap berhasil dibuat (tidak hard-block), query anti-duplikasi mengembalikan entry pertama
+  dengan benar; (d) Laba Rugi (`/api/reports/income-statement`) dites dengan rentang tanggal lebar yang
+  mencakup tanggal Opening Balance — Total Revenue/Expense/Net Income identik dengan baseline sebelum
+  Opening Balance dibuat, membuktikan nol kontaminasi ke P&L.
 
 ### 3. PPN Masukan Reconciliation (Rekapitulasi PPN)
 **Prioritas: Tinggi**
