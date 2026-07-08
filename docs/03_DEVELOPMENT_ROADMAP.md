@@ -122,25 +122,27 @@ minimal tanpa migration) — bukan preview yang dihitung ulang di frontend. Liha
 
 # Antrian Jangka Panjang (Belum Dikerjakan)
 
-> Semua item di bawah **menunggu urutan setelah Fase 0-6 Accounting/GL selesai** (lihat di atas). Belum ada implementasi apa pun — dokumentasi/perencanaan saja. Urutan mencerminkan prioritas bisnis saat dokumen ini ditulis, bisa berubah kalau ada kebutuhan mendesak baru.
+> Item di Track Accounting/GL Lanjutan **menunggu urutan setelah Fase 0-6 Accounting/GL selesai** (lihat di atas); item #1 (Track Purchasing) sengaja terpisah dari dependency itu dan sudah dikerjakan lebih dulu. Sisanya belum ada implementasi apa pun — dokumentasi/perencanaan saja. Urutan mencerminkan prioritas bisnis saat dokumen ini ditulis, bisa berubah kalau ada kebutuhan mendesak baru.
 
 ## Track Purchasing (terpisah dari track Accounting/GL)
 
 ### 1. Purchase Order Split per Vendor
+**Status: ✅ Selesai**
 
 **Business need**: 1 Purchase Request bisa butuh barang dari beberapa vendor berbeda sekaligus (contoh: PR untuk proyek CCTV butuh kamera dari Vendor A dan kabel fiber dari Vendor B).
 
-**Business rule yang harus dipertahankan**: 1 Purchase Order tetap harus merujuk ke **satu** Supplier saja — ini fondasi untuk pelacakan Utang Usaha per vendor yang akurat di General Ledger. **Tidak boleh** membuat PO dengan multiple vendor dalam satu dokumen.
+**Business rule yang dipertahankan**: 1 Purchase Order tetap merujuk ke **satu** Supplier saja — fondasi pelacakan Utang Usaha per vendor yang akurat di General Ledger. Tidak ada PO dengan multiple vendor dalam satu dokumen — `PurchaseOrder`/`PurchaseOrderItem`/`POPayment`/`SupplierInvoice` (Fase 4) **tidak disentuh sama sekali** oleh perubahan ini.
 
-**Solusi**: kemampuan split — 1 Purchase Request bisa menghasilkan **lebih dari satu** Purchase Order, masing-masing PO tetap 1:1 ke satu vendor. User pilih sebagian item PR untuk Vendor A → generate PO#1, sisa item untuk Vendor B → generate PO#2, dst — sampai semua item di PR itu sudah masuk ke salah satu PO.
+**Solusi yang diimplementasikan**: 1 Purchase Request sekarang bisa menghasilkan **lebih dari satu** Purchase Order, masing-masing tetap 1:1 ke satu vendor, lewat mekanisme split per item:
+- `PurchaseRequestItem.OrderedQty` (baru) — tracking qty per baris yang sudah teralokasi ke PO manapun, pola sama seperti `ReceivedQty`/`InvoicedQty`.
+- `PurchaseRequestStatus.PartiallyOrdered` (baru, ditambahkan di akhir enum) — dihitung otomatis di `CreateFromPrAsync` (pola sama seperti `PurchaseOrderStatus.PartialReceive`), bukan lewat `UpdateStatusAsync` manual.
+- `CreatePoFromPrRequest` sekarang punya `Items: [{PRItemId, Qty}]` (pola `ReceiveGoodsRequest`) — user pilih sebagian item PR untuk Vendor A → generate PO#1, sisa item untuk Vendor B → generate PO#2, dst, sampai semua item di PR itu sudah masuk ke salah satu PO (guard status: `Approved` atau `PartiallyOrdered`).
+- Frontend (`purchase-request/[id]/page.tsx`): modal "Buat PO dari PR ini" ditambah tabel alokasi item+qty (prefill sisa), tombol muncul untuk `Approved`/`PartiallyOrdered`, tabel item ditambah kolom "Sudah di-PO"/"Sisa", section baru "Purchase Order Terkait" menampilkan semua PO hasil split.
+- `ProjectController` Cost Monitoring (`GetCost`) dikonfirmasi **sudah tolerant** terhadap banyak PO per PR sejak awal (query pakai `.Contains()`+SUM, bukan asumsi 1 baris) — tidak perlu diubah, diverifikasi lewat testing SUM lintas 2 PO tetap benar.
+- Teruji end-to-end (scratch DB): split ke 2 vendor, validasi qty melebihi sisa, blokir PO tambahan setelah PR fully `Ordered`, serta Stock In → SupplierInvoice → Payment independen untuk kedua PO hasil split tanpa cross-contamination.
+- Gap baru ditemukan & dicatat di `00_PROJECT_STATUS.md` Known Gaps: `UpdateStatusAsync` tidak memvalidasi status di luar dictionary transisi (pra-existing, bukan regresi dari fitur ini).
 
-**Kondisi kode saat ini (dikonfirmasi, bukan asumsi)**: `PurchaseOrderService.CreateFromPrAsync` + `CreatePoFromPrRequest` (DTO) sekarang **all-or-nothing, single-shot**:
-- `CreatePoFromPrRequest` tidak punya field pemilihan item sama sekali (cuma `SupplierId`, `Notes`, `DeliveryDate`).
-- `CreateFromPrAsync` mengambil **semua** `pr.Items` tanpa filter, lalu langsung set `pr.Status = Ordered`.
-- Karena guard method ini adalah `if (pr.Status != Approved) return null`, PR yang statusnya sudah berubah jadi `Ordered` **tidak bisa dipakai generate PO lagi** — sehingga 1 PR hanya bisa menghasilkan tepat 1 PO, sekali jalan, mengambil semua item sekaligus.
-- **Kesimpulan**: gap-nya seukuran fitur baru dari nol — butuh (a) field pemilihan subset item di request, (b) tracking "item PR mana yang sudah teralokasi ke PO mana" di level item (bukan cuma status PR di level dokumen), (c) status PR baru atau logika baru untuk "Partially Ordered" vs "Ordered" (PR baru boleh full-Ordered kalau **semua** itemnya sudah masuk ke salah satu PO).
-
-**Posisi antrian**: track terpisah dari Accounting/GL (Fase 0-6) — ini perbaikan modul Purchasing, bukan bagian Accounting, jadi tidak menunggu Fase 0-6 selesai (bisa dikerjakan paralel kalau prioritas bisnis mendesak).
+Lihat detail implementasi & verifikasi di riwayat commit `Purchase Order Split per Vendor: 1 PR bisa generate banyak PO (1:1 per vendor)` dan `Purchase Order Split per Vendor: UI alokasi item multi-vendor di halaman PR`.
 
 ## Track Accounting/GL Lanjutan (setelah Fase 0-6 selesai)
 
