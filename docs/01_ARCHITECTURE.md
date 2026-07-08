@@ -280,6 +280,20 @@ Expense Created → (optional Approval, pola sama seperti Quotation/PurchaseRequ
 - **Fixed Asset Register**: pencatatan sederhana (nilai beli, tanggal beli, umur ekonomis, depresiasi garis lurus) untuk akun "1-4000 Aset Tetap" yang sudah ada di COA tapi belum ada entity detailnya — bukan sistem fixed asset selengkap SAP.
 - **Period Closing / Lock Tanggal Buku**: mengunci periode supaya tidak ada transaksi yang bisa diinput/diubah mundur ke tanggal yang sudah final — penutup dari track Accounting/GL, terkait erat dengan Fase 6 (Financial Reports).
 
+  > **WAJIB DIBACA sebelum implementasi Period Closing:** Neraca (`GET /api/reports/balance-sheet`, Fase 6)
+  > saat ini menampilkan baris Ekuitas tambahan **"Laba Rugi Berjalan (Belum Ditutup)"**, dihitung *live*
+  > setiap request sebagai akumulasi (Revenue − Expense) sejak awal s.d. tanggal Neraca. Baris ini WAJIB
+  > ada sekarang karena sistem belum punya proses closing — tanpanya, Asset tidak akan pernah sama dengan
+  > Liability + Equity (bukan bug, tapi konsekuensi matematis dari laba/rugi yang belum dipindahkan ke
+  > Equity). Begitu Period Closing diimplementasikan, perilaku baris ini **harus berubah**: dari "dihitung
+  > otomatis setiap request" menjadi "hasil penutupan resmi periode" — yaitu jurnal penutup (closing entry)
+  > yang memindahkan saldo akun Revenue dan Expense ke akun Laba Ditahan (Retained Earnings) yang
+  > sesungguhnya di COA, lalu Neraca membaca saldo akun itu seperti akun Equity biasa (bukan hitungan
+  > live lagi) untuk periode yang sudah closed. Kalau ini tidak disambungkan, akan ada duplikasi/konflik
+  > antara baris "Laba Rugi Berjalan" hasil hitungan live dengan saldo akun Retained Earnings hasil
+  > closing — jangan lupa hubungkan dua fitur ini. Lihat `Services/ReportsService.cs` (`GetBalanceSheetAsync`) di
+  > backend untuk lokasi kode yang perlu direvisi.
+
 Item yang **sengaja tidak masuk roadmap** (dengan alasan masing-masing): lihat `03_DEVELOPMENT_ROADMAP.md` bagian "Explicitly Out of Scope" (multi-currency, Budgeting & Forecasting, 3-way matching strict/blocking, multi-entity consolidation).
 
 ---

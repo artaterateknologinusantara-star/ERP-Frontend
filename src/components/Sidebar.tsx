@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
-import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers } from 'lucide-react';
+import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database } from 'lucide-react';
 
 interface NavItem {
   id: string;
@@ -69,6 +69,9 @@ const navGroups: NavGroup[] = [
       { id: 'nav-cash-out', label: 'Cash Out', icon: <ArrowUpCircle size={15} />, href: '/cash-out' },
       { id: 'nav-bank', label: 'Bank', icon: <Banknote size={15} />, href: '/bank' },
       { id: 'nav-finance-reports', label: 'Finance Reports', icon: <BookOpen size={15} />, href: '/finance-reports' },
+      { id: 'nav-trial-balance', label: 'Trial Balance', icon: <Layers size={15} />, href: '/finance-reports/trial-balance' },
+      { id: 'nav-laba-rugi', label: 'Laba Rugi', icon: <TrendingUp size={15} />, href: '/finance-reports/laba-rugi' },
+      { id: 'nav-neraca', label: 'Neraca', icon: <Database size={15} />, href: '/finance-reports/neraca' },
     ],
   },
   {
@@ -121,6 +124,7 @@ const navGroups: NavGroup[] = [
       { id: 'nav-tax', label: 'Tax Settings', icon: <PieChart size={15} />, href: '/settings/tax' },
       { id: 'nav-numbering', label: 'Numbering Format', icon: <Hash size={15} />, href: '/settings/numbering' },
       { id: 'nav-preferences', label: 'ERP Preferences', icon: <Sliders size={15} />, href: '/settings/preferences' },
+      { id: 'nav-system-admin', label: 'System Administration', icon: <Database size={15} />, href: '/settings/system-admin' },
     ],
   },
 ];
@@ -145,6 +149,19 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const isGroupActive = (group: NavGroup) =>
     group.items.some((item) => isActive(item.href));
+
+  // Auto-open the group that contains the current page whenever route changes
+  useEffect(() => {
+    navGroups.forEach((g) => {
+      if (g.id === 'main') return;
+      const hasActive = g.items.some((item) =>
+        item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
+      );
+      if (hasActive) {
+        setOpenGroups((prev) => ({ ...prev, [g.id]: true }));
+      }
+    });
+  }, [pathname]);
 
   const toggleGroup = (id: string) => {
     if (collapsed) return;
