@@ -54,7 +54,8 @@
 - Banyak tombol **Export (Excel)** tersebar di berbagai modul (Finance, Reports, AR, AP, Quotation History) yang tidak punya handler sama sekali — backend pun tidak mengimplementasikan export Excel (hanya PDF via QuestPDF untuk Quotation/SalesOrder/Invoice).
 - **`GET /api/auth/users`** tidak diproteksi `[Authorize]` — celah keamanan (detail di `ARCHITECTURE.md`).
 - **Saldo Utang Usaha di General Ledger bisa tidak akurat untuk PO yang mengandung item tanpa `ItemMasterId`** (item nama bebas) — sisi Kredit (Stock In) tidak mencakup item tersebut, sementara sisi Debit (PO Payment) mencakup total pembayaran penuh. Perbaikan permanen butuh mewajibkan `ItemMasterId` di semua baris PO — di luar scope Fase 3.
-- **Antrian fitur masa depan** (Purchase Order Split per Vendor, Down Payment Customer/Supplier, Retention, Credit/Debit Note, Fixed Asset Register, Period Closing) — belum ada implementasi apa pun, murni perencanaan. Lihat `03_DEVELOPMENT_ROADMAP.md` bagian "Antrian Jangka Panjang" untuk detail lengkap, prioritas, dan dependency.
+- **`PurchaseRequestService.UpdateStatusAsync` tidak memvalidasi status yang tidak terdaftar di dictionary transisi** (termasuk `Ordered` dan `PartiallyOrdered`) — user bisa PATCH manual ke status apapun tanpa validasi. Ini gap pra-existing (bukan regresi dari PO Split), sejenis dengan gap otorisasi granular yang sudah tercatat sebelumnya. Perlu diperbaiki bersamaan kalau ada inisiatif hardening validasi status di masa depan.
+- **Antrian fitur masa depan** (Down Payment Customer/Supplier, Retention, Credit/Debit Note, Fixed Asset Register, Cash Flow Statement & Cash/Bank Enhancement, Period Closing) — belum ada implementasi apa pun, murni perencanaan. Lihat `03_DEVELOPMENT_ROADMAP.md` bagian "Antrian Jangka Panjang" untuk detail lengkap, prioritas, dan dependency.
 
 # Overall Completion
 

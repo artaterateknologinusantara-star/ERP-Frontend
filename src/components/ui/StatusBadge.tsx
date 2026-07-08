@@ -52,6 +52,7 @@ const statusMap: Record<string, BadgeConfig> = {
   Approved:     { className: 'status-disetujui',  label: 'Approved' },
   Rejected:     { className: 'status-ditolak',    label: 'Rejected' },
   Ordered:      { className: 'bg-violet-100 text-violet-700', label: 'Ordered' },
+  PartiallyOrdered: { className: 'bg-amber-100 text-amber-700', label: 'Partially Ordered' },
 
   // Purchase Order
   'Partial Receive': { className: 'bg-amber-100 text-amber-700', label: 'Partial Receive' },

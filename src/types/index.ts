@@ -24,7 +24,7 @@ export interface SelectOption {
 export type QuotationStatus = 'Draft' | 'Terkirim' | 'Disetujui' | 'Ditolak' | 'Kadaluarsa' | 'Direvisi' | 'Selesai' | 'Superseded';
 export type SalesOrderStatus = 'Draft' | 'Open' | 'Delivered' | 'Completed' | 'Cancelled';
 export type InvoiceStatus = 'Draft' | 'Sent' | 'Partial Paid' | 'Paid' | 'Overdue';
-export type PurchaseRequestStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Ordered';
+export type PurchaseRequestStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Ordered' | 'PartiallyOrdered';
 export type PurchaseOrderStatus = 'Draft' | 'Ordered' | 'Partial Receive' | 'Completed' | 'Cancelled';
 export type ExpenseStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Paid';
 export type ActiveStatus = 'Aktif' | 'Tidak Aktif';
