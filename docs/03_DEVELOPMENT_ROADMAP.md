@@ -181,8 +181,8 @@ rule baru, jadi tidak ikut renumbering sequence itu)
 Prioritas berdasarkan dampak ke akurasi AR/Laba Rugi dan kesiapan pelaporan resmi (rekomendasi dari
 pemilik proyek):
 
-## ⚠️ Technical Debt Kritis — NumberingConfig HasData Ter-regenerasi Tiap Migration
-**Prioritas: TINGGI — insiden nyata terjadi 2026-07-08, belum diperbaiki permanen**
+## ✅ Technical Debt — NumberingConfig HasData Ter-regenerasi Tiap Migration (SELESAI DIPERBAIKI PERMANEN)
+**Status: ✅ Selesai diperbaiki permanen (2026-07-08)**
 
 - **Insiden**: saat apply migration `AddNomorFakturPajakToInvoiceAndSupplierInvoice` (bagian task PPN
   Masukan Reconciliation, item #3 di bawah) ke database development (`SynteraERP`), 5 baris
@@ -211,18 +211,58 @@ pemilik proyek):
   diverifikasi fungsional: buat 1 Invoice test, konfirmasi nomor lanjut benar (`INV.SYN-26.0071`, tanpa
   collision), lalu jurnal GL-nya di-reverse dan invoice-nya di-soft-delete supaya tidak ada data test
   tersisa.
-- **Perbaikan permanen yang WAJIB dikerjakan** (belum dikerjakan — ini item roadmap-nya): hapus
-  `NumberingConfig` dari `HasData()` di `OnModelCreating` sepenuhnya (penyebab regenerasi tiap
-  migration), pindahkan ke mekanisme seed yang HANYA jalan sekali saat database pertama kali dibuat —
-  misalnya lewat check idempotent di startup (`if (!await _db.NumberingConfigs.AnyAsync()) { seed }` di
-  `Program.cs`) atau data migration terpisah dengan `INSERT ... WHERE NOT EXISTS`, bukan `HasData()`
-  yang diproses ulang oleh model snapshot builder setiap kali migration baru dibuat.
-- **Dampak kalau tidak diperbaiki**: SETIAP migration baru di masa depan (fitur apa pun, tidak
-  terbatas ke Accounting/GL) berisiko mereset counter ini lagi kalau developer lupa membandingkan
-  manual sebelum apply. Proses manual (snapshot-apply-bandingkan) sudah 2x menyelamatkan (migration
-  Opening Balance dan PPN Reconciliation, keduanya dicek manual), tapi mengandalkan disiplin manual
-  terus-menerus bukan solusi jangka panjang untuk sistem yang harus scale ke lebih banyak
-  developer/migration ke depannya.
+- **Perbaikan permanen yang diimplementasikan** (2026-07-08): `NumberingConfig` dihapus TOTAL dari
+  `HasData()` di `OnModelCreating` (kedua blok — bukan cuma 5 baris yang bermasalah, tapi SEMUA 8
+  DocType termasuk 3 yang sebelumnya sudah aman karena Id fixed, demi satu pola konsisten), dipindah ke
+  `Data/NumberingConfigSeeder.cs` (idempotent, pola sama persis seperti `CustomerSeeder.cs`/
+  `ItemMasterSeeder.cs` yang sudah lama dipakai di project ini) — dipanggil dari `Program.cs` sejajar
+  kedua seeder itu. Blok inline seed `DELIVERY_ORDER` yang sebelumnya nangkring sendirian di
+  `Program.cs` juga dikonsolidasi ke seeder yang sama (jadi 9 DocType total dalam satu tempat, bukan
+  tersebar di 3 lokasi berbeda seperti sebelumnya).
+- **Migration `RemoveNumberingConfigHasData`**: EF Core otomatis men-scaffold `DeleteData` untuk 8
+  baris NumberingConfig begitu HasData-nya dihapus dari model (persis seperti yang diantisipasi) —
+  migration ini SENGAJA diedit manual untuk menghapus SELURUH operasi `DeleteData`/`InsertData` terkait
+  `NumberingConfigs` dari `Up()`/`Down()` sebelum pernah diapply ke database manapun, supaya migration
+  ini jadi no-op murni untuk tabel itu (cuma meng-update model snapshot secara permanen, tidak
+  menyentuh data). Diverifikasi: search "NumberingConfig" di file migration hasil edit cuma nongol di
+  komentar penjelasan, nol operasi data sungguhan.
+- **Teruji di scratch database** sebelum apply ke manapun: (a) migration dipastikan no-op — baris
+  NumberingConfig di scratch DB TIDAK berubah sama sekali setelah apply; (b) app di-start 2x, konfirmasi
+  `NumberingConfigSeeder` tidak menduplikasi baris (tetap 1 baris per DocType); (c) dibuat dokumen test
+  nyata untuk 3 DocType (Invoice, Purchase Request, Journal Entry otomatis dari posting invoice),
+  semua nomor lanjut benar tanpa collision.
+- **Dampak jangka panjang**: risiko regresi counter dari migration APAPUN di masa depan sekarang
+  TERTUTUP PERMANEN, bukan cuma dimitigasi lewat disiplin manual — `NumberingConfig` tidak akan pernah
+  lagi muncul di `HasData()`/model snapshot, jadi tidak ada mekanisme bagi migration mana pun untuk
+  menyentuhnya lagi.
+- **Item terkait yang TIDAK masuk scope perbaikan ini** (risiko lebih sempit, prioritas lebih rendah):
+  lihat item "Risiko HasData Literal — CompanySettings & TaxRate" di bawah.
+
+## ⚠️ Risiko HasData Literal — CompanySettings & TaxRate
+**Prioritas: Rendah/Menengah — ditemukan saat investigasi perbaikan NumberingConfig, belum dikerjakan**
+
+- **Business need**: berbeda dari `NumberingConfig` (yang punya `Id = Guid.NewGuid()` dan karena itu
+  rawan whole-row `DeleteData`+`InsertData`), `CompanySettings` dan `TaxRate` di-seed lewat `HasData()`
+  dengan Id FIXED — jadi TIDAK berisiko kena bug yang sama persis. Tapi keduanya tetap punya risiko
+  yang lebih sempit: `CompanySettingsController` dan `TaxRateController` sama-sama punya endpoint PUT
+  yang benar-benar dipakai untuk mengubah nilai live (dikonfirmasi: `TaxRate.Rate` sungguh diubah lewat
+  API saat testing PPN Reconciliation kemarin, 11% → 15% → 11%).
+- **Mekanisme risiko**: kalau developer masa depan (termasuk sesi Claude Code) mengedit literal seed di
+  `OnModelCreating` (misal ganti `Rate = 0.11m` jadi nilai lain, atau ganti `CompanyName` default),
+  migration berikutnya akan men-generate `UpdateData` bertarget KOLOM yang berubah itu saja (bukan
+  whole-row seperti NumberingConfig) — tapi tetap akan MENIMPA nilai live yang sudah dikustomisasi user
+  lewat UI, kembali ke literal baru di kode.
+- **Kenapa belum masuk scope sekarang**: probabilitas kejadian jauh lebih rendah dari NumberingConfig
+  (NumberingConfig kena SETIAP migration tanpa terkecuali; CompanySettings/TaxRate hanya kena KALAU ada
+  yang secara spesifik mengedit literal seed-nya — jarang terjadi tanpa alasan) dan mekanismenya kurang
+  destruktif (per-kolom, bukan hapus+insert ulang seluruh baris).
+- **Mitigasi sementara**: dokumentasikan sebagai aturan tim — **jangan edit literal seed
+  `CompanySettings`/`TaxRate` di `OnModelCreating` setelah go-live**; kalau nilai default perlu diubah,
+  lakukan lewat UI/API (`PUT /api/company-settings`, `PUT /api/tax-rates/{id}`), bukan lewat kode seed.
+- **Perbaikan permanen (opsional, belum diprioritaskan)**: kalau ingin menghilangkan risiko ini
+  sepenuhnya, pindahkan juga ke pola seeder idempotent (sama seperti `NumberingConfigSeeder.cs`) di
+  masa depan — belum mendesak karena mitigasi dokumentasi di atas sudah cukup untuk risiko serendah
+  ini.
 
 ### 2. Opening Balance (Saldo Awal)
 **Status: ✅ Selesai**
