@@ -146,47 +146,107 @@ Lihat detail implementasi & verifikasi di riwayat commit `Purchase Order Split p
 
 ## Track Accounting/GL Lanjutan (setelah Fase 0-6 selesai)
 
-Prioritas berdasarkan dampak ke akurasi AR/Laba Rugi (rekomendasi dari pemilik proyek):
+> **Sistem akan dipakai untuk pelaporan resmi** (SPT PPN, laporan ke auditor/bank), bukan cuma
+> pembukuan internal — ini mengubah prioritas beberapa item akuntansi di bawah dibanding item fitur
+> murni. Item #2 dan #3 (Opening Balance, PPN Masukan Reconciliation) dinaikkan ke urutan paling awal
+> karena keduanya prasyarat langsung untuk pelaporan resmi yang valid. Item #7 (Segregation of Duties)
+> juga didorong oleh alasan yang sama — integritas laporan keuangan resmi butuh kontrol yang lebih
+> ketat daripada sekadar pembukuan internal.
 
-### 2. Down Payment / Uang Muka dari Customer
+Prioritas berdasarkan dampak ke akurasi AR/Laba Rugi dan kesiapan pelaporan resmi (rekomendasi dari
+pemilik proyek):
+
+### 2. Opening Balance (Saldo Awal)
+**Prioritas: Tinggi — WAJIB SELESAI SEBELUM GO-LIVE**
+
+- **Business need**: perusahaan sudah beroperasi sebelum sistem ini ada. Perlu mekanisme memasukkan
+  saldo Kas/Piutang/Persediaan/Utang/Modal yang sudah ada dari pembukuan lama ke GL sistem baru,
+  sebagai Journal Entry pembuka (opening balance) per tanggal cut-off go-live.
+- **Kenapa prioritas tinggi**: tanpa ini, Neraca di hari pertama go-live akan mulai dari nol, padahal
+  kenyataannya perusahaan sudah punya aset/utang riil. Ini **wajib selesai sebelum go-live**, bukan
+  sekadar peningkatan yang bisa menyusul.
+- **Catatan desain awal** (belum final, akan diverifikasi ulang saat waktunya tiba): kemungkinan
+  berbentuk 1 Journal Entry khusus dengan `SourceType` baru (misal `OpeningBalance`), diinput manual
+  oleh accounting/finance sekali di awal, dengan validasi Debit=Kredit seperti jurnal manual biasa
+  (`CreateManualEntryAsync`, Fase 1).
+
+### 3. PPN Masukan Reconciliation (Rekapitulasi PPN)
+**Prioritas: Tinggi**
+
+- **Business need**: PPN Masukan sudah tercatat ke akun "2-3000 Utang Pajak Masukan" sejak Fase 4
+  (`SupplierInvoice.ApproveAsync`) tapi belum ada mekanisme melacak "berapa yang sudah dikreditkan ke
+  SPT pajak bulan ini". Untuk lapor SPT PPN resmi, butuh laporan yang bisa memisahkan PPN Masukan per
+  periode pajak, dengan status sudah/belum dikreditkan.
+- **Terkait PPN Keluaran juga** (dari akun "2-2000 Utang Pajak Keluaran", diposting dari Invoice AR)
+  — idealnya 1 laporan "Rekapitulasi PPN" yang menampilkan PPN Keluaran vs PPN Masukan per periode,
+  siap dicocokkan ke SPT — bukan 2 laporan terpisah yang harus direkonsiliasi manual.
+- **Di luar scope Fase 4** (sudah dicatat sebagai limitation saat itu) — item ini yang menutup gap
+  tersebut.
+
+### 4. Down Payment / Uang Muka dari Customer
 **Prioritas: Tinggi**
 
 - **Business need**: bisnis project services (Network/CCTV/Fiber/Data Center) umumnya minta DP 30-50% sebelum pekerjaan dimulai.
 - **Business rule**: DP yang diterima **bukan** Pendapatan pada saat diterima — harus dicatat sebagai **Liabilitas** ("Uang Muka Pelanggan" / Customer Advance) sampai barang/jasa benar-benar diserahkan (invoice final terbit). Baru saat itu Uang Muka direklas jadi Pendapatan.
 - **Terkait Accounting/GL**: butuh akun baru "Uang Muka Pelanggan" di Liabilitas (COA), dan `SourceType` baru di `JournalEntry` untuk transaksi ini.
 
-### 3. Retention / Termin Pembayaran Proyek
+### 5. Retention / Termin Pembayaran Proyek
 **Prioritas: Tinggi**
 
 - **Business need**: umum di proyek infrastruktur — customer menahan 5-10% pembayaran sampai masa garansi/warranty selesai.
 - **Business rule**: retention adalah AR yang belum bisa ditagih ("Piutang Retensi"), harus dibedakan dari AR normal supaya AR aging report tidak menyesatkan (retention bukan berarti customer telat bayar, tapi memang belum jatuh tempo sampai syarat garansi selesai).
+- **Terkait erat dengan item #6 (Revenue Recognition — Percentage of Completion)**: retention biasanya
+  muncul di proyek jangka panjang yang termin pembayarannya juga terkait progres pekerjaan — sebaiknya
+  **didesain bersamaan** dengan item #6 saat waktunya tiba, bukan terpisah, supaya skema termin +
+  pengakuan pendapatan + retensi konsisten satu sama lain.
 
-### 4. Down Payment / Uang Muka ke Supplier
+### 6. Revenue Recognition — Percentage of Completion untuk Proyek Jangka Panjang
+**Prioritas: Tinggi**
+
+- **Business need**: saat ini Pendapatan diakui penuh saat Invoice terbit (`InvoiceService.CreateAsync`, Fase 2). Untuk proyek yang berjalan berbulan-bulan dengan termin bertahap, standar akuntansi yang lebih tepat adalah mengakui pendapatan sesuai progres pekerjaan (percentage of completion), bukan sesuai kapan invoice terbit.
+- **Terkait erat dengan item #5 (Retention / Termin Pembayaran Proyek)**: **sebaiknya didesain
+  bersamaan** saat waktunya tiba, bukan terpisah — lihat catatan silang di item #5.
+
+### 7. Segregation of Duties untuk Journal Entry Manual
+**Prioritas: Tinggi**
+
+- **Business need**: saat ini siapa pun yang login bisa membuat/reverse jurnal manual (`POST /api/journal-entries`, `POST /api/journal-entries/{id}/reverse`, Fase 1) tanpa pembatasan role sama sekali. Ini titik paling rawan manipulasi laporan keuangan di sistem manapun — makin kritis karena sistem ini akan dipakai untuk pelaporan resmi (SPT, auditor, bank), bukan cuma pembukuan internal.
+- **Business rule (arah desain awal)**: minimal 2 role terpisah — yang boleh membuat draft entry, dan yang boleh approve/post entry — dipisah orangnya (maker-checker). Detail alur (apakah semua jurnal manual butuh approval, atau hanya di atas nominal tertentu) belum diputuskan, akan dibahas saat item ini masuk sprint implementasi.
+- **Catatan**: ini **berbeda** dari gap otorisasi granular yang sudah tercatat di `00_PROJECT_STATUS.md` Known Gaps (`GET /api/auth/users` tanpa `[Authorize]`, `SystemResetController` tanpa pembatasan role) — levelnya lebih kritis khusus untuk integritas laporan keuangan, bukan celah otorisasi umum.
+
+### 8. Rekonsiliasi Bank
+**Prioritas: Menengah**
+
+- **Business need**: mencocokkan saldo Kas/Bank di GL vs mutasi rekening koran sungguhan. Standar minimum di semua sistem akuntansi. Tanpa ini, selisih pencatatan (biaya admin bank, dsb) tidak akan ketahuan sampai neraca sudah melenceng jauh.
+- **Terkait erat dengan item #12 (Cash Flow Statement & Cash/Bank Enhancement)**: keduanya sama-sama butuh data mutasi Kas/Bank yang akurat — kemungkinan besar cocok dikerjakan berdekatan, meski scope-nya beda (rekonsiliasi vs pelaporan arus kas).
+
+### 9. Down Payment / Uang Muka ke Supplier
 **Prioritas: Menengah**
 
 - **Business need**: sisi Purchasing, banyak vendor material juga minta DP.
 - **Business rule**: DP yang dibayar ke supplier dicatat sebagai **Aset** ("Uang Muka Pembelian" / Vendor Advance), **bukan** langsung ke Persediaan atau Beban — direklas ke Persediaan/Beban saat barang/jasa benar-benar diterima.
 - **Terkait Accounting/GL**: butuh akun baru "Uang Muka Pembelian" di Aset.
 
-### 5. Credit Note / Debit Note
+### 10. Credit Note / Debit Note
 **Prioritas: Menengah**
 
 - **Business need**: mekanisme resmi untuk koreksi invoice (barang dikembalikan, harga dikoreksi, diskon susulan) — supaya ada jejak audit yang jelas, bukan edit langsung ke invoice asli.
 - **Business rule**: Credit Note (mengurangi AR/Pendapatan) dan Debit Note (menambah) harus jadi dokumen tersendiri yang tertaut ke invoice asal, masing-masing punya jurnal sendiri (bukan mengubah jurnal invoice asli).
 
-### 6. Fixed Asset Register (sederhana)
+### 11. Fixed Asset Register (sederhana)
 **Prioritas: Rendah**
 
 - **Business need**: akun "1-4000 Aset Tetap" sudah ada di Chart of Accounts (dari Fase 1) tapi belum ada entity yang men-track detailnya — bisnis ini pasti punya alat kerja sendiri (kamera test, tools fiber splicing, kendaraan).
 - **Scope minimal**: pencatatan nilai beli, tanggal beli, umur ekonomis, dan depresiasi sederhana (garis lurus/straight-line) — **bukan** sistem fixed asset selengkap SAP (tidak perlu revaluasi, tidak perlu multi-method depresiasi).
 
-### 7. Cash Flow Statement & Cash/Bank Enhancement
+### 12. Cash Flow Statement & Cash/Bank Enhancement
 **Prioritas: Menengah**
 
 - **Business need**: Fase 6 (selesai) hanya mencakup Trial Balance/Laba Rugi/Neraca/Buku Besar — Laporan Arus Kas (Cash Flow Statement, format Operating/Investing/Financing) dan penggantian data hardcoded di `bank/page.tsx` (lihat `00_PROJECT_STATUS.md` Known Gaps) dengan saldo nyata dari GL **belum dikerjakan**, sengaja dipisah dari Fase 6 supaya scope Fase 6 tetap fokus ke laporan inti yang wajib (Trial Balance/Laba Rugi/Neraca).
 - **Terkait erat dengan endpoint yang sudah ada**: `GetGeneralLedgerAsync` (Fase 6) sudah punya semua data mentah (mutasi per akun + saldo berjalan) yang dibutuhkan Cash Flow Statement — kemungkinan besar tidak perlu query baru dari nol, cukup agregasi ulang dari akun Kas/Bank per kategori aktivitas (Operating/Investing/Financing).
+- **Terkait erat dengan item #8 (Rekonsiliasi Bank)**: lihat catatan silang di item #8.
 
-### 8. Period Closing / Lock Tanggal Buku
+### 13. Period Closing / Lock Tanggal Buku
 **Prioritas: Terakhir (penutup track Accounting/GL)**
 
 - **Business need**: sekarang Laporan Keuangan resmi sudah ada (Fase 6, selesai), butuh mekanisme mengunci periode (misal "kunci Januari 2027") supaya tidak ada transaksi yang bisa diinput/diubah mundur ke tanggal yang sudah dilaporkan/final.

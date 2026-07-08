@@ -270,12 +270,22 @@ Expense Created → (optional Approval, pola sama seperti Quotation/PurchaseRequ
 
 ## Roadmap Lanjutan — Business Rule Inti (ringkasan)
 
-**Status: Belum diimplementasikan sama sekali** — daftar lengkap, urutan prioritas, dan detail dependency ada di [`03_DEVELOPMENT_ROADMAP.md`](./03_DEVELOPMENT_ROADMAP.md) bagian "Antrian Jangka Panjang". Bagian ini cuma catatan business rule inti (1-2 kalimat), bukan desain teknis — desain lengkap baru ditulis saat masing-masing masuk sprint implementasi.
+**Status: sebagian besar belum diimplementasikan** — daftar lengkap, urutan prioritas, dan detail dependency ada di [`03_DEVELOPMENT_ROADMAP.md`](./03_DEVELOPMENT_ROADMAP.md) bagian "Antrian Jangka Panjang". Bagian ini cuma catatan business rule inti (1-2 kalimat), bukan desain teknis — desain lengkap baru ditulis saat masing-masing masuk sprint implementasi.
 
-- **Purchase Order Split per Vendor** (track Purchasing, terpisah dari Accounting/GL): 1 Purchase Request boleh menghasilkan lebih dari satu Purchase Order, tapi 1 Purchase Order tetap wajib merujuk ke **satu** Supplier saja — ini fondasi pelacakan Utang Usaha per vendor yang akurat di GL. Kondisi kode saat ini all-or-nothing (1 PR → 1 PO, sekali jalan, semua item) — belum ada mekanisme split sama sekali.
+> **Sistem akan dipakai untuk pelaporan resmi** (SPT PPN, laporan ke auditor/bank), bukan cuma pembukuan
+> internal — ini menaikkan prioritas Opening Balance, PPN Masukan Reconciliation, dan Segregation of
+> Duties (JE Manual) dibanding item lain di daftar ini. Detail urutan lengkap ada di
+> `03_DEVELOPMENT_ROADMAP.md`.
+
+- **Purchase Order Split per Vendor** (track Purchasing, terpisah dari Accounting/GL) — **✅ Selesai**: 1 Purchase Request bisa menghasilkan lebih dari satu Purchase Order, tapi 1 Purchase Order tetap wajib merujuk ke **satu** Supplier saja — fondasi pelacakan Utang Usaha per vendor yang akurat di GL. Lihat `03_DEVELOPMENT_ROADMAP.md` untuk detail implementasi.
+- **Opening Balance (Saldo Awal)** — *wajib selesai sebelum go-live*: saldo Kas/Piutang/Persediaan/Utang/Modal dari pembukuan lama perusahaan (sebelum sistem ini ada) perlu dimasukkan ke GL sebagai 1 Journal Entry pembuka per tanggal cut-off — tanpa ini, Neraca hari pertama go-live salah (mulai dari nol, padahal aset/utang riil sudah ada).
+- **PPN Masukan Reconciliation**: PPN Masukan sudah tercatat sejak Fase 4 (`SupplierInvoice`) tapi belum ada laporan yang melacak status sudah/belum dikreditkan ke SPT per periode pajak — idealnya 1 laporan "Rekapitulasi PPN" yang menggabungkan PPN Keluaran (dari Invoice AR) dan PPN Masukan.
 - **Down Payment dari Customer**: DP yang diterima **bukan** Pendapatan saat diterima — dicatat sebagai Liabilitas ("Uang Muka Pelanggan"), baru direklas jadi Pendapatan saat invoice final terbit.
+- **Retention / Termin Proyek**: retention adalah AR yang belum bisa ditagih ("Piutang Retensi") — harus dipisah dari AR normal supaya AR aging report tidak menyesatkan. Terkait erat dengan Revenue Recognition (di bawah) — sebaiknya didesain bersamaan.
+- **Revenue Recognition — Percentage of Completion**: untuk proyek jangka panjang dengan termin bertahap, Pendapatan idealnya diakui sesuai progres pekerjaan, bukan sesuai kapan Invoice terbit (kondisi saat ini). Terkait erat dengan Retention (di atas) — sebaiknya didesain bersamaan, bukan terpisah.
+- **Segregation of Duties (Journal Entry Manual)**: saat ini siapa pun yang login bisa membuat/reverse jurnal manual tanpa pembatasan role — titik paling rawan manipulasi laporan keuangan, makin kritis karena sistem dipakai untuk pelaporan resmi. Arah desain awal: maker-checker (role pembuat draft terpisah dari role approve/post), detail belum final.
+- **Rekonsiliasi Bank**: mencocokkan saldo Kas/Bank di GL vs mutasi rekening koran sungguhan — standar minimum di semua sistem akuntansi, supaya selisih (biaya admin bank, dsb) ketahuan sebelum neraca melenceng jauh.
 - **Down Payment ke Supplier**: DP yang dibayar dicatat sebagai **Aset** ("Uang Muka Pembelian"), bukan langsung ke Persediaan/Beban — direklas saat barang/jasa benar-benar diterima.
-- **Retention / Termin Proyek**: retention adalah AR yang belum bisa ditagih ("Piutang Retensi") — harus dipisah dari AR normal supaya AR aging report tidak menyesatkan.
 - **Credit Note / Debit Note**: koreksi invoice (retur, koreksi harga, diskon susulan) wajib jadi dokumen tersendiri dengan jurnal sendiri, tertaut ke invoice asal — bukan edit langsung ke invoice asli.
 - **Fixed Asset Register**: pencatatan sederhana (nilai beli, tanggal beli, umur ekonomis, depresiasi garis lurus) untuk akun "1-4000 Aset Tetap" yang sudah ada di COA tapi belum ada entity detailnya — bukan sistem fixed asset selengkap SAP.
 - **Period Closing / Lock Tanggal Buku**: mengunci periode supaya tidak ada transaksi yang bisa diinput/diubah mundur ke tanggal yang sudah final — penutup dari track Accounting/GL, terkait erat dengan Fase 6 (Financial Reports).
