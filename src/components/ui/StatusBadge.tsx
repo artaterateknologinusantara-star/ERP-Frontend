@@ -5,6 +5,7 @@ import {
   InvoiceStatus,
   PurchaseRequestStatus,
   PurchaseOrderStatus,
+  ExpenseStatus,
   ActiveStatus,
 } from '@/types';
 
@@ -14,6 +15,7 @@ type AnyStatus =
   | InvoiceStatus
   | PurchaseRequestStatus
   | PurchaseOrderStatus
+  | ExpenseStatus
   | ActiveStatus;
 
 interface BadgeConfig {
@@ -39,10 +41,11 @@ const statusMap: Record<string, BadgeConfig> = {
   Cancelled:    { className: 'status-ditolak',    label: 'Cancelled' },
 
   // Invoice
-  Sent:         { className: 'status-terkirim',   label: 'Sent' },
+  Sent:           { className: 'status-terkirim',             label: 'Sent' },
   'Partial Paid': { className: 'bg-amber-100 text-amber-700', label: 'Partial Paid' },
-  Paid:         { className: 'status-disetujui',  label: 'Paid' },
-  Overdue:      { className: 'status-ditolak',    label: 'Overdue' },
+  PartialPaid:    { className: 'bg-amber-100 text-amber-700', label: 'Partial Paid' },
+  Paid:           { className: 'status-disetujui',            label: 'Paid' },
+  Overdue:        { className: 'status-ditolak',              label: 'Overdue' },
 
   // Purchase Request
   Submitted:    { className: 'status-terkirim',   label: 'Submitted' },
@@ -52,6 +55,11 @@ const statusMap: Record<string, BadgeConfig> = {
 
   // Purchase Order
   'Partial Receive': { className: 'bg-amber-100 text-amber-700', label: 'Partial Receive' },
+  PartialReceive:    { className: 'bg-amber-100 text-amber-700', label: 'Partial Receive' },
+
+  // Delivery Order
+  Confirmed:    { className: 'bg-blue-100 text-blue-700',    label: 'Confirmed' },
+  Returned:     { className: 'bg-orange-100 text-orange-700', label: 'Returned' },
 
   // Active status
   Aktif:        { className: 'status-disetujui',  label: 'Aktif' },

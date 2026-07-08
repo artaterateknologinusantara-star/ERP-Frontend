@@ -26,6 +26,7 @@ export type SalesOrderStatus = 'Draft' | 'Open' | 'Delivered' | 'Completed' | 'C
 export type InvoiceStatus = 'Draft' | 'Sent' | 'Partial Paid' | 'Paid' | 'Overdue';
 export type PurchaseRequestStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Ordered';
 export type PurchaseOrderStatus = 'Draft' | 'Ordered' | 'Partial Receive' | 'Completed' | 'Cancelled';
+export type ExpenseStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Paid';
 export type ActiveStatus = 'Aktif' | 'Tidak Aktif';
 
 // ─── Master Data ─────────────────────────────────────────────────────────────
@@ -77,7 +78,17 @@ export interface ItemMaster {
   warehouse?: string;
   stock: number;
   minStock: number;
-  price: number;
+  sellingPrice: number;
+  purchasePrice?: number;
+  lastPurchasePrice?: number;
+  preferredVendorId?: string;
+  preferredVendorName?: string;
+  model?: string;
+  leadTimeDays?: number;
+  vendorItemCode?: string;
+  procurementNotes?: string;
+  isInventoryItem: boolean;
+  reorderPoint?: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -193,6 +204,8 @@ export interface CustomerPO {
   poDate: string;
   amount: number;
   hasAttachment: boolean;
+  salesOrderId?: string;
+  salesOrderNo?: string;
   notes?: string;
   attachmentName?: string;
   createdAt: string;
