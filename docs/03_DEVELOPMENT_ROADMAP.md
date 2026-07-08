@@ -144,6 +144,31 @@ minimal tanpa migration) — bukan preview yang dihitung ulang di frontend. Liha
 
 Lihat detail implementasi & verifikasi di riwayat commit `Purchase Order Split per Vendor: 1 PR bisa generate banyak PO (1:1 per vendor)` dan `Purchase Order Split per Vendor: UI alokasi item multi-vendor di halaman PR`.
 
+### Frontend Form Create SupplierInvoice
+**Status: Belum dikerjakan** (item baru, sengaja tidak diberi nomor urut prioritas bisnis seperti
+item #1 di atas atau item #2 dst di "Track Accounting/GL Lanjutan" — ini gap teknis/UI, bukan business
+rule baru, jadi tidak ikut renumbering sequence itu)
+
+- **Business need**: backend `SupplierInvoice` (Fase 4 — entity, `SupplierInvoiceController`,
+  `SupplierInvoiceService`, posting GL GRNI→Utang Usaha) sudah lengkap dan sudah dites end-to-end sejak
+  lama, tapi **user tidak pernah bisa membuat SupplierInvoice lewat UI sama sekali** — mirip situasi
+  Expense Management sebelum gap frontend-nya ditutup (lihat Fase 5 di atas).
+- **Kondisi saat ini**: halaman `src/app/supplier-invoice/page.tsx` hanya me-render ulang
+  `APSummaryCards` + `APTable` (komponen Accounts Payable) — nol koneksi ke endpoint
+  `POST /api/supplier-invoices`. Satu-satunya cara membuat SupplierInvoice saat ini adalah lewat
+  Swagger/Postman langsung.
+- **Ditemukan saat mengerjakan PPN Masukan Reconciliation** (item #3 di bawah): field
+  `NomorFakturPajak` sudah ditambahkan penuh di backend (model, DTO, service — sudah dites via API),
+  tapi tidak ada tempat di UI untuk mengisinya untuk SupplierInvoice (berbeda dengan Invoice AR yang
+  sudah punya field ini di modal "Buat Invoice" pada halaman Sales Order detail).
+- **Scope form yang perlu dibangun**: pilih Purchase Order (status `PartialReceive`/`Completed`), pilih
+  item PO yang `ReceivedQty > InvoicedQty`, input qty per baris, input `InvoiceNumber` (nomor invoice
+  vendor), tanggal, PPN Masukan, dan `NomorFakturPajak` (opsional) — pola input mirip
+  `purchase-request/buat/page.tsx` (multi-baris) tapi sumber baris dari PO Items yang sudah diterima,
+  bukan input bebas.
+- **Di luar scope PPN Masukan Reconciliation** (item #3) — sengaja tidak diperluas ke situ untuk
+  menghindari scope creep; dicatat di sini sebagai item terpisah.
+
 ## Track Accounting/GL Lanjutan (setelah Fase 0-6 selesai)
 
 > **Sistem akan dipakai untuk pelaporan resmi** (SPT PPN, laporan ke auditor/bank), bukan cuma
@@ -155,6 +180,49 @@ Lihat detail implementasi & verifikasi di riwayat commit `Purchase Order Split p
 
 Prioritas berdasarkan dampak ke akurasi AR/Laba Rugi dan kesiapan pelaporan resmi (rekomendasi dari
 pemilik proyek):
+
+## ⚠️ Technical Debt Kritis — NumberingConfig HasData Ter-regenerasi Tiap Migration
+**Prioritas: TINGGI — insiden nyata terjadi 2026-07-08, belum diperbaiki permanen**
+
+- **Insiden**: saat apply migration `AddNomorFakturPajakToInvoiceAndSupplierInvoice` (bagian task PPN
+  Masukan Reconciliation, item #3 di bawah) ke database development (`SynteraERP`), 5 baris
+  `NumberingConfig` (INVOICE, QUOTATION, SALES_ORDER, PURCHASE_ORDER, PURCHASE_REQUEST — seed paling
+  awal di `OnModelCreating`) ter-reset ke nilai seed statis hardcode (64/148/48/19/34), padahal nilai
+  aktual sudah bertumbuh dari transaksi nyata (70/151/52/22/36). Terdeteksi SEBELUM menimbulkan
+  kerusakan nyata karena state di-snapshot manual sebelum apply, lalu dibandingkan lagi sesudahnya —
+  kalau tidak, dokumen berikutnya akan collide dengan nomor yang sudah dipakai.
+- **Root cause sebenarnya**: setiap kali `dotnet ef migrations add` dijalankan, EF Core meregenerasi
+  ulang blok `HasData` untuk `NumberingConfig` (di-seed dengan `Guid.NewGuid()`, menghasilkan GUID baru
+  tiap kali dievaluasi), sehingga SETIAP migration — bukan cuma yang sengaja menyentuh
+  `NumberingConfig` — otomatis menyertakan `DeleteData`+`InsertData` untuk 5 baris itu dengan
+  `LastNumber` PERSIS seperti tertulis hardcode di C#, BUKAN nilai state aktual database saat migration
+  di-apply. Migration APAPUN di repo ini, kalau di-apply ke database yang `LastNumber`-nya sudah
+  bertumbuh melebihi nilai seed, akan meregresi counter itu.
+- **Kenapa baru ketahuan sekarang**: metode verifikasi yang dipakai di migration-migration sebelumnya
+  (bandingkan migration file Up vs Down secara internal — self-consistent) TIDAK menangkap masalah ini,
+  karena Up dan Down migration file itu sendiri konsisten satu sama lain, tapi keduanya SAMA-SAMA salah
+  dibanding state AKTUAL database. Baru ketahuan karena kali ini dilakukan snapshot manual nilai
+  `NumberingConfig` di database sungguhan SEBELUM apply, lalu dibandingkan lagi SESUDAH apply — bukan
+  cuma membaca isi file migration.
+- **Insiden ini sudah diperbaiki manual** (2026-07-08): kelima `NumberingConfig` dikembalikan ke
+  70/151/52/22/36 via `UPDATE` langsung, setelah diverifikasi silang dengan `MAX()` nomor dokumen
+  aktual di tabel transaksi masing-masing (Invoices/Quotations/SalesOrders/PurchaseOrders/
+  PurchaseRequests — cocok persis, tidak ada transaksi baru masuk di antara snapshot dan apply), lalu
+  diverifikasi fungsional: buat 1 Invoice test, konfirmasi nomor lanjut benar (`INV.SYN-26.0071`, tanpa
+  collision), lalu jurnal GL-nya di-reverse dan invoice-nya di-soft-delete supaya tidak ada data test
+  tersisa.
+- **Perbaikan permanen yang WAJIB dikerjakan** (belum dikerjakan — ini item roadmap-nya): hapus
+  `NumberingConfig` dari `HasData()` di `OnModelCreating` sepenuhnya (penyebab regenerasi tiap
+  migration), pindahkan ke mekanisme seed yang HANYA jalan sekali saat database pertama kali dibuat —
+  misalnya lewat check idempotent di startup (`if (!await _db.NumberingConfigs.AnyAsync()) { seed }` di
+  `Program.cs`) atau data migration terpisah dengan `INSERT ... WHERE NOT EXISTS`, bukan `HasData()`
+  yang diproses ulang oleh model snapshot builder setiap kali migration baru dibuat.
+- **Dampak kalau tidak diperbaiki**: SETIAP migration baru di masa depan (fitur apa pun, tidak
+  terbatas ke Accounting/GL) berisiko mereset counter ini lagi kalau developer lupa membandingkan
+  manual sebelum apply. Proses manual (snapshot-apply-bandingkan) sudah 2x menyelamatkan (migration
+  Opening Balance dan PPN Reconciliation, keduanya dicek manual), tapi mengandalkan disiplin manual
+  terus-menerus bukan solusi jangka panjang untuk sistem yang harus scale ke lebih banyak
+  developer/migration ke depannya.
 
 ### 2. Opening Balance (Saldo Awal)
 **Status: ✅ Selesai**

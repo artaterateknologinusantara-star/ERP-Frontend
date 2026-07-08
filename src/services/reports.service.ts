@@ -66,6 +66,27 @@ export interface GeneralLedger {
   closingBalance: number;
 }
 
+export interface PpnReconciliationRow {
+  date: string;
+  entryNumber: string;
+  sourceType: string;
+  documentNo: string;
+  partnerName?: string;
+  npwp?: string;
+  nomorFakturPajak?: string;
+  amount: number;
+}
+
+export interface PpnReconciliation {
+  startDate: string;
+  endDate: string;
+  ppnKeluaran: PpnReconciliationRow[];
+  ppnMasukan: PpnReconciliationRow[];
+  totalPpnKeluaran: number;
+  totalPpnMasukan: number;
+  selisih: number;
+}
+
 // ── Helpers ────────────────────────────────────
 
 function buildQS(params?: Record<string, string | number | undefined>): string {
@@ -121,4 +142,13 @@ export function exportBalanceSheetPdf(asOfDate?: string): Promise<Blob> {
 
 export function exportGeneralLedgerPdf(accountId: string, startDate?: string, endDate?: string): Promise<Blob> {
   return fetchPdf(`/reports/general-ledger/${accountId}/pdf${buildQS({ startDate, endDate })}`);
+}
+
+export async function getPpnReconciliation(startDate?: string, endDate?: string): Promise<PpnReconciliation> {
+  const res = await api.get<PpnReconciliation>(`/reports/ppn-reconciliation${buildQS({ startDate, endDate })}`);
+  return res.data;
+}
+
+export function exportPpnReconciliationPdf(startDate?: string, endDate?: string): Promise<Blob> {
+  return fetchPdf(`/reports/ppn-reconciliation/pdf${buildQS({ startDate, endDate })}`);
 }

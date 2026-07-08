@@ -247,6 +247,7 @@ export interface Invoice {
   paid: number;
   balance: number;
   status: InvoiceStatus;
+  nomorFakturPajak?: string;
   createdAt: string;
   updatedAt: string;
 }

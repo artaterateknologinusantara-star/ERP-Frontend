@@ -83,6 +83,7 @@ const navGroups: NavGroup[] = [
       { id: 'nav-trial-balance', label: 'Trial Balance', icon: <Layers size={15} />, href: '/finance-reports/trial-balance' },
       { id: 'nav-laba-rugi', label: 'Laba Rugi', icon: <TrendingUp size={15} />, href: '/finance-reports/laba-rugi' },
       { id: 'nav-neraca', label: 'Neraca', icon: <Database size={15} />, href: '/finance-reports/neraca' },
+      { id: 'nav-ppn-reconciliation', label: 'Rekapitulasi PPN', icon: <Receipt size={15} />, href: '/finance-reports/ppn-reconciliation' },
     ],
   },
   {
