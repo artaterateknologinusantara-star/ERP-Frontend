@@ -1,6 +1,8 @@
 > Roadmap ini mencakup evolusi **Finance/Accounting** Syntera ERP — dari kondisi sekarang (operational tracking, lihat `02_ACCOUNTING_MODULE_PROPOSAL.md` bagian Gap Analysis) menuju sistem akuntansi double-entry penuh, termasuk modul baru **Expense Management** (OPEX). Prioritas non-Finance (celah otorisasi, Project Management frontend, Export Excel, dll) tetap dilacak terpisah di `00_PROJECT_STATUS.md` bagian "Next Recommended Priorities" — tidak diduplikasi di sini.
 >
-> Sumber acuan fase Accounting: `02_ACCOUNTING_MODULE_PROPOSAL.md` bagian 5 ("Rencana Implementasi Bertahap", Fase 0-5). Dokumen ini menyusun ulang fase-fase itu (lihat bagian "Catatan" di bawah untuk riwayat penomoran ulang).
+> Sumber acuan fase Accounting: `02_ACCOUNTING_MODULE_PROPOSAL.md` bagian 5 ("Rencana Implementasi Bertahap", Fase 0-6). Dokumen ini menyusun ulang fase-fase itu (lihat bagian "Catatan" di bawah untuk riwayat penomoran ulang).
+>
+> **Fase 0-6 (fondasi Accounting/GL) sudah SELESAI SEMUA** — buku besar berjenjang, auto-posting AR/AP/Costing/AP Invoice/Expense, dan laporan keuangan formal, semuanya sudah teruji end-to-end di database development sungguhan, termasuk Neraca yang balance sempurna (Selisih Rp0). Detail per fase ada di bawah. Track lanjutan ada di bagian "Antrian Jangka Panjang".
 
 # Development Roadmap — Finance & Accounting
 
@@ -42,49 +44,55 @@
 - Lihat detail implementasi & verifikasi di riwayat commit `Fase 3: Inventory Costing Moving Average + posting HPP dan Utang Usaha saat Stock In/Out`.
 
 ## Fase 4 — SupplierInvoice (AP Invoice mandiri)
-**Status: Belum dimulai. Ini yang dikerjakan berikutnya.**
+**Status: ✅ Selesai**
 
-- Entity `SupplierInvoice` + migrasi data `POPayment` lama jadi historical record.
-- AP Aging report yang benar (bukan cuma agregasi pembayaran).
-- **Alasan didahulukan dari Expense Management** (lihat bagian "Catatan" untuk detail): menutup gap AP yang sudah lama teridentifikasi di `00_PROJECT_STATUS.md` Known Gaps, dan risiko potensi double-posting dengan Fase 2 (auto-posting `PurchaseOrderService.RecordPaymentAsync`) lebih baik diselesaikan selagi konteks Fase 2/3 masih segar.
+- Entity `SupplierInvoice` + `SupplierInvoiceItem` (line item, tracking `InvoicedQty` di `PurchaseOrderItem` mirip pola `ReceivedQty`) + `SupplierInvoicePayment` (bridge table murni, menghubungkan ke `POPayment` tanpa duplikasi logic pembayaran).
+- **Keputusan desain (Pilihan B)**: akun perantara GRNI ("1-3500 Barang Diterima Belum Ditagih") ditambahkan ke COA. `PurchaseOrderService.ReceiveGoodsAsync` (Stock In, Fase 3) direvisi supaya posting ke GRNI (bukan langsung Utang Usaha), lalu `SupplierInvoiceService.ApproveAsync` yang mereklas GRNI → Utang Usaha (Debit GRNI+PPN Masukan, Kredit Utang Usaha) — mencegah double-crediting Utang Usaha antara Stock In dan SupplierInvoice.
+- Endpoint pembayaran PO lama (`POST /purchase-orders/{id}/payments`) ditambah validasi: menolak pembayaran langsung kalau PO sudah punya SupplierInvoice aktif, mengarahkan ke endpoint pembayaran SupplierInvoice.
+- **Bug ditemukan & diperbaiki saat testing**: validasi cap pembayaran awalnya memakai `po.Total` di titik kode yang juga dipakai jalur SupplierInvoice, padahal `SupplierInvoice.Total` (termasuk PPN) bisa lebih besar dari `po.Total` (PO tidak punya konsep pajak) — validasi cap dipindah supaya hanya berlaku di jalur pembayaran PO langsung.
+- **Di luar scope**: rekonsiliasi PPN Masukan (pajak masukan dicatat tapi belum ada laporan/rekonsiliasi khusus).
+- Lihat detail implementasi & verifikasi di riwayat commit `Fase 4: SupplierInvoice (AP Invoice mandiri) + revisi GRNI pada Stock In`.
 
 ## Fase 5 — Expense Management (Operational Expense / OPEX)
-**Status: Belum dimulai. Desain & urutan sudah dikonfirmasi final — siap jadi acuan implementasi.** Lihat detail lengkap di `01_ARCHITECTURE.md` bagian "Future Modules → Expense Management".
+**Status: ✅ Selesai**
 
-- Berada setelah Fase 2 (butuh pola posting jurnal `IJournalPostingService` yang sudah terbukti bekerja di AR/AP), setelah Fase 3 (Costing, dikerjakan lebih dulu karena lebih mendesak), dan setelah Fase 4 (SupplierInvoice, didahulukan karena scope-nya lebih kecil dan menutup gap AP yang sudah lama teridentifikasi — lihat bagian "Catatan"), dan sebelum Fase 6 (Laporan Keuangan Formal / Cash & Bank Enhancement) karena laporan itu harus sudah mencakup data Expense supaya lengkap.
-- Modul terpisah tegas dari Purchasing — lihat aturan pemisahan di `01_ARCHITECTURE.md` bagian "Business Rules — Pemisahan Project Expense vs Operational Expense". Expense Management tidak pernah membuat Purchase Order; Purchasing tidak pernah mencatat Office Expense.
-- Entity baru: `ExpenseCategory` (master data), `Expense` (transaksi: Expense No, Date, Category, Description, Vendor opsional, Amount, Payment Method, Cash/Bank Account, Reference Number, Attachment, Status, CreatedBy, ApprovedBy, Remarks).
-- **Vendor pada Expense Entry — dikonfirmasi final**: `Expense.VendorId` adalah FK read-only ke tabel `Supplier` yang sudah ada di Purchasing, **bukan** tabel vendor baru. Murni informasi tambahan, tidak pernah memicu pembuatan `PurchaseRequest`/`PurchaseOrder`/entity Purchasing lain apa pun.
-- Setiap `ExpenseCategory` di-mapping 1:1 ke akun anak di bawah "Beban Operasional" (mis. "5-1001 Beban Sewa Kantor" untuk kategori "Office Rent") — mapping ini butuh Fase 1 (COA) sudah ada.
-- Posting saat Expense dibayar: Debit akun Beban Kategori tsb, Kredit Kas/Bank — `JournalEntry.SourceType = "OperationalExpense"` (terpisah dari `SourceType` lain seperti `PurchaseInvoice`/`StockOut`), **tidak pernah** menyentuh akun Persediaan/HPP/Project Cost.
-- **Approval Expense — dikonfirmasi final**: opsional, dan **reuse pola approval Quotation/PurchaseRequest yang sudah ada** (state machine Draft → Submitted → Approved/Rejected, `ApprovedAt`/`ApprovedBy` di baris parent) — bukan alur approval baru atau entity `Approval` terpisah.
-- Recurring Expenses eksplisit **future** — di luar scope fase ini.
-- **Scope lebih besar dari SupplierInvoice** (approval workflow, master data kategori, attachment) — alasan tambahan kenapa didahulukan oleh SupplierInvoice yang scope-nya lebih kecil dan lebih mendesak.
+- Entity `ExpenseCategory` (17 baris seed, mapping 1:1 ke akun beban 5-2001 s.d 5-2017 dari Fase 1) dan `Expense` (approval workflow Draft→Submitted→Approved/Rejected, reuse pola persis `PurchaseRequestStatus`).
+- **Keputusan desain**: transisi `Rejected` bersifat FINAL (dead-end, tidak bisa balik ke Draft seperti pola PurchaseRequest) — supaya jejak audit Expense yang ditolak tetap bersih, karena Expense yang di-Approve punya efek langsung ke Kas/Bank.
+- Posting jurnal terjadi di titik Approve (bukan Create): Debit akun Beban sesuai `ExpenseCategory.AccountId`, Kredit akun Kas/Bank (default "1-1001 Kas"), `SourceType = OperationalExpense`.
+- Attachment (bukti pengeluaran) mengikuti pola `AttachmentPath`+`AttachmentName` dari `CustomerPO` (upload file fisik ke server), bukan field URL baru.
+- PaymentMethod pakai string bebas mengikuti pola `POPayment.Method` (bukan enum `PaymentMethod` sisi AR).
+- Status enum `Paid` disediakan untuk kebutuhan reimbursement masa depan tapi belum ada endpoint/trigger di fase ini — Expense yang sudah Approved sudah dianggap lunas secara cash-basis (jurnal sudah posting saat itu juga).
+- Lihat detail implementasi & verifikasi di riwayat commit `Fase 5: Expense Management (Operational Expense) - Category + Approval + Auto-posting`.
 
-## Fase 6 — Laporan Keuangan Formal & Cash & Bank Enhancement
-**Status: Belum dimulai**
+## Fase 6 — Laporan Keuangan Formal
+**Status: ✅ Selesai** (scope: Trial Balance/Laba Rugi/Neraca/Buku Besar — lihat catatan scope di bawah)
 
-- Trial Balance, Laba Rugi, Neraca, Cash Flow sebagai halaman baru di Finance module — mencakup data dari **semua** fase sebelumnya termasuk SupplierInvoice (Fase 4) dan Expense Management (Fase 5).
-- Halaman `bank/page.tsx` (saat ini 100% data hardcoded per `00_PROJECT_STATUS.md`) diganti data nyata dari GL — ini yang dimaksud "Cash & Bank Enhancement".
-- Period closing (lock tanggal, cegah posting mundur setelah tutup buku) — lihat juga item "Period Closing / Lock Tanggal Buku" di bagian "Antrian Jangka Panjang" di bawah, yang jadi penutup resmi track ini.
+- Endpoint baru `ReportsController` (`/api/reports/*`): Trial Balance, Laba Rugi (Income Statement), Neraca (Balance Sheet), Buku Besar per akun (General Ledger dengan running balance) — masing-masing dengan export PDF (QuestPDF, pola sama seperti Invoice/Quotation/SalesOrder PDF).
+- **Keputusan desain**: Laba Rugi & Neraca mengikutkan entri Reversed (filter `Status != Draft`, konsisten dengan `GetTrialBalanceAsync` Fase 1) — bukan cuma `Status = Posted`, supaya jurnal pembalik tidak berdiri sendiri tanpa pasangan penyeimbangnya.
+- **Keputusan desain**: Neraca menambahkan baris Ekuitas terhitung otomatis "Laba Rugi Berjalan (Belum Ditutup)" (akumulasi live Revenue−Expense) — wajib ada karena sistem belum punya Period Closing. Lihat catatan lengkap + rencana migrasi ke Retained Earnings resmi di `01_ARCHITECTURE.md` bagian "Period Closing / Lock Tanggal Buku".
+- Frontend: 3 halaman baru di grup menu Finance (Trial Balance/Laba Rugi/Neraca) dengan filter tanggal dan tombol Export PDF yang benar-benar berfungsi (raw-fetch-to-blob, pola sama seperti `sales-order/[id]/page.tsx`) — bukan tombol stub seperti gap yang tercatat di modul lain. Drill-down Buku Besar dari baris akun Trial Balance pakai `ERPModal`.
+- **Teruji end-to-end di database development sungguhan** (bukan cuma scratch DB, karena endpoint ini read-only): Trial Balance Total Debit = Total Kredit; Neraca Selisih = Rp0 (Asset = Liability + Equity, membuktikan tidak ada bug posting GL di fase manapun sebelumnya); Buku Besar akun Kas running balance berurutan benar; ke-4 PDF export menghasilkan file valid; screenshot visual dikonfirmasi lewat Playwright.
+- **Di luar scope fase ini** (berbeda dari cakupan awal "Fase 6" versi lama di dokumen ini, yang juga menyebut Cash Flow Statement & Cash/Bank Enhancement): Laporan Arus Kas (Cash Flow Statement) dan penggantian data hardcoded di `bank/page.tsx` dengan data GL nyata **belum dikerjakan** — dipindah jadi item terpisah di "Antrian Jangka Panjang" (lihat di bawah) supaya tidak hilang dari radar.
+- Lihat detail implementasi & verifikasi di riwayat commit `Fase 6: Laporan Keuangan Formal - Trial Balance, Laba Rugi, Neraca, Buku Besar (backend)` dan `Fase 6: Laporan Keuangan Formal - 3 halaman baru + drill-down Buku Besar (frontend)`.
 
 ---
 
-## Struktur Finance Nav (target akhir, setelah semua fase di atas)
+## Struktur Finance Nav (kondisi aktual setelah Fase 0-6)
 
 ```
 Finance
 ├── Dashboard
-├── Accounts Receivable      (sudah ada, auto-posting sejak Fase 2)
-├── Accounts Payable         (sudah ada, auto-posting sejak Fase 2, jadi entity mandiri di Fase 4)
-├── Expense Management       (BARU — Fase 5)
-│   ├── Expense Categories
-│   ├── Expense Entry
-│   ├── Expense Approval     (optional)
-│   └── Expense Reports
-├── Cash & Bank               (enhancement di Fase 6)
-└── Reports                   (Trial Balance/Laba Rugi/Neraca/Cash Flow — Fase 6)
+├── Accounts Receivable      (auto-posting sejak Fase 2)
+├── Accounts Payable         (auto-posting sejak Fase 2, jadi entity mandiri SupplierInvoice di Fase 4)
+├── Cash In / Cash Out / Bank (Bank masih data hardcoded — lihat item Cash & Bank Enhancement di
+│                              "Antrian Jangka Panjang", BUKAN bagian Fase 6 yang sudah selesai)
+├── Finance Reports           (existing, cash-in/cash-out list)
+├── Trial Balance             (BARU — Fase 6, drill-down Buku Besar per akun)
+├── Laba Rugi                 (BARU — Fase 6)
+└── Neraca                    (BARU — Fase 6)
 ```
+
+**Catatan penting**: Expense Management (Fase 5) backend-nya sudah lengkap (`ExpenseCategoryController`/`ExpenseController`, approval workflow, auto-posting) tapi **belum ada halaman frontend sama sekali** — Fase 5 waktu dikerjakan scope-nya memang backend-only. Ini bukan bug atau lupa, tapi gap yang perlu diketahui: user belum bisa membuat/approve Expense lewat UI, hanya lewat API langsung. Kandidat kerjaan lanjutan yang belum masuk antrian resmi.
 
 ## Catatan
 
@@ -155,11 +163,18 @@ Prioritas berdasarkan dampak ke akurasi AR/Laba Rugi (rekomendasi dari pemilik p
 - **Business need**: akun "1-4000 Aset Tetap" sudah ada di Chart of Accounts (dari Fase 1) tapi belum ada entity yang men-track detailnya — bisnis ini pasti punya alat kerja sendiri (kamera test, tools fiber splicing, kendaraan).
 - **Scope minimal**: pencatatan nilai beli, tanggal beli, umur ekonomis, dan depresiasi sederhana (garis lurus/straight-line) — **bukan** sistem fixed asset selengkap SAP (tidak perlu revaluasi, tidak perlu multi-method depresiasi).
 
-### 7. Period Closing / Lock Tanggal Buku
+### 7. Cash Flow Statement & Cash/Bank Enhancement
+**Prioritas: Menengah**
+
+- **Business need**: Fase 6 (selesai) hanya mencakup Trial Balance/Laba Rugi/Neraca/Buku Besar — Laporan Arus Kas (Cash Flow Statement, format Operating/Investing/Financing) dan penggantian data hardcoded di `bank/page.tsx` (lihat `00_PROJECT_STATUS.md` Known Gaps) dengan saldo nyata dari GL **belum dikerjakan**, sengaja dipisah dari Fase 6 supaya scope Fase 6 tetap fokus ke laporan inti yang wajib (Trial Balance/Laba Rugi/Neraca).
+- **Terkait erat dengan endpoint yang sudah ada**: `GetGeneralLedgerAsync` (Fase 6) sudah punya semua data mentah (mutasi per akun + saldo berjalan) yang dibutuhkan Cash Flow Statement — kemungkinan besar tidak perlu query baru dari nol, cukup agregasi ulang dari akun Kas/Bank per kategori aktivitas (Operating/Investing/Financing).
+
+### 8. Period Closing / Lock Tanggal Buku
 **Prioritas: Terakhir (penutup track Accounting/GL)**
 
-- **Business need**: begitu Laporan Keuangan resmi ada (Fase 6 Accounting/GL), butuh mekanisme mengunci periode (misal "kunci Januari 2027") supaya tidak ada transaksi yang bisa diinput/diubah mundur ke tanggal yang sudah dilaporkan/final.
-- **Catatan posisi**: ini terkait erat dengan Fase 6 (Financial Reports) — sengaja ditaruh sebagai item **terakhir**, jadi bagian penutup dari roadmap Accounting/GL, bukan berdiri sendiri di tengah antrian.
+- **Business need**: sekarang Laporan Keuangan resmi sudah ada (Fase 6, selesai), butuh mekanisme mengunci periode (misal "kunci Januari 2027") supaya tidak ada transaksi yang bisa diinput/diubah mundur ke tanggal yang sudah dilaporkan/final.
+- **WAJIB disambungkan ke Fase 6**: baris Ekuitas "Laba Rugi Berjalan (Belum Ditutup)" di Neraca (`ReportsService.GetBalanceSheetAsync`) saat ini dihitung live setiap request karena belum ada proses closing. Begitu item ini dikerjakan, baris itu harus diubah jadi hasil jurnal penutup resmi ke akun Retained Earnings — detail lengkap ada di `01_ARCHITECTURE.md` bagian "Period Closing / Lock Tanggal Buku".
+- **Catatan posisi**: sengaja ditaruh sebagai item **terakhir**, jadi bagian penutup dari roadmap Accounting/GL, bukan berdiri sendiri di tengah antrian.
 
 ## Explicitly Out of Scope
 
