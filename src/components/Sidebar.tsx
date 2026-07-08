@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
-import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database } from 'lucide-react';
+import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database, Calculator } from 'lucide-react';
 
 interface NavItem {
   id: string;
@@ -71,6 +71,14 @@ const navGroups: NavGroup[] = [
       { id: 'nav-expense-category', label: 'Kategori Pengeluaran', icon: <Layers size={15} />, href: '/expense-category' },
       { id: 'nav-bank', label: 'Bank', icon: <Banknote size={15} />, href: '/bank' },
       { id: 'nav-finance-reports', label: 'Finance Reports', icon: <BookOpen size={15} />, href: '/finance-reports' },
+    ],
+  },
+  {
+    id: 'accounting',
+    label: 'Accounting',
+    icon: <Calculator size={16} />,
+    defaultOpen: false,
+    items: [
       { id: 'nav-trial-balance', label: 'Trial Balance', icon: <Layers size={15} />, href: '/finance-reports/trial-balance' },
       { id: 'nav-laba-rugi', label: 'Laba Rugi', icon: <TrendingUp size={15} />, href: '/finance-reports/laba-rugi' },
       { id: 'nav-neraca', label: 'Neraca', icon: <Database size={15} />, href: '/finance-reports/neraca' },
@@ -136,6 +144,17 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
+// Some nav items share a URL prefix (e.g. Finance Reports at /finance-reports
+// and Trial Balance at /finance-reports/trial-balance in a different group).
+// Only the most specific (longest) matching href should count as active.
+const findActiveHref = (pathname: string): string | undefined => {
+  const allHrefs = navGroups.flatMap((g) => g.items.map((i) => i.href));
+  const matches = allHrefs.filter((href) =>
+    href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
+  );
+  return matches.sort((a, b) => b.length - a.length)[0];
+};
+
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
@@ -144,22 +163,18 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     return init;
   });
 
-  const isActive = (href: string) => {
-    if (href === '/') return pathname === '/';
-    return pathname.startsWith(href);
-  };
+  const activeHref = findActiveHref(pathname);
+  const isActive = (href: string) => href === activeHref;
 
   const isGroupActive = (group: NavGroup) =>
     group.items.some((item) => isActive(item.href));
 
   // Auto-open the group that contains the current page whenever route changes
   useEffect(() => {
+    const activeHref = findActiveHref(pathname);
     navGroups.forEach((g) => {
       if (g.id === 'main') return;
-      const hasActive = g.items.some((item) =>
-        item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
-      );
-      if (hasActive) {
+      if (g.items.some((item) => item.href === activeHref)) {
         setOpenGroups((prev) => ({ ...prev, [g.id]: true }));
       }
     });

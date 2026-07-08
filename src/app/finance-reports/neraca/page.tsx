@@ -6,7 +6,7 @@ export default function NeracaPage() {
   return (
     <AppLayout
       title="Neraca"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Finance' }, { label: 'Neraca' }]}
+      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Accounting' }, { label: 'Neraca' }]}
     >
       <div className="space-y-5">
         <NeracaReport />
