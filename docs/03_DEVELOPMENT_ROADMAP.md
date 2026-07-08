@@ -62,7 +62,11 @@
 - Attachment (bukti pengeluaran) mengikuti pola `AttachmentPath`+`AttachmentName` dari `CustomerPO` (upload file fisik ke server), bukan field URL baru.
 - PaymentMethod pakai string bebas mengikuti pola `POPayment.Method` (bukan enum `PaymentMethod` sisi AR).
 - Status enum `Paid` disediakan untuk kebutuhan reimbursement masa depan tapi belum ada endpoint/trigger di fase ini — Expense yang sudah Approved sudah dianggap lunas secara cash-basis (jurnal sudah posting saat itu juga).
-- Lihat detail implementasi & verifikasi di riwayat commit `Fase 5: Expense Management (Operational Expense) - Category + Approval + Auto-posting`.
+- **Frontend (menyusul, dikerjakan terpisah setelah Fase 6)**: halaman `/expense-category` dan `/expense`
+  (list/create/detail dengan approval workflow) — lihat "Struktur Finance Nav" di bawah untuk catatan
+  lengkap. Drill-down jurnal di halaman detail Expense memakai query live `GET /api/journal-entries?
+  sourceId=` (parameter baru, ditambahkan minimal tanpa migration saat frontend dikerjakan).
+- Lihat detail implementasi & verifikasi di riwayat commit `Fase 5: Expense Management (Operational Expense) - Category + Approval + Auto-posting`, `Fase 5 (lanjutan): tambah filter sourceId ke JournalEntry query...`, dan `Fase 5: Frontend Expense Management - menutup gap backend-only dari Fase 5`.
 
 ## Fase 6 — Laporan Keuangan Formal
 **Status: ✅ Selesai** (scope: Trial Balance/Laba Rugi/Neraca/Buku Besar — lihat catatan scope di bawah)
@@ -84,15 +88,26 @@ Finance
 ├── Dashboard
 ├── Accounts Receivable      (auto-posting sejak Fase 2)
 ├── Accounts Payable         (auto-posting sejak Fase 2, jadi entity mandiri SupplierInvoice di Fase 4)
-├── Cash In / Cash Out / Bank (Bank masih data hardcoded — lihat item Cash & Bank Enhancement di
-│                              "Antrian Jangka Panjang", BUKAN bagian Fase 6 yang sudah selesai)
+├── Cash In / Cash Out
+├── Expense Management        (Fase 5 — frontend, lihat catatan di bawah)
+├── Kategori Pengeluaran       (Fase 5 — frontend, master data ExpenseCategory)
+├── Bank                       (masih data hardcoded — lihat item Cash & Bank Enhancement di
+│                               "Antrian Jangka Panjang", BUKAN bagian Fase 6 yang sudah selesai)
 ├── Finance Reports           (existing, cash-in/cash-out list)
 ├── Trial Balance             (BARU — Fase 6, drill-down Buku Besar per akun)
 ├── Laba Rugi                 (BARU — Fase 6)
 └── Neraca                    (BARU — Fase 6)
 ```
 
-**Catatan penting**: Expense Management (Fase 5) backend-nya sudah lengkap (`ExpenseCategoryController`/`ExpenseController`, approval workflow, auto-posting) tapi **belum ada halaman frontend sama sekali** — Fase 5 waktu dikerjakan scope-nya memang backend-only. Ini bukan bug atau lupa, tapi gap yang perlu diketahui: user belum bisa membuat/approve Expense lewat UI, hanya lewat API langsung. Kandidat kerjaan lanjutan yang belum masuk antrian resmi.
+**Gap frontend Expense Management — SUDAH TERTUTUP.** Sebelumnya dicatat di sini bahwa Fase 5 backend-nya
+lengkap (`ExpenseCategoryController`/`ExpenseController`) tapi belum ada halaman frontend sama sekali.
+Gap itu sudah ditutup: halaman `/expense-category` (CRUD kategori, pola ItemMasterTable) dan `/expense`
++ `/expense/buat` + `/expense/[id]` (list/create/detail dengan approval workflow, pola PurchaseRequest)
+sudah ada dan teruji end-to-end. Drill-down "Jurnal yang Terbentuk" di halaman detail Expense yang sudah
+Approved memakai query LIVE ke GL (`GET /api/journal-entries?sourceId=`, parameter baru yang ditambahkan
+minimal tanpa migration) — bukan preview yang dihitung ulang di frontend. Lihat riwayat commit
+`Fase 5 (lanjutan): tambah filter sourceId ke JournalEntry query...` dan
+`Fase 5: Frontend Expense Management - menutup gap backend-only dari Fase 5`.
 
 ## Catatan
 
