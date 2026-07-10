@@ -5,6 +5,7 @@ import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical } from 'lucide-re
 import { formatRp } from '@/lib/format';
 import type { CostingTab, CostingGroup, CostingRow, ItemMaster } from '@/types';
 import ItemAutocomplete from './ItemAutocomplete';
+import CurrencyInput from '@/components/ui/CurrencyInput';
 
 interface Props {
   tabData: CostingTab;
@@ -214,17 +215,15 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
                       </select>
                     </td>
                     <td className="erp-table-cell">
-                      <input type="number" value={row.servicePrice} min={0}
-                        onChange={(e) => updateRow(group.id, row.id, 'servicePrice', parseFloat(e.target.value) || 0)}
-                        className="erp-input text-right font-tabular" />
+                      <CurrencyInput value={row.servicePrice} prefix=""
+                        onChange={(v) => updateRow(group.id, row.id, 'servicePrice', v)} />
                     </td>
                     <td className="erp-table-cell text-right font-tabular text-base text-foreground">
                       {fmtRp(row.qty * row.servicePrice)}
                     </td>
                     <td className="erp-table-cell">
-                      <input type="number" value={row.materialPrice} min={0}
-                        onChange={(e) => updateRow(group.id, row.id, 'materialPrice', parseFloat(e.target.value) || 0)}
-                        className="erp-input text-right font-tabular" />
+                      <CurrencyInput value={row.materialPrice} prefix=""
+                        onChange={(v) => updateRow(group.id, row.id, 'materialPrice', v)} />
                     </td>
                     <td className="erp-table-cell text-right font-tabular text-base text-foreground">
                       {fmtRp(row.qty * row.materialPrice)}

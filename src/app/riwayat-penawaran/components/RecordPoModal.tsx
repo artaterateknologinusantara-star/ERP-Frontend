@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { X, Paperclip, Download, Loader2, CheckCircle, AlertTriangle, GitBranch } from 'lucide-react';
 import type { CustomerPO, QuotationListItem } from '@/types';
 import { customerPoService } from '@/services/customerpo.service';
+import CurrencyInput from '@/components/ui/CurrencyInput';
 
 interface Props {
   isOpen: boolean;
@@ -21,7 +22,7 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
 
   const [poNo, setPoNo] = useState('');
   const [poDate, setPoDate] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(0);
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -41,7 +42,7 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
   }, [isOpen, quotation.id]);
 
   // ── Amount validation ───────────────────────────────────────────────────────
-  const poAmount = Number(amount) || 0;
+  const poAmount = amount;
   const quotaTotal = quotation.grandTotal;
   const difference = poAmount - quotaTotal;
   const pctDiff = quotaTotal > 0 ? (Math.abs(difference) / quotaTotal) * 100 : 0;
@@ -53,7 +54,7 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
     e.preventDefault();
     if (!poNo.trim()) { toast.error('Nomor PO wajib diisi'); return; }
     if (!poDate)       { toast.error('Tanggal PO wajib diisi'); return; }
-    if (!amount || poAmount <= 0) { toast.error('Nilai PO harus lebih dari 0'); return; }
+    if (poAmount <= 0) { toast.error('Nilai PO harus lebih dari 0'); return; }
     if (isOver)        { toast.error('Nilai PO tidak boleh melebihi total penawaran yang disetujui'); return; }
     if (isUnder && !notes.trim()) { toast.error('Wajib mengisi catatan alasan untuk nilai PO yang berbeda dari penawaran'); return; }
 
@@ -209,14 +210,11 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
                 </div>
                 <div>
                   <label className="erp-form-label">Nilai PO (Rp) <span className="text-destructive">*</span></label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    className={`erp-input ${isOver ? 'border-red-400 focus:!border-red-500 focus:![box-shadow:0_0_0_3px_rgba(239,68,68,0.12)]' : isUnder ? 'border-orange-400' : ''}`}
-                    placeholder="0"
+                  <CurrencyInput
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    onChange={setAmount}
+                    error={isOver}
+                    className={isOver ? 'focus:!border-red-500 focus:![box-shadow:0_0_0_3px_rgba(239,68,68,0.12)]' : isUnder ? 'border-orange-400' : ''}
                     required
                   />
                 </div>
