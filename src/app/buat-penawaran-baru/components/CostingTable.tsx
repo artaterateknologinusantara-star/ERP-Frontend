@@ -47,7 +47,7 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
               description: item.description ?? '',
               manufacturer: item.brand ?? '',
               unit: item.uom,
-              materialPrice: item.price,
+              materialPrice: item.sellingPrice,
             }
           ),
         }

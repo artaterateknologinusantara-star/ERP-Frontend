@@ -20,6 +20,13 @@ async function request<T>(
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
+  if (res.status === 401) {
+    localStorage.removeItem('syntera_token');
+    localStorage.removeItem('syntera_user');
+    window.location.href = '/login';
+    throw new Error('Sesi berakhir. Silakan login kembali.');
+  }
+
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: res.statusText }));
     // Handle ApiResponse format { message } and ASP.NET Core ProblemDetails { title, errors }
@@ -30,7 +37,9 @@ async function request<T>(
         ? Object.values(error.errors as Record<string, string[]>).flat().join('; ')
         : null) ??
       `Request failed: ${res.status}`;
-    throw new Error(message);
+    const err = new Error(message) as Error & { status: number };
+    err.status = res.status;
+    throw err;
   }
 
   return res.json() as Promise<T>;

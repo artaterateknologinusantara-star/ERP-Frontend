@@ -1,18 +1,22 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import AppLayout from '@/components/AppLayout';
 import { customerPoService } from '@/services/customerpo.service';
+import { createSOFromQuotation } from '@/services/salesorder.service';
 import { formatRp } from '@/lib/format';
 import { toast } from 'sonner';
-import { FileCheck, Download, Loader2, Search } from 'lucide-react';
+import { FileCheck, Download, Loader2, Search, ShoppingBag } from 'lucide-react';
 import type { CustomerPO } from '@/types';
 
 export default function CustomerPoPage() {
+  const router = useRouter();
   const [data,     setData]     = useState<CustomerPO[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [search,   setSearch]   = useState('');
   const [dlId,     setDlId]     = useState<string | null>(null);
+  const [soLoadingId, setSoLoadingId] = useState<string | null>(null);
 
   const load = (q?: string) => {
     setLoading(true);
@@ -28,6 +32,24 @@ export default function CustomerPoPage() {
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
     load(e.target.value || undefined);
+  };
+
+  const handleBuatSO = async (cpo: CustomerPO) => {
+    // If SO already exists, navigate directly without extra API call
+    if (cpo.salesOrderId) {
+      router.push(`/sales-order/${cpo.salesOrderId}`);
+      return;
+    }
+    setSoLoadingId(cpo.id);
+    try {
+      const so = await createSOFromQuotation(cpo.quotationId);
+      toast.success(`Sales Order ${so.no} berhasil dibuat`);
+      router.push(`/sales-order/${so.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal membuat Sales Order');
+    } finally {
+      setSoLoadingId(null);
+    }
   };
 
   const handleDownload = async (cpo: CustomerPO) => {
@@ -96,7 +118,7 @@ export default function CustomerPoPage() {
             <table className="w-full text-[13px] border-collapse">
               <thead>
                 <tr className="border-b-2 border-border bg-muted/40">
-                  {['No. PO Customer', 'No. Penawaran', 'Pelanggan', 'Proyek', 'Tanggal PO', 'Nilai PO', 'Lampiran'].map((h) => (
+                  {['No. PO Customer', 'No. Penawaran', 'Pelanggan', 'Proyek', 'Tanggal PO', 'Nilai PO', 'Lampiran', 'Aksi'].map((h) => (
                     <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">
                       {h}
                     </th>
@@ -106,7 +128,7 @@ export default function CustomerPoPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-16 text-muted-foreground">
+                    <td colSpan={8} className="text-center py-16 text-muted-foreground">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 size={15} className="animate-spin" />
                         <span>Memuat data...</span>
@@ -115,7 +137,7 @@ export default function CustomerPoPage() {
                   </tr>
                 ) : data.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-16 text-muted-foreground">
+                    <td colSpan={8} className="text-center py-16 text-muted-foreground">
                       Belum ada Customer PO
                     </td>
                   </tr>
@@ -149,6 +171,24 @@ export default function CustomerPoPage() {
                         ) : (
                           <span className="text-muted-foreground text-[11px]">—</span>
                         )}
+                      </td>
+                      <td className="erp-table-cell">
+                        <button
+                          className={`inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border transition-colors disabled:opacity-50 whitespace-nowrap ${
+                            cpo.salesOrderId
+                              ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
+                              : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                          }`}
+                          title={cpo.salesOrderId ? `SO ${cpo.salesOrderNo}` : 'Buat Sales Order dari Quotation ini'}
+                          disabled={soLoadingId === cpo.id}
+                          onClick={() => handleBuatSO(cpo)}
+                        >
+                          {soLoadingId === cpo.id
+                            ? <Loader2 size={11} className="animate-spin" />
+                            : <ShoppingBag size={11} />
+                          }
+                          {cpo.salesOrderId ? 'Lihat SO' : 'Buat SO'}
+                        </button>
                       </td>
                     </tr>
                   ))

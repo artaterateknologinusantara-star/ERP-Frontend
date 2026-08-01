@@ -7,13 +7,14 @@ import CashInTable from './components/CashInTable';
 export default function FinancePage() {
   return (
     <AppLayout
-      title="Finance"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Finance' }, { label: 'Finance Dashboard' }]}
+      title="Finance Reports"
+      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Finance' }, { label: 'Finance Reports' }]}
     >
       <div className="space-y-5">
         <FinanceSummaryCards />
         <FinanceCharts />
-        <CashInTable />
+        <CashInTable type="cash-in" />
+        <CashInTable type="cash-out" />
       </div>
     </AppLayout>
   );

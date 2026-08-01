@@ -1,23 +1,21 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
-import { useTableFilter } from '@/hooks/useTableFilter';
-import { formatRp } from '@/lib/format';
-import { Eye, Edit2, Plus } from 'lucide-react';
-import { PurchaseOrder, PurchaseOrderStatus } from '@/types';
-
-const MOCK_PO: PurchaseOrder[] = [
-  { id: 'po-001', no: 'PO.SYN-26.0019', supplierId: 's-001', supplierName: 'PT Ruijie Networks Indonesia', date: '10/05/2026', deliveryDate: '25/05/2026', total: 420000000, status: 'Ordered', purchaseRequestNo: 'PR.SYN-26.0032', createdAt: '', updatedAt: '' },
-  { id: 'po-002', no: 'PO.SYN-26.0018', supplierId: 's-002', supplierName: 'PT Draka Indonesia', date: '09/05/2026', deliveryDate: '20/05/2026', total: 185000000, status: 'Partial Receive', purchaseRequestNo: 'PR.SYN-26.0031', createdAt: '', updatedAt: '' },
-  { id: 'po-003', no: 'PO.SYN-26.0017', supplierId: 's-003', supplierName: 'PT Netviel Distributor', date: '08/05/2026', deliveryDate: '15/05/2026', total: 310000000, status: 'Completed', purchaseRequestNo: 'PR.SYN-26.0030', createdAt: '', updatedAt: '' },
-  { id: 'po-004', no: 'PO.SYN-26.0016', supplierId: 's-004', supplierName: 'PT Indorack Multikreasi', date: '07/05/2026', deliveryDate: '18/05/2026', total: 95000000, status: 'Draft', purchaseRequestNo: 'PR.SYN-26.0029', createdAt: '', updatedAt: '' },
-  { id: 'po-005', no: 'PO.SYN-26.0015', supplierId: 's-005', supplierName: 'CV Mitra Teknologi', date: '01/05/2026', deliveryDate: '12/05/2026', total: 67000000, status: 'Ordered', purchaseRequestNo: 'PR.SYN-26.0028', createdAt: '', updatedAt: '' },
-  { id: 'po-006', no: 'PO.SYN-26.0014', supplierId: 's-006', supplierName: 'PT Cisco Systems Indonesia', date: '28/04/2026', deliveryDate: '10/05/2026', total: 820000000, status: 'Completed', purchaseRequestNo: 'PR.SYN-26.0027', createdAt: '', updatedAt: '' },
-];
+import { formatRp, formatDate } from '@/lib/format';
+import { Eye, CheckCircle, Truck, Trash2 } from 'lucide-react';
+import RowActionMenu from '@/components/ui/RowActionMenu';
+import {
+  getPOList,
+  updatePOStatus,
+  deletePO,
+  PurchaseOrderListItem,
+} from '@/services/purchase.service';
+import { PurchaseOrderStatus } from '@/types';
 
 const STATUS_OPTIONS = [
   { value: 'Semua', label: 'Semua Status' },
@@ -29,67 +27,162 @@ const STATUS_OPTIONS = [
 ];
 
 export default function PurchaseOrderTable() {
-  const { search, statusFilter, page, perPage, filtered, pageData, totalPages, handleSearch, handleStatusFilter, setPage, handlePerPageChange } = useTableFilter<PurchaseOrder>({
-    data: MOCK_PO,
-    searchFields: ['no', 'supplierName', 'purchaseRequestNo'],
-    statusField: 'status',
-  });
+  const router = useRouter();
+  const [items, setItems] = useState<PurchaseOrderListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Semua');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getPOList({
+      page,
+      perPage,
+      search: search || undefined,
+      status: statusFilter !== 'Semua' ? statusFilter : undefined,
+    })
+      .then((res) => {
+        if (!cancelled) {
+          setItems(res.data);
+          setTotal(res.total);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Gagal memuat data Purchase Order');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [page, perPage, search, statusFilter, refreshKey]);
+
+  const reload = () => setRefreshKey((k) => k + 1);
+
+  const handleSearch = (val: string) => {
+    setSearchInput(val);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setSearch(val);
+      setPage(1);
+    }, 400);
+  };
+
+  const handleStatusFilter = (val: string) => {
+    setStatusFilter(val);
+    setPage(1);
+  };
+
+  const handleConfirmOrder = async (id: string, no: string) => {
+    try {
+      await updatePOStatus(id, 'Ordered');
+      toast.success(`${no} dikonfirmasi ke Ordered`);
+      reload();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal mengkonfirmasi order');
+    }
+  };
+
+  const handleDelete = async (id: string, no: string) => {
+    if (!confirm(`Hapus ${no}? Tindakan ini tidak dapat dibatalkan.`)) return;
+    try {
+      await deletePO(id);
+      toast.success(`${no} berhasil dihapus`);
+      reload();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal menghapus PO');
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   return (
     <div className="erp-card">
       <TableToolbar
-        search={search}
+        search={searchInput}
         onSearch={handleSearch}
         searchPlaceholder="Cari no. PO, supplier, ref PR..."
-        totalCount={filtered.length}
+        totalCount={total}
         countLabel="purchase order"
         statusFilter={statusFilter}
         onStatusFilter={handleStatusFilter}
         statusOptions={STATUS_OPTIONS}
-        onExport={() => toast.info('Export ke Excel')}
-        actions={
-          <button className="btn-primary" onClick={() => toast.info('Buat PO baru')}>
-            <Plus size={14} /> Buat PO
-          </button>
-        }
       />
 
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse">
           <thead>
             <tr className="border-b-2 border-border bg-muted/40">
-              {['No. PO', 'Supplier', 'Tanggal', 'Tgl Kirim', 'Total', 'Ref PR', 'Status', 'Aksi'].map((h) => (
-                <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
+              {['No PO', 'Ref PR', 'Supplier', 'Tanggal', 'Delivery Date', 'Jml Item', 'Status', 'Total'].map((h) => (
+                <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider whitespace-nowrap">
+                  {h}
+                </th>
               ))}
+              <th className="erp-table-cell erp-action-col text-muted-foreground font-600 text-xs uppercase tracking-wider">Aksi</th>
             </tr>
           </thead>
           <tbody>
-            {pageData.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-12 text-muted-foreground text-[13px]">Tidak ada data ditemukan</td></tr>
-            ) : pageData.map((row) => (
-              <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
-                <td className="erp-table-cell font-700 text-primary">{row.no}</td>
-                <td className="erp-table-cell font-500">{row.supplierName}</td>
-                <td className="erp-table-cell text-muted-foreground">{row.date}</td>
-                <td className="erp-table-cell text-muted-foreground">{row.deliveryDate}</td>
-                <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(row.total)}</td>
-                <td className="erp-table-cell text-primary text-xs">{row.purchaseRequestNo ?? '—'}</td>
-                <td className="erp-table-cell">
-                  <StatusBadge status={row.status as PurchaseOrderStatus} size="sm" />
-                </td>
-                <td className="erp-table-cell">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" onClick={() => toast.info(`Detail ${row.no}`)}><Eye size={13} /></button>
-                    <button className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition-colors" onClick={() => toast.info(`Edit ${row.no}`)}><Edit2 size={13} /></button>
-                  </div>
+            {loading ? (
+              <tr>
+                <td colSpan={9} className="text-center py-12 text-muted-foreground text-sm">
+                  Memuat data...
                 </td>
               </tr>
-            ))}
+            ) : items.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="text-center py-12 text-muted-foreground text-sm">
+                  Tidak ada data ditemukan
+                </td>
+              </tr>
+            ) : (
+              items.map((row) => (
+                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+                  <td className="erp-table-cell font-700 text-primary">{row.no}</td>
+                  <td className="erp-table-cell text-muted-foreground text-xs">{row.purchaseRequestNo || '—'}</td>
+                  <td className="erp-table-cell font-500">{row.supplierName}</td>
+                  <td className="erp-table-cell text-muted-foreground">{formatDate(row.date)}</td>
+                  <td className="erp-table-cell text-muted-foreground">{row.deliveryDate ? formatDate(row.deliveryDate) : '—'}</td>
+                  <td className="erp-table-cell text-center font-600">{row.itemCount}</td>
+                  <td className="erp-table-cell">
+                    <StatusBadge status={row.status as PurchaseOrderStatus} size="sm" />
+                  </td>
+                  <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(row.total)}</td>
+                  <td className="erp-table-cell erp-action-col">
+                    <RowActionMenu items={[
+                      { icon: <Eye size={13} />,   label: 'Lihat Detail', onClick: () => router.push(`/purchase-order/${row.id}`) },
+                      ...(row.status === 'Draft' ? [
+                        { icon: <CheckCircle size={13} />, label: 'Konfirmasi Order', onClick: () => handleConfirmOrder(row.id, row.no), separator: true },
+                        { icon: <Trash2 size={13} />,      label: 'Hapus PO',         onClick: () => handleDelete(row.id, row.no), danger: true },
+                      ] : []),
+                      ...(row.status === 'Ordered' ? [
+                        { icon: <Truck size={13} />, label: 'Terima Barang', onClick: () => router.push(`/purchase-order/${row.id}`), separator: true },
+                      ] : []),
+                      ...(row.status === 'Partial Receive' ? [
+                        { icon: <Truck size={13} />, label: 'Terima Lanjutan', onClick: () => router.push(`/purchase-order/${row.id}`), separator: true },
+                      ] : []),
+                    ]} />
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
-      <TablePagination page={page} totalPages={totalPages} totalCount={filtered.length} perPage={perPage} onPageChange={setPage} onPerPageChange={handlePerPageChange} />
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        totalCount={total}
+        perPage={perPage}
+        onPageChange={setPage}
+        onPerPageChange={(pp) => { setPerPage(pp); setPage(1); }}
+      />
     </div>
   );
 }

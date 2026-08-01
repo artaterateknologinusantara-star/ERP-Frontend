@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Save, Plus, Edit2, Trash2 } from 'lucide-react';
+import UsersTab from './UsersTab';
 
 type SettingsTab = 'company' | 'branch' | 'users' | 'roles' | 'tax' | 'numbering' | 'preferences';
 
@@ -145,43 +146,7 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
   }
 
   if (activeTab === 'users') {
-    return (
-      <div className="erp-card shadow-card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[13px] font-700 text-foreground">Manajemen Pengguna</h3>
-          <button className="btn-primary"><Plus size={14} /> Tambah Pengguna</button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse">
-            <thead>
-              <tr className="border-b-2 border-border bg-muted/40">
-                {['Nama', 'Email', 'Role', 'Cabang', 'Status', 'Login Terakhir', 'Aksi'].map((h) => (
-                  <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((row) => (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
-                  <td className="erp-table-cell font-600">{row.name}</td>
-                  <td className="erp-table-cell text-muted-foreground">{row.email}</td>
-                  <td className="erp-table-cell"><span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 status-terkirim">{row.role}</span></td>
-                  <td className="erp-table-cell text-muted-foreground">{row.branch}</td>
-                  <td className="erp-table-cell"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 ${row.status === 'Aktif' ? 'status-disetujui' : 'status-draft'}`}>{row.status}</span></td>
-                  <td className="erp-table-cell text-muted-foreground">{row.lastLogin}</td>
-                  <td className="erp-table-cell">
-                    <div className="flex items-center gap-1">
-                      <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"><Edit2 size={13} /></button>
-                      <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors"><Trash2 size={13} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+    return <UsersTab />;
   }
 
   if (activeTab === 'roles') {

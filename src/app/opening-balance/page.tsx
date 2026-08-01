@@ -2,13 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Plus, Trash2, AlertTriangle } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import CurrencyInput from '@/components/ui/CurrencyInput';
 import { formatRp } from '@/lib/format';
 import { getFlatAccounts, type Account } from '@/services/account.service';
 import {
@@ -253,22 +254,32 @@ export default function OpeningBalancePage() {
                       </td>
 
                       <td className="erp-table-cell w-36">
-                        <input
-                          type="number"
-                          {...register(`lines.${index}.debit`, { valueAsNumber: true })}
-                          min={0}
-                          step="any"
-                          className="erp-input text-xs font-tabular"
+                        <Controller
+                          control={control}
+                          name={`lines.${index}.debit`}
+                          render={({ field: f }) => (
+                            <CurrencyInput
+                              prefix=""
+                              value={f.value}
+                              onChange={f.onChange}
+                              className="text-xs"
+                            />
+                          )}
                         />
                       </td>
 
                       <td className="erp-table-cell w-36">
-                        <input
-                          type="number"
-                          {...register(`lines.${index}.credit`, { valueAsNumber: true })}
-                          min={0}
-                          step="any"
-                          className="erp-input text-xs font-tabular"
+                        <Controller
+                          control={control}
+                          name={`lines.${index}.credit`}
+                          render={({ field: f }) => (
+                            <CurrencyInput
+                              prefix=""
+                              value={f.value}
+                              onChange={f.onChange}
+                              className="text-xs"
+                            />
+                          )}
                         />
                       </td>
 

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
 import { Paperclip, X } from 'lucide-react';
+import CurrencyInput from '@/components/ui/CurrencyInput';
 import { createExpense } from '@/services/expense.service';
 import { getExpenseCategoryList, ExpenseCategory } from '@/services/expenseCategory.service';
 import { getFlatAccounts, Account } from '@/services/account.service';
@@ -132,10 +133,7 @@ export default function BuatExpensePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="erp-form-label">Jumlah (Rp)<span className="text-red-500 ml-0.5">*</span></label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">Rp</span>
-                  <input type="number" min={0} step="any" className="erp-input pl-9 font-tabular" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" required />
-                </div>
+                <CurrencyInput value={Number(amount) || 0} onChange={(v) => setAmount(v ? String(v) : '')} required />
               </div>
               <div>
                 <label className="erp-form-label">Metode Pembayaran<span className="text-red-500 ml-0.5">*</span></label>

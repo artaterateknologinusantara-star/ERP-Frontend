@@ -7,6 +7,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
+import RowActionMenu, { ActionItem } from '@/components/ui/RowActionMenu';
 import { useTableFilter } from '@/hooks/useTableFilter';
 import { formatRp } from '@/lib/format';
 import { toast } from 'sonner';
@@ -14,11 +15,12 @@ import {
   Send, Edit2, GitBranch, Trash2, Plus,
   ChevronsUpDown, ChevronUp, ChevronDown,
   CheckCircle, XCircle, FileCheck, FileText, FileDown,
-  MoreHorizontal, Eye, X,
+  Eye, X,
 } from 'lucide-react';
 import RecordPoModal from './RecordPoModal';
 import type { QuotationListItem, QuotationStatus } from '@/types';
 import { quotationService } from '@/services/quotation.service';
+import { createSOFromQuotation } from '@/services/salesorder.service';
 
 // ── Status constants ───────────────────────────────────────────────────────────
 const S: Record<string, QuotationStatus> = {
@@ -44,19 +46,6 @@ const STATUS_OPTIONS = [
   { value: S.SUPERSEDED,  label: 'Superseded' },
 ];
 
-// ── Button style tokens ────────────────────────────────────────────────────────
-const PILL = 'inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md transition-colors whitespace-nowrap border select-none';
-const PILL_BLUE    = `${PILL} bg-blue-50   text-blue-700    border-blue-200   hover:bg-blue-100`;
-const PILL_GREEN   = `${PILL} bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100`;
-const PILL_RED     = `${PILL} bg-red-50    text-red-600     border-red-200    hover:bg-red-100`;
-const PILL_PURPLE  = `${PILL} bg-violet-50 text-violet-700  border-violet-200 hover:bg-violet-100`;
-const PILL_EMERALD = `${PILL} bg-teal-50   text-teal-700    border-teal-200   hover:bg-teal-100`;
-const PILL_SLATE   = `${PILL} bg-slate-50  text-slate-600   border-slate-200  hover:bg-slate-100`;
-const PILL_INDIGO  = `${PILL} bg-indigo-50 text-indigo-700  border-indigo-200 hover:bg-indigo-100`;
-
-const ICON_BTN      = 'flex-shrink-0 p-1.5 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
-const ICON_BTN_BLUE = `${ICON_BTN} text-slate-400 hover:text-blue-600 hover:bg-blue-50`;
-
 // ── Types ──────────────────────────────────────────────────────────────────────
 type SortKey = keyof QuotationListItem;
 
@@ -64,14 +53,6 @@ interface Props {
   quotations: QuotationListItem[];
   loading: boolean;
   onRefresh: () => void;
-}
-
-interface DropdownItem {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  danger?: boolean;
-  separator?: boolean;
 }
 
 // ── PDF Preview Modal ──────────────────────────────────────────────────────────
@@ -95,12 +76,9 @@ function PdfPreviewModal({ row, url, onClose }: {
         style={{ width: '90vw', maxWidth: 900, height: '92vh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/30 flex-shrink-0">
           <div className="min-w-0">
-            <p className="text-[10px] font-600 text-muted-foreground uppercase tracking-widest">
-              Preview Penawaran
-            </p>
+            <p className="text-[10px] font-600 text-muted-foreground uppercase tracking-widest">Preview Penawaran</p>
             <p className="font-700 text-[15px] text-foreground leading-tight truncate">
               {row.no}
               {row.revision > 0 && (
@@ -111,7 +89,6 @@ function PdfPreviewModal({ row, url, onClose }: {
             </p>
             <p className="text-[12px] text-muted-foreground truncate">{row.customerName} · {row.projectName}</p>
           </div>
-
           <div className="flex items-center gap-2 ml-4 flex-shrink-0">
             <button
               className="inline-flex items-center gap-1.5 text-[12px] font-600 px-3.5 py-2 rounded-lg bg-sky-600 text-white hover:bg-sky-700 transition-colors shadow-sm"
@@ -121,28 +98,21 @@ function PdfPreviewModal({ row, url, onClose }: {
             </button>
             <button
               className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              title="Tutup"
               onClick={onClose}
             >
               <X size={16} />
             </button>
           </div>
         </div>
-
-        {/* PDF viewer */}
         <div className="flex-1 bg-slate-200 overflow-hidden">
-          <iframe
-            src={url}
-            className="w-full h-full"
-            title={`Penawaran ${row.no}`}
-          />
+          <iframe src={url} className="w-full h-full" title={`Penawaran ${row.no}`} />
         </div>
       </div>
     </div>
   );
 }
 
-// ── Sort icon (stable outside parent) ─────────────────────────────────────────
+// ── Sort icon ──────────────────────────────────────────────────────────────────
 function SortIcon({ col, sortKey, sortDir }: {
   col: SortKey;
   sortKey: SortKey | null | undefined;
@@ -152,53 +122,6 @@ function SortIcon({ col, sortKey, sortDir }: {
   return sortDir === 'asc'
     ? <ChevronUp size={12} className="text-primary" />
     : <ChevronDown size={12} className="text-primary" />;
-}
-
-// ── Row dropdown ───────────────────────────────────────────────────────────────
-function RowDropdown({ items, isOpen, onToggle }: {
-  items: DropdownItem[];
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  if (items.length === 0) return null;
-  return (
-    <div className="relative flex-shrink-0">
-      <button
-        title="Aksi lainnya"
-        onClick={(e) => { e.stopPropagation(); onToggle(); }}
-        className={`p-1.5 rounded-md transition-colors ${
-          isOpen
-            ? 'bg-slate-100 text-slate-700'
-            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-        }`}
-      >
-        <MoreHorizontal size={14} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 top-full mt-1.5 w-48 bg-card border border-border/70 rounded-xl shadow-[0_8px_30px_-4px_rgba(0,0,0,0.14)] z-50 overflow-hidden py-1">
-          {items.map((item, idx) => (
-            <React.Fragment key={idx}>
-              {item.separator && <div className="mx-3 my-1 border-t border-border/60" />}
-              <button
-                className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[12.5px] font-500 text-left transition-colors ${
-                  item.danger
-                    ? 'text-red-600 hover:bg-red-50/80'
-                    : 'text-foreground hover:bg-muted/60'
-                }`}
-                onClick={() => { item.onClick(); onToggle(); }}
-              >
-                <span className={`flex-shrink-0 ${item.danger ? 'text-red-500' : 'text-muted-foreground'}`}>
-                  {item.icon}
-                </span>
-                {item.label}
-              </button>
-            </React.Fragment>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -215,9 +138,7 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
   const [poTarget,        setPoTarget]       = useState<QuotationListItem | null>(null);
   const [approvalModal,   setApprovalModal]  = useState<{ action: 'approve' | 'reject'; row: QuotationListItem } | null>(null);
   const [approvalLoading, setApprovalLoading] = useState(false);
-  const [openDropdownId,  setOpenDropdownId] = useState<string | null>(null);
-
-  // PDF preview
+  const [soAutoLoading,   setSoAutoLoading]  = useState(false);
   const [pdfPreview,        setPdfPreview]       = useState<{ row: QuotationListItem; url: string } | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState<string | null>(null);
 
@@ -232,13 +153,13 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
     defaultPerPage: 10,
   });
 
-  // ── Selection ─────────────────────────────────────────────────────────────────
+  // ── Selection ──────────────────────────────────────────────────────────────
   const toggleSelect = (id: string) =>
     setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
   const toggleAll = () =>
     setSelected(selected.length === pageData.length ? [] : pageData.map((r) => r.id));
 
-  // ── Handlers ──────────────────────────────────────────────────────────────────
+  // ── Handlers ───────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleteLoading(true);
@@ -272,7 +193,13 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
       await quotationService.send(sendTarget.id);
       const subject = encodeURIComponent(`Quotation - ${sendTarget.no} - ${sendTarget.customerName}`);
       const body = encodeURIComponent(
-        `Dear Procurement,\n\nPlease find attached our quotation for your review.\n\nThank you.\n\nBest Regards,\n${sendTarget.salesName}`
+        `Dear Procurement,\n\n I hope this email finds you well.
+
+Please find the attached quotation for your review and consideration. The quotation has been prepared based on the requirements and information discussed, and we trust it will provide a clear overview of the proposed scope, pricing, and commercial terms.
+
+Should you require any further clarification, additional information, or wish to discuss any aspect of the proposal in greater detail, please do not hesitate to contact us. We would be pleased to assist and address any questions you may have.
+
+Thank you for your time and consideration. We look forward to your feedback and the opportunity to work together.\n\nThank you.\n\nBest Regards,\n${sendTarget.salesName}`
       );
       window.open(
         `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(sendTarget.customerEmail ?? '')}&su=${subject}&body=${body}`,
@@ -336,6 +263,20 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
     }
   };
 
+  const handleAutoCreateSO = async (quotationId: string) => {
+    setSoAutoLoading(true);
+    try {
+      const so = await createSOFromQuotation(quotationId);
+      toast.success(`Sales Order ${so.no} berhasil dibuat`);
+      router.push(`/sales-order/${so.id}`);
+    } catch {
+      toast.error('Gagal membuat Sales Order otomatis');
+      router.push('/customer-po');
+    } finally {
+      setSoAutoLoading(false);
+    }
+  };
+
   const handleOpenPdfPreview = async (row: QuotationListItem) => {
     setPdfPreviewLoading(row.id);
     try {
@@ -353,85 +294,78 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
     setPdfPreview(null);
   };
 
-  // ── Dropdown item builder ─────────────────────────────────────────────────────
-  const getDropdownItems = (row: QuotationListItem): DropdownItem[] => {
+  // ── Action items builder ────────────────────────────────────────────────────
+  const getActionItems = (row: QuotationListItem): ActionItem[] => {
     const isLoadingPdf = pdfPreviewLoading === row.id;
+    const items: ActionItem[] = [];
 
-    const viewPdfItem: DropdownItem = {
+    if (row.status === S.DRAFT) {
+      items.push(
+        { icon: <Edit2 size={13} />,  label: 'Edit Penawaran',     onClick: () => router.push(`/buat-penawaran-baru?id=${row.id}`) },
+        { icon: <Send size={13} />,   label: 'Kirim ke Customer',  onClick: () => setSendTarget(row) },
+      );
+    }
+
+    if (row.status === S.TERKIRIM) {
+      items.push(
+        { icon: <CheckCircle size={13} />, label: 'Setujui',  onClick: () => setApprovalModal({ action: 'approve', row }) },
+        { icon: <XCircle size={13} />,     label: 'Tolak',    onClick: () => setApprovalModal({ action: 'reject', row }), danger: true },
+      );
+    }
+
+    if (row.status === S.DISETUJUI) {
+      items.push({
+        icon: row.hasCustomerPO ? <FileCheck size={13} /> : <FileText size={13} />,
+        label: row.hasCustomerPO ? 'Lihat Customer PO' : 'Input Customer PO',
+        onClick: () => setPoTarget(row),
+      });
+    }
+
+    if (row.status === S.SELESAI || (row.status === S.SUPERSEDED && row.hasCustomerPO)) {
+      items.push({ icon: <FileCheck size={13} />, label: 'Lihat Customer PO', onClick: () => setPoTarget(row) });
+    }
+
+    // PDF preview — separator if there are items above
+    items.push({
       icon: isLoadingPdf
         ? <span className="w-3 h-3 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin inline-block" />
         : <Eye size={13} />,
       label: 'Lihat PDF',
       onClick: () => handleOpenPdfPreview(row),
-    };
+      disabled: isLoadingPdf,
+      separator: items.length > 0,
+    });
 
+    // Revision — eligible statuses
+    if (
+      (row.status === S.TERKIRIM && row.isLatestRevision) ||
+      row.status === S.DISETUJUI ||
+      row.status === S.SELESAI
+    ) {
+      items.push({ icon: <GitBranch size={13} />, label: 'Buat Revisi', onClick: () => setRevisionTarget(row) });
+    }
+
+    // Delete — Draft only
     if (row.status === S.DRAFT) {
-      return [
-        viewPdfItem,
-        {
-          icon: <Trash2 size={13} />,
-          label: 'Hapus Penawaran',
-          onClick: () => setDeleteTarget(row.id),
-          danger: true,
-          separator: true,
-        },
-      ];
+      items.push({ icon: <Trash2 size={13} />, label: 'Hapus Penawaran', onClick: () => setDeleteTarget(row.id), danger: true, separator: true });
     }
 
-    if (row.status === S.TERKIRIM) {
-      const items: DropdownItem[] = [viewPdfItem];
-      if (row.isLatestRevision) {
-        items.push({
-          icon: <GitBranch size={13} />,
-          label: 'Buat Revisi',
-          onClick: () => setRevisionTarget(row),
-          separator: true,
-        });
-      }
-      return items;
-    }
-
-    if (row.status === S.DISETUJUI) {
-      return [
-        viewPdfItem,
-        {
-          icon: <GitBranch size={13} />,
-          label: 'Buat Revisi',
-          onClick: () => setRevisionTarget(row),
-          separator: true,
-        },
-      ];
-    }
-
-    if (row.status === S.SELESAI) {
-      return [
-        viewPdfItem,
-        {
-          icon: <GitBranch size={13} />,
-          label: 'Buat Revisi',
-          onClick: () => setRevisionTarget(row),
-          separator: true,
-        },
-      ];
-    }
-
-    // Ditolak, Kadaluarsa, Direvisi, Superseded
-    return [viewPdfItem];
+    return items;
   };
 
-  // ── Column definitions ────────────────────────────────────────────────────────
+  // ── Column definitions ─────────────────────────────────────────────────────
   const columns: { key: SortKey; label: string; minW: string }[] = [
     { key: 'no',           label: 'No. Penawaran', minW: 'min-w-[150px]' },
-    { key: 'customerName', label: 'Pelanggan',     minW: 'min-w-[180px]' },
-    { key: 'projectName',  label: 'Proyek',        minW: 'min-w-[200px]' },
+    { key: 'customerName', label: 'Pelanggan',     minW: 'min-w-[160px]' },
+    { key: 'projectName',  label: 'Proyek',        minW: 'min-w-[160px]' },
     { key: 'date',         label: 'Tanggal',       minW: 'min-w-[100px]' },
     { key: 'revision',     label: 'Revisi',        minW: 'min-w-[70px]'  },
-    { key: 'salesName',    label: 'Sales',         minW: 'min-w-[130px]' },
-    { key: 'grandTotal',   label: 'Total Final',   minW: 'min-w-[160px]' },
+    { key: 'salesName',    label: 'Sales',         minW: 'min-w-[120px]' },
+    { key: 'grandTotal',   label: 'Total Final',   minW: 'min-w-[140px]' },
     { key: 'status',       label: 'Status',        minW: 'min-w-[110px]' },
   ];
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="erp-card">
       <TableToolbar
@@ -457,18 +391,10 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
           <button className="btn-danger text-xs py-1 px-2.5" onClick={handleBulkDelete}>
             <Trash2 size={12} /> Hapus
           </button>
-          <button
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => setSelected([])}
-          >
+          <button className="ml-auto text-xs text-muted-foreground hover:text-foreground" onClick={() => setSelected([])}>
             Batalkan
           </button>
         </div>
-      )}
-
-      {/* Overlay — closes dropdown on outside click */}
-      {openDropdownId && (
-        <div className="fixed inset-0 z-40" onClick={() => setOpenDropdownId(null)} />
       )}
 
       <div className="overflow-x-auto">
@@ -496,7 +422,7 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
                   </span>
                 </th>
               ))}
-              <th className="erp-table-cell text-center text-muted-foreground font-600 text-xs uppercase tracking-wider min-w-[200px]">
+              <th className="erp-table-cell erp-action-col text-muted-foreground font-600 text-xs uppercase tracking-wider">
                 Aksi
               </th>
             </tr>
@@ -519,11 +445,11 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
                 </td>
               </tr>
             ) : (
-              pageData.map((row, i) => (
+              pageData.map((row) => (
                 <tr
                   key={row.id}
                   className={`border-b border-border hover:bg-primary/5 transition-colors ${
-                    selected.includes(row.id) ? 'bg-primary/5' : i % 2 !== 0 ? 'bg-muted/20' : ''
+                    selected.includes(row.id) ? 'bg-primary/5' : ''
                   }`}
                 >
                   <td className="erp-table-cell">
@@ -535,12 +461,10 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
                       aria-label={`Pilih ${row.no}`}
                     />
                   </td>
-                  <td className="erp-table-cell font-700 text-primary">{row.no}</td>
-                  <td className="erp-table-cell font-500">{row.customerName}</td>
-                  <td className="erp-table-cell text-muted-foreground max-w-[200px] truncate" title={row.projectName}>
-                    {row.projectName}
-                  </td>
-                  <td className="erp-table-cell text-muted-foreground">{row.date}</td>
+                  <td className="erp-table-cell font-700 text-primary whitespace-nowrap">{row.no}</td>
+                  <td className="erp-table-cell font-500 max-w-[160px] truncate" title={row.customerName}>{row.customerName}</td>
+                  <td className="erp-table-cell text-muted-foreground max-w-[160px] truncate" title={row.projectName}>{row.projectName}</td>
+                  <td className="erp-table-cell text-muted-foreground whitespace-nowrap">{row.date}</td>
                   <td className="erp-table-cell text-center">
                     {row.revision > 0 ? (
                       <span className="bg-orange-100 text-orange-700 text-xs font-700 px-2 py-0.5 rounded-full">
@@ -550,115 +474,13 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="erp-table-cell">{row.salesName}</td>
-                  <td className="erp-table-cell font-700 font-tabular">{formatRp(row.grandTotal)}</td>
+                  <td className="erp-table-cell whitespace-nowrap">{row.salesName}</td>
+                  <td className="erp-table-cell font-700 font-tabular whitespace-nowrap">{formatRp(row.grandTotal)}</td>
                   <td className="erp-table-cell">
                     <StatusBadge status={row.status as QuotationStatus} size="sm" />
                   </td>
-
-                  {/* ── Action cell ──────────────────────────────────────── */}
-                  <td className="erp-table-cell py-2">
-                    <div className="flex items-center justify-center gap-1">
-
-                      {/* DRAFT: Edit (labeled) + Send (icon) */}
-                      {row.status === S.DRAFT && (
-                        <>
-                          <Link
-                            href={`/buat-penawaran-baru?id=${row.id}`}
-                            className={PILL_BLUE}
-                            title="Edit penawaran"
-                          >
-                            <Edit2 size={11} /> Edit
-                          </Link>
-                          <button
-                            className={ICON_BTN_BLUE}
-                            title="Kirim Penawaran ke Customer"
-                            onClick={() => setSendTarget(row)}
-                          >
-                            <Send size={13} />
-                          </button>
-                        </>
-                      )}
-
-                      {/* TERKIRIM: Approve + Reject */}
-                      {row.status === S.TERKIRIM && (
-                        <>
-                          <button
-                            className={PILL_GREEN}
-                            title="Setujui penawaran ini"
-                            onClick={() => setApprovalModal({ action: 'approve', row })}
-                          >
-                            <CheckCircle size={11} /> Setujui
-                          </button>
-                          <button
-                            className={PILL_RED}
-                            title="Tolak penawaran ini"
-                            onClick={() => setApprovalModal({ action: 'reject', row })}
-                          >
-                            <XCircle size={11} /> Tolak
-                          </button>
-                        </>
-                      )}
-
-                      {/* DISETUJUI: Customer PO */}
-                      {row.status === S.DISETUJUI && (
-                        <button
-                          className={row.hasCustomerPO ? PILL_EMERALD : PILL_PURPLE}
-                          title={row.hasCustomerPO ? 'Lihat Customer PO' : 'Input Customer PO'}
-                          onClick={() => setPoTarget(row)}
-                        >
-                          {row.hasCustomerPO
-                            ? <><FileCheck size={11} /> Lihat PO</>
-                            : <><FileText size={11} /> Input PO</>
-                          }
-                        </button>
-                      )}
-
-                      {/* SELESAI: fully locked — view recorded PO */}
-                      {row.status === S.SELESAI && (
-                        <button
-                          className={PILL_INDIGO}
-                          title="Lihat Customer PO"
-                          onClick={() => setPoTarget(row)}
-                        >
-                          <FileCheck size={11} /> Lihat PO
-                        </button>
-                      )}
-
-                      {/* SUPERSEDED: show linked PO if present, otherwise just dropdown */}
-                      {row.status === S.SUPERSEDED && row.hasCustomerPO && (
-                        <button
-                          className={PILL_SLATE}
-                          title="Lihat Customer PO terdahulu"
-                          onClick={() => setPoTarget(row)}
-                        >
-                          <FileCheck size={11} /> Lihat PO
-                        </button>
-                      )}
-
-                      {/* INACTIVE: Lihat PDF langsung */}
-                      {(row.status === S.DITOLAK || row.status === S.KADALUARSA || row.status === S.DIREVISI || row.status === S.SUPERSEDED) && (
-                        <button
-                          className={PILL_SLATE}
-                          title="Lihat PDF penawaran"
-                          disabled={pdfPreviewLoading === row.id}
-                          onClick={() => handleOpenPdfPreview(row)}
-                        >
-                          {pdfPreviewLoading === row.id
-                            ? <span className="w-2.5 h-2.5 border border-slate-400/40 border-t-slate-500 rounded-full animate-spin" />
-                            : <Eye size={11} />
-                          }
-                          Lihat
-                        </button>
-                      )}
-
-                      {/* Contextual more-actions dropdown */}
-                      <RowDropdown
-                        items={getDropdownItems(row)}
-                        isOpen={openDropdownId === row.id}
-                        onToggle={() => setOpenDropdownId((id) => id === row.id ? null : row.id)}
-                      />
-                    </div>
+                  <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
+                    <RowActionMenu items={getActionItems(row)} />
                   </td>
                 </tr>
               ))
@@ -676,8 +498,7 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
         onPerPageChange={handlePerPageChange}
       />
 
-      {/* ── Modals ───────────────────────────────────────────────────────────── */}
-
+      {/* ── Modals ──────────────────────────────────────────────────────────── */}
       <ConfirmModal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
@@ -730,15 +551,28 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
         confirmLabel={approvalModal?.action === 'approve' ? 'Ya, Setujui' : 'Ya, Tolak'}
       />
 
+      {soAutoLoading && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
+          <div className="bg-card border border-border rounded-xl px-6 py-5 shadow-2xl flex items-center gap-3">
+            <span className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin flex-shrink-0" />
+            <div>
+              <p className="text-[14px] font-600 text-foreground">Membuat Sales Order...</p>
+              <p className="text-[12px] text-muted-foreground">Mohon tunggu sebentar</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {poTarget && (
         <RecordPoModal
           isOpen
           onClose={() => setPoTarget(null)}
           quotation={poTarget}
           onSuccess={() => {
+            const quotationId = poTarget.id;
             setPoTarget(null);
             onRefresh();
-            if (poTarget.status === S.DISETUJUI) router.push('/customer-po');
+            handleAutoCreateSO(quotationId);
           }}
           onRequestRevision={() => {
             const target = poTarget;

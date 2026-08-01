@@ -1,27 +1,31 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
-import { useTableFilter } from '@/hooks/useTableFilter';
-import { formatRp } from '@/lib/format';
-import { Eye, Edit2, Plus } from 'lucide-react';
-import { Customer, ActiveStatus } from '@/types';
+import ERPModal from '@/components/ui/ERPModal';
+import { ActiveStatus } from '@/types';
+import { customerService, CreateCustomerDto } from '@/services/customer.service';
+import { downloadCsv } from '@/lib/export';
+import { Eye, Edit2, Plus, Trash2 } from 'lucide-react';
+import RowActionMenu from '@/components/ui/RowActionMenu';
 
-const MOCK_CUSTOMERS: Customer[] = [
-  { id: 'c-001', code: 'CUST-001', name: 'PT Telkom Indonesia', industry: 'Telekomunikasi', contactPerson: 'Andi Wijaya', phone: '021-5001234', city: 'Jakarta', totalQuotations: 18, totalRevenue: 4200000000, status: 'Aktif', createdAt: '', updatedAt: '' },
-  { id: 'c-002', code: 'CUST-002', name: 'PT Bank Central Asia', industry: 'Perbankan', contactPerson: 'Budi Hartono', phone: '021-5002345', city: 'Jakarta', totalQuotations: 12, totalRevenue: 1560000000, status: 'Aktif', createdAt: '', updatedAt: '' },
-  { id: 'c-003', code: 'CUST-003', name: 'PT Astra International', industry: 'Otomotif', contactPerson: 'Citra Dewi', phone: '021-5003456', city: 'Jakarta', totalQuotations: 8, totalRevenue: 2480000000, status: 'Aktif', createdAt: '', updatedAt: '' },
-  { id: 'c-004', code: 'CUST-004', name: 'PT Wijaya Karya', industry: 'Konstruksi', contactPerson: 'Doni Setiawan', phone: '021-5004567', city: 'Jakarta', totalQuotations: 6, totalRevenue: 1120000000, status: 'Aktif', createdAt: '', updatedAt: '' },
-  { id: 'c-005', code: 'CUST-005', name: 'PT Indosat Ooredoo', industry: 'Telekomunikasi', contactPerson: 'Eka Putri', phone: '021-5005678', city: 'Jakarta', totalQuotations: 5, totalRevenue: 370000000, status: 'Aktif', createdAt: '', updatedAt: '' },
-  { id: 'c-006', code: 'CUST-006', name: 'PT PLN (Persero)', industry: 'Energi', contactPerson: 'Fajar Nugroho', phone: '021-5006789', city: 'Jakarta', totalQuotations: 9, totalRevenue: 1890000000, status: 'Aktif', createdAt: '', updatedAt: '' },
-  { id: 'c-007', code: 'CUST-007', name: 'PT Pertamina', industry: 'Energi', contactPerson: 'Gita Sari', phone: '021-5007890', city: 'Jakarta', totalQuotations: 7, totalRevenue: 2790000000, status: 'Aktif', createdAt: '', updatedAt: '' },
-  { id: 'c-008', code: 'CUST-008', name: 'PT Garuda Indonesia', industry: 'Penerbangan', contactPerson: 'Hendra Kusuma', phone: '021-5008901', city: 'Jakarta', totalQuotations: 4, totalRevenue: 430000000, status: 'Aktif', createdAt: '', updatedAt: '' },
-  { id: 'c-009', code: 'CUST-009', name: 'PT Semen Indonesia', industry: 'Manufaktur', contactPerson: 'Indah Permata', phone: '031-5009012', city: 'Surabaya', totalQuotations: 5, totalRevenue: 1370000000, status: 'Aktif', createdAt: '', updatedAt: '' },
-  { id: 'c-010', code: 'CUST-010', name: 'PT Mandiri Sekuritas', industry: 'Keuangan', contactPerson: 'Joko Santoso', phone: '021-5010123', city: 'Jakarta', totalQuotations: 3, totalRevenue: 560000000, status: 'Tidak Aktif', createdAt: '', updatedAt: '' },
-];
+interface CustomerRow {
+  id: string;
+  code: string;
+  name: string;
+  industry?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  npwp?: string;
+  isActive: boolean;
+  createdAt: string;
+}
 
 const STATUS_OPTIONS = [
   { value: 'Semua', label: 'Semua Status' },
@@ -29,70 +33,264 @@ const STATUS_OPTIONS = [
   { value: 'Tidak Aktif', label: 'Tidak Aktif' },
 ];
 
+const PER_PAGE = 10;
+
+const EMPTY_FORM: CreateCustomerDto = {
+  name: '', industry: '', contactPerson: '', phone: '', email: '', address: '', city: '', npwp: '',
+};
+
 export default function CustomerTable() {
-  const { search, statusFilter, page, perPage, filtered, pageData, totalPages, handleSearch, handleStatusFilter, setPage, handlePerPageChange } = useTableFilter<Customer>({
-    data: MOCK_CUSTOMERS,
-    searchFields: ['name', 'industry', 'city', 'code'],
-    statusField: 'status',
-  });
+  const [rows, setRows] = useState<CustomerRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(PER_PAGE);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Semua');
+  const [loading, setLoading] = useState(true);
+
+  const [modal, setModal] = useState<'create' | 'edit' | 'detail' | null>(null);
+  const [selected, setSelected] = useState<CustomerRow | null>(null);
+  const [form, setForm] = useState<CreateCustomerDto>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async (q: string, p: number, pp: number, st: string) => {
+    setLoading(true);
+    try {
+      const isActive = st === 'Aktif' ? true : st === 'Tidak Aktif' ? false : undefined;
+      const res = await customerService.list({ page: p, perPage: pp, search: q || undefined, isActive });
+      setRows(res.data as unknown as CustomerRow[]);
+      setTotal(res.total);
+    } catch {
+      toast.error('Gagal memuat data customer');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => load(search, page, perPage, statusFilter), search ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [search, page, perPage, statusFilter, load]);
+
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
+  const handleStatusFilter = (v: string) => { setStatusFilter(v); setPage(1); };
+  const handlePerPageChange = (pp: number) => { setPerPage(pp); setPage(1); };
+
+  const openCreate = () => { setForm(EMPTY_FORM); setModal('create'); };
+  const openEdit = (row: CustomerRow) => {
+    setSelected(row);
+    setForm({ name: row.name, industry: row.industry || '', contactPerson: row.contactPerson || '', phone: row.phone || '', email: row.email || '', address: row.address || '', city: row.city || '', npwp: row.npwp || '' });
+    setModal('edit');
+  };
+  const openDetail = (row: CustomerRow) => { setSelected(row); setModal('detail'); };
+  const closeModal = () => { setModal(null); setSelected(null); };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast.error('Nama customer wajib diisi'); return; }
+    setSaving(true);
+    try {
+      if (modal === 'create') {
+        await customerService.create(form);
+        toast.success('Customer berhasil ditambahkan');
+      } else if (modal === 'edit' && selected) {
+        await customerService.update(selected.id, form);
+        toast.success('Customer berhasil diperbarui');
+      }
+      closeModal();
+      load(search, page, perPage, statusFilter);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal menyimpan customer');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleStatus = async (row: CustomerRow) => {
+    try {
+      await customerService.setStatus(row.id, !row.isActive);
+      toast.success(`Customer ${row.isActive ? 'dinonaktifkan' : 'diaktifkan'}`);
+      load(search, page, perPage, statusFilter);
+    } catch {
+      toast.error('Gagal mengubah status');
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const res = await customerService.list({ page: 1, perPage: 9999 });
+      const data = res.data as unknown as CustomerRow[];
+      const headers = ['Kode', 'Nama Customer', 'Industri', 'Contact Person', 'Telepon', 'Email', 'Kota', 'NPWP', 'Alamat', 'Status'];
+      const rows = data.map((c) => [c.code, c.name, c.industry || '', c.contactPerson || '', c.phone || '', c.email || '', c.city || '', c.npwp || '', c.address || '', c.isActive ? 'Aktif' : 'Tidak Aktif']);
+      downloadCsv(`customer_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+      toast.success(`${data.length} customer berhasil diekspor`);
+    } catch {
+      toast.error('Gagal mengekspor data customer');
+    }
+  };
+
+  const handleDelete = async (row: CustomerRow) => {
+    if (!confirm(`Hapus customer "${row.name}"?`)) return;
+    try {
+      await customerService.delete(row.id);
+      toast.success('Customer berhasil dihapus');
+      load(search, page, perPage, statusFilter);
+    } catch {
+      toast.error('Gagal menghapus customer');
+    }
+  };
+
+  const field = (label: string, key: keyof CreateCustomerDto, type = 'text', required = false) => (
+    <div>
+      <label className="erp-form-label">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
+      <input
+        type={type}
+        className="erp-input"
+        value={form[key] as string}
+        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+      />
+    </div>
+  );
 
   return (
-    <div className="erp-card">
-      <TableToolbar
-        search={search}
-        onSearch={handleSearch}
-        searchPlaceholder="Cari nama customer, industri, kota..."
-        totalCount={filtered.length}
-        countLabel="customer"
-        statusFilter={statusFilter}
-        onStatusFilter={handleStatusFilter}
-        statusOptions={STATUS_OPTIONS}
-        onExport={() => toast.info('Export ke Excel')}
-        actions={
-          <button className="btn-primary" onClick={() => toast.info('Tambah Customer baru')}>
-            <Plus size={14} /> Tambah Customer
-          </button>
-        }
-      />
+    <>
+      <div className="erp-card">
+        <TableToolbar
+          search={search}
+          onSearch={handleSearch}
+          searchPlaceholder="Cari nama, kode, kota customer..."
+          totalCount={total}
+          countLabel="customer"
+          statusFilter={statusFilter}
+          onStatusFilter={handleStatusFilter}
+          statusOptions={STATUS_OPTIONS}
+          onExport={handleExport}
+          actions={
+            <button className="btn-primary" onClick={openCreate}>
+              <Plus size={14} /> Tambah Customer
+            </button>
+          }
+        />
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse">
-          <thead>
-            <tr className="border-b-2 border-border bg-muted/40">
-              {['Kode', 'Nama Customer', 'Industri', 'Contact', 'Telepon', 'Kota', 'Penawaran', 'Total Revenue', 'Status', 'Aksi'].map((h) => (
-                <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {pageData.length === 0 ? (
-              <tr><td colSpan={10} className="text-center py-12 text-muted-foreground text-[13px]">Tidak ada customer ditemukan</td></tr>
-            ) : pageData.map((row) => (
-              <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
-                <td className="erp-table-cell font-600 text-primary">{row.code}</td>
-                <td className="erp-table-cell font-600">{row.name}</td>
-                <td className="erp-table-cell text-muted-foreground">{row.industry}</td>
-                <td className="erp-table-cell">{row.contactPerson}</td>
-                <td className="erp-table-cell text-muted-foreground">{row.phone}</td>
-                <td className="erp-table-cell text-muted-foreground">{row.city}</td>
-                <td className="erp-table-cell text-center font-600">{row.totalQuotations}</td>
-                <td className="erp-table-cell font-700 font-tabular text-right text-emerald-600">{formatRp(row.totalRevenue, true)}</td>
-                <td className="erp-table-cell">
-                  <StatusBadge status={row.status as ActiveStatus} size="sm" />
-                </td>
-                <td className="erp-table-cell">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" onClick={() => toast.info(`Detail ${row.name}`)}><Eye size={13} /></button>
-                    <button className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition-colors" onClick={() => toast.info(`Edit ${row.name}`)}><Edit2 size={13} /></button>
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px] border-collapse">
+            <thead>
+              <tr className="border-b-2 border-border bg-muted/40">
+                {['Kode', 'Nama Customer', 'Industri', 'Contact', 'Telepon', 'Kota', 'Status'].map((h) => (
+                  <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
+                ))}
+                <th className="erp-table-cell erp-action-col text-muted-foreground font-600 text-xs uppercase tracking-wider">Aksi</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Memuat data...</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Tidak ada customer ditemukan</td></tr>
+              ) : rows.map((row) => (
+                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+                  <td className="erp-table-cell font-600 text-primary">{row.code}</td>
+                  <td className="erp-table-cell font-600 max-w-[180px] truncate" title={row.name}>{row.name}</td>
+                  <td className="erp-table-cell text-muted-foreground">{row.industry || '—'}</td>
+                  <td className="erp-table-cell">{row.contactPerson || '—'}</td>
+                  <td className="erp-table-cell text-muted-foreground">{row.phone || '—'}</td>
+                  <td className="erp-table-cell text-muted-foreground">{row.city || '—'}</td>
+                  <td className="erp-table-cell">
+                    <StatusBadge status={(row.isActive ? 'Aktif' : 'Tidak Aktif') as ActiveStatus} size="sm" />
+                  </td>
+                  <td className="erp-table-cell erp-action-col">
+                    <RowActionMenu items={[
+                      { icon: <Eye size={13} />,    label: 'Detail Customer', onClick: () => openDetail(row) },
+                      { icon: <Edit2 size={13} />,  label: 'Edit Customer',   onClick: () => openEdit(row) },
+                      { icon: <Trash2 size={13} />, label: 'Hapus Customer',  onClick: () => handleDelete(row), danger: true, separator: true },
+                    ]} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <TablePagination page={page} totalPages={totalPages} totalCount={total} perPage={perPage} onPageChange={setPage} onPerPageChange={handlePerPageChange} />
       </div>
 
-      <TablePagination page={page} totalPages={totalPages} totalCount={filtered.length} perPage={perPage} onPageChange={setPage} onPerPageChange={handlePerPageChange} />
-    </div>
+      {/* Create / Edit Modal */}
+      <ERPModal
+        isOpen={modal === 'create' || modal === 'edit'}
+        onClose={closeModal}
+        title={modal === 'create' ? 'Tambah Customer' : 'Edit Customer'}
+        size="md"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={closeModal} disabled={saving}>Batal</button>
+            <button className="btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {field('Nama Customer', 'name', 'text', true)}
+          {field('Industri', 'industry')}
+          {field('Contact Person', 'contactPerson')}
+          {field('Telepon', 'phone')}
+          {field('Email', 'email', 'email')}
+          {field('Kota', 'city')}
+          {field('NPWP', 'npwp')}
+          <div className="md:col-span-2">
+            <label className="erp-form-label">Alamat</label>
+            <textarea
+              className="erp-input resize-none"
+              rows={2}
+              value={form.address}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            />
+          </div>
+        </div>
+      </ERPModal>
+
+      {/* Detail Modal */}
+      <ERPModal isOpen={modal === 'detail'} onClose={closeModal} title="Detail Customer" size="md"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={closeModal}>Tutup</button>
+            <button className="btn-primary" onClick={() => { closeModal(); if (selected) openEdit(selected); }}>Edit</button>
+          </>
+        }
+      >
+        {selected && (
+          <div className="space-y-3 text-[13px]">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+              {[
+                ['Kode', selected.code], ['Nama', selected.name], ['Industri', selected.industry || '—'],
+                ['Contact', selected.contactPerson || '—'], ['Telepon', selected.phone || '—'],
+                ['Email', selected.email || '—'], ['Kota', selected.city || '—'], ['NPWP', selected.npwp || '—'],
+              ].map(([label, val]) => (
+                <div key={label}>
+                  <p className="text-xs text-muted-foreground">{label}</p>
+                  <p className="font-500 text-foreground">{val}</p>
+                </div>
+              ))}
+            </div>
+            {selected.address && (
+              <div>
+                <p className="text-xs text-muted-foreground">Alamat</p>
+                <p className="font-500">{selected.address}</p>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <StatusBadge status={(selected.isActive ? 'Aktif' : 'Tidak Aktif') as ActiveStatus} />
+              <button
+                className={`text-xs px-3 py-1.5 rounded-md font-600 transition-colors ${selected.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                onClick={() => { handleToggleStatus(selected); closeModal(); }}
+              >
+                {selected.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+              </button>
+            </div>
+          </div>
+        )}
+      </ERPModal>
+    </>
   );
 }

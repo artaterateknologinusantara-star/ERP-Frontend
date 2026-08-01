@@ -1,18 +1,14 @@
 import React from 'react';
 import AppLayout from '@/components/AppLayout';
-import InventorySummaryCards from '../item-master/components/InventorySummaryCards';
-import ItemMasterTable from '../item-master/components/ItemMasterTable';
+import StockOutContent from './components/StockOutContent';
 
 export default function StockOutPage() {
   return (
     <AppLayout
-      title="Stock Out"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Inventory' }, { label: 'Stock Out' }]}
+      title="Delivery Order"
+      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Inventory' }, { label: 'Stock Out / DO' }]}
     >
-      <div className="space-y-5">
-        <InventorySummaryCards />
-        <ItemMasterTable />
-      </div>
+      <StockOutContent />
     </AppLayout>
   );
 }

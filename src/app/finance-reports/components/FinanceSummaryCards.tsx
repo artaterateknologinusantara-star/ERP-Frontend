@@ -1,28 +1,60 @@
-import React from 'react';
-import { Banknote, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+'use client';
 
-const cards = [
-  { id: 'fin-cash', label: 'Cash Balance', value: 'Rp 2,4M', sub: 'Saldo kas saat ini', icon: <Banknote size={16} />, iconBg: 'bg-blue-50', iconColor: 'text-primary' },
-  { id: 'fin-revenue', label: 'Revenue Bulan Ini', value: 'Rp 5,8M', sub: '+12% vs bulan lalu', icon: <TrendingUp size={16} />, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
-  { id: 'fin-expense', label: 'Pengeluaran Bulan Ini', value: 'Rp 3,2M', sub: '-5% vs bulan lalu', icon: <TrendingDown size={16} />, iconBg: 'bg-red-50', iconColor: 'text-red-600' },
-  { id: 'fin-net', label: 'Net Cashflow', value: 'Rp 2,6M', sub: 'Surplus bulan ini', icon: <DollarSign size={16} />, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
-];
+import React, { useState, useEffect } from 'react';
+import SummaryCards from '@/components/ui/SummaryCards';
+import { SummaryCardData } from '@/types';
+import { TrendingUp, TrendingDown, DollarSign, AlertCircle } from 'lucide-react';
+import { formatRp } from '@/lib/format';
+import { getFinanceSummary, FinanceSummary } from '@/services/finance.service';
 
 export default function FinanceSummaryCards() {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {cards?.map((card) => (
-        <div key={card?.id} className="erp-card shadow-card flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-lg ${card?.iconBg} flex items-center justify-center flex-shrink-0`}>
-            <span className={card?.iconColor}>{card?.icon}</span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground font-500">{card?.label}</p>
-            <p className="text-2xl font-800 text-foreground font-tabular">{card?.value}</p>
-            <p className="text-xs text-muted-foreground truncate">{card?.sub}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+  const [summary, setSummary] = useState<FinanceSummary | null>(null);
+
+  useEffect(() => {
+    getFinanceSummary().then(setSummary).catch(() => {});
+  }, []);
+
+  const s = summary;
+  const net = s?.netCashThisMonth ?? 0;
+
+  const cards: SummaryCardData[] = [
+    {
+      id: 'fin-cash-in',
+      label: 'Cash In Bulan Ini',
+      value: s ? formatRp(s.totalCashInThisMonth) : 'Rp 0',
+      sub: `Total: ${s ? formatRp(s.totalCashInAllTime) : 'Rp 0'}`,
+      icon: <TrendingUp size={16} />,
+      iconBg: 'bg-green-50',
+      iconColor: 'text-green-600',
+    },
+    {
+      id: 'fin-cash-out',
+      label: 'Cash Out Bulan Ini',
+      value: s ? formatRp(s.totalCashOutThisMonth) : 'Rp 0',
+      sub: `Total: ${s ? formatRp(s.totalCashOutAllTime) : 'Rp 0'}`,
+      icon: <TrendingDown size={16} />,
+      iconBg: 'bg-red-50',
+      iconColor: 'text-red-600',
+    },
+    {
+      id: 'fin-net',
+      label: 'Net Bulan Ini',
+      value: s ? formatRp(Math.abs(net)) : 'Rp 0',
+      sub: net >= 0 ? 'Surplus' : 'Defisit',
+      icon: <DollarSign size={16} />,
+      iconBg: net >= 0 ? 'bg-emerald-50' : 'bg-red-50',
+      iconColor: net >= 0 ? 'text-emerald-600' : 'text-red-600',
+    },
+    {
+      id: 'fin-ar',
+      label: 'Total AR Outstanding',
+      value: s ? formatRp(s.totalAR) : 'Rp 0',
+      sub: `Overdue: ${s ? formatRp(s.overdueAR) : 'Rp 0'}`,
+      icon: <AlertCircle size={16} />,
+      iconBg: 'bg-amber-50',
+      iconColor: 'text-amber-600',
+    },
+  ];
+
+  return <SummaryCards cards={cards} />;
 }

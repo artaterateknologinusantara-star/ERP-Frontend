@@ -1,25 +1,24 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
-import { useTableFilter } from '@/hooks/useTableFilter';
-import { formatRp } from '@/lib/format';
-import { Eye, Edit2, Plus } from 'lucide-react';
-import { Invoice, InvoiceStatus } from '@/types';
-
-const MOCK_INVOICES: Invoice[] = [
-  { id: 'inv-001', no: 'INV.SYN-26.0064', customerId: 'c-001', customerName: 'PT Telkom Indonesia', invoiceDate: '10/05/2026', dueDate: '09/06/2026', amount: 847500000, paid: 0, balance: 847500000, status: 'Sent', createdAt: '', updatedAt: '' },
-  { id: 'inv-002', no: 'INV.SYN-26.0063', customerId: 'c-002', customerName: 'PT Bank Central Asia', invoiceDate: '09/05/2026', dueDate: '08/06/2026', amount: 312000000, paid: 156000000, balance: 156000000, status: 'Partial Paid', createdAt: '', updatedAt: '' },
-  { id: 'inv-003', no: 'INV.SYN-26.0062', customerId: 'c-003', customerName: 'PT Astra International', invoiceDate: '08/05/2026', dueDate: '07/06/2026', amount: 1240000000, paid: 1240000000, balance: 0, status: 'Paid', createdAt: '', updatedAt: '' },
-  { id: 'inv-004', no: 'INV.SYN-26.0061', customerId: 'c-004', customerName: 'PT Wijaya Karya', invoiceDate: '07/05/2026', dueDate: '06/06/2026', amount: 560000000, paid: 0, balance: 560000000, status: 'Overdue', createdAt: '', updatedAt: '' },
-  { id: 'inv-005', no: 'INV.SYN-26.0060', customerId: 'c-006', customerName: 'PT PLN (Persero)', invoiceDate: '01/05/2026', dueDate: '31/05/2026', amount: 420000000, paid: 0, balance: 420000000, status: 'Draft', createdAt: '', updatedAt: '' },
-  { id: 'inv-006', no: 'INV.SYN-26.0059', customerId: 'c-007', customerName: 'PT Pertamina', invoiceDate: '28/04/2026', dueDate: '28/05/2026', amount: 930000000, paid: 930000000, balance: 0, status: 'Paid', createdAt: '', updatedAt: '' },
-  { id: 'inv-007', no: 'INV.SYN-26.0058', customerId: 'c-008', customerName: 'PT Garuda Indonesia', invoiceDate: '25/04/2026', dueDate: '25/05/2026', amount: 215000000, paid: 100000000, balance: 115000000, status: 'Partial Paid', createdAt: '', updatedAt: '' },
-  { id: 'inv-008', no: 'INV.SYN-26.0057', customerId: 'c-009', customerName: 'PT Semen Indonesia', invoiceDate: '22/04/2026', dueDate: '22/05/2026', amount: 685000000, paid: 0, balance: 685000000, status: 'Overdue', createdAt: '', updatedAt: '' },
-];
+import ERPModal from '@/components/ui/ERPModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import { formatRp, formatDate } from '@/lib/format';
+import { Eye, CreditCard, Trash2 } from 'lucide-react';
+import RowActionMenu from '@/components/ui/RowActionMenu';
+import CurrencyInput from '@/components/ui/CurrencyInput';
+import {
+  getInvoices,
+  recordPayment,
+  invoiceService,
+  InvoiceListItem,
+} from '@/services/invoice.service';
+import { InvoiceStatus } from '@/types';
 
 const STATUS_OPTIONS = [
   { value: 'Semua', label: 'Semua Status' },
@@ -30,71 +29,283 @@ const STATUS_OPTIONS = [
   { value: 'Overdue', label: 'Overdue' },
 ];
 
+const PAYMENT_METHODS = ['Transfer', 'Tunai', 'Giro', 'Cek'];
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function InvoiceTable() {
-  const { search, statusFilter, page, perPage, filtered, pageData, totalPages, handleSearch, handleStatusFilter, setPage, handlePerPageChange } = useTableFilter<Invoice>({
-    data: MOCK_INVOICES,
-    searchFields: ['no', 'customerName'],
-    statusField: 'status',
+  const router = useRouter();
+
+  const [rows, setRows] = useState<InvoiceListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Semua');
+  const [loading, setLoading] = useState(true);
+
+  // Payment modal
+  const [payModal, setPayModal] = useState(false);
+  const [payTarget, setPayTarget] = useState<InvoiceListItem | null>(null);
+  const [payForm, setPayForm] = useState({
+    paymentDate: todayIso(),
+    amount: '',
+    method: 'Transfer',
+    reference: '',
+    notes: '',
   });
+  const [paying, setPaying] = useState(false);
+
+  // Delete modal
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<InvoiceListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const load = useCallback(async (q: string, p: number, pp: number) => {
+    setLoading(true);
+    try {
+      const res = await getInvoices({ page: p, perPage: pp, search: q || undefined });
+      setRows(res.data);
+      setTotal(res.total);
+    } catch {
+      toast.error('Gagal memuat data invoice');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => load(search, page, perPage), search ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [search, page, perPage, load]);
+
+  const displayRows = statusFilter === 'Semua'
+    ? rows
+    : rows.filter((r) => r.status === statusFilter);
+
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
+  const handleStatusFilter = (v: string) => { setStatusFilter(v); };
+  const handlePerPageChange = (pp: number) => { setPerPage(pp); setPage(1); };
+
+  const openPayModal = (row: InvoiceListItem) => {
+    setPayTarget(row);
+    setPayForm({ paymentDate: todayIso(), amount: '', method: 'Transfer', reference: '', notes: '' });
+    setPayModal(true);
+  };
+
+  const handlePay = async () => {
+    if (!payTarget) return;
+    const amount = parseFloat(payForm.amount);
+    if (!payForm.amount || isNaN(amount) || amount <= 0) {
+      toast.error('Jumlah pembayaran wajib diisi dan harus lebih dari 0');
+      return;
+    }
+    if (amount > payTarget.balance) {
+      toast.error(`Jumlah melebihi sisa tagihan (${formatRp(payTarget.balance)})`);
+      return;
+    }
+    setPaying(true);
+    try {
+      await recordPayment(payTarget.id, {
+        paymentDate: payForm.paymentDate,
+        amount,
+        method: payForm.method,
+        reference: payForm.reference || undefined,
+        notes: payForm.notes || undefined,
+      });
+      toast.success('Pembayaran berhasil dicatat');
+      setPayModal(false);
+      load(search, page, perPage);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal mencatat pembayaran');
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const openDeleteModal = (row: InvoiceListItem) => {
+    setDeleteTarget(row);
+    setDeleteModal(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await invoiceService.delete(deleteTarget.id);
+      toast.success('Invoice berhasil dihapus');
+      setDeleteModal(false);
+      load(search, page, perPage);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal menghapus invoice');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
-    <div className="erp-card">
-      <TableToolbar
-        search={search}
-        onSearch={handleSearch}
-        searchPlaceholder="Cari no. invoice, pelanggan..."
-        totalCount={filtered.length}
-        countLabel="invoice"
-        statusFilter={statusFilter}
-        onStatusFilter={handleStatusFilter}
-        statusOptions={STATUS_OPTIONS}
-        onExport={() => toast.info('Export ke Excel')}
-        actions={
-          <button className="btn-primary" onClick={() => toast.info('Buat Invoice baru')}>
-            <Plus size={14} /> Buat Invoice
-          </button>
-        }
-      />
+    <>
+      <div className="erp-card">
+        <TableToolbar
+          search={search}
+          onSearch={handleSearch}
+          searchPlaceholder="Cari no. invoice, pelanggan..."
+          totalCount={statusFilter === 'Semua' ? total : displayRows.length}
+          countLabel="invoice"
+          statusFilter={statusFilter}
+          onStatusFilter={handleStatusFilter}
+          statusOptions={STATUS_OPTIONS}
+        />
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse">
-          <thead>
-            <tr className="border-b-2 border-border bg-muted/40">
-              {['No. Invoice', 'Customer', 'Tgl Invoice', 'Jatuh Tempo', 'Jumlah', 'Terbayar', 'Sisa', 'Status', 'Aksi'].map((h) => (
-                <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {pageData.length === 0 ? (
-              <tr><td colSpan={9} className="text-center py-12 text-muted-foreground text-[13px]">Tidak ada data ditemukan</td></tr>
-            ) : pageData.map((row) => (
-              <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
-                <td className="erp-table-cell font-700 text-primary">{row.no}</td>
-                <td className="erp-table-cell font-500">{row.customerName}</td>
-                <td className="erp-table-cell text-muted-foreground">{row.invoiceDate}</td>
-                <td className={`erp-table-cell font-500 ${row.status === 'Overdue' ? 'text-red-600' : 'text-muted-foreground'}`}>{row.dueDate}</td>
-                <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(row.amount)}</td>
-                <td className="erp-table-cell font-tabular text-right text-emerald-600">{row.paid > 0 ? formatRp(row.paid) : '—'}</td>
-                <td className={`erp-table-cell font-700 font-tabular text-right ${row.balance > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
-                  {row.balance > 0 ? formatRp(row.balance) : '—'}
-                </td>
-                <td className="erp-table-cell">
-                  <StatusBadge status={row.status as InvoiceStatus} size="sm" />
-                </td>
-                <td className="erp-table-cell">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors" onClick={() => toast.info(`Membuka ${row.no}`)}><Eye size={13} /></button>
-                    <button className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition-colors" onClick={() => toast.info(`Edit ${row.no}`)}><Edit2 size={13} /></button>
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px] border-collapse">
+            <thead>
+              <tr className="border-b-2 border-border bg-muted/40">
+                {['No Invoice', 'Customer', 'Tgl Invoice', 'Jatuh Tempo', 'Status', 'Total', 'Terbayar', 'Sisa', 'Aging'].map((h) => (
+                  <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
+                ))}
+                <th className="erp-table-cell erp-action-col text-muted-foreground font-600 text-xs uppercase tracking-wider">Aksi</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={10} className="text-center py-10 text-muted-foreground">Memuat data...</td></tr>
+              ) : displayRows.length === 0 ? (
+                <tr><td colSpan={10} className="text-center py-12 text-muted-foreground">Tidak ada data ditemukan</td></tr>
+              ) : displayRows.map((row) => (
+                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
+                  <td className="erp-table-cell font-700 text-primary">{row.no}</td>
+                  <td className="erp-table-cell font-500 max-w-[160px] truncate" title={row.customerName}>{row.customerName}</td>
+                  <td className="erp-table-cell text-muted-foreground">{formatDate(row.invoiceDate)}</td>
+                  <td className={`erp-table-cell font-500 ${row.status === 'Overdue' ? 'text-red-600' : 'text-muted-foreground'}`}>
+                    {formatDate(row.dueDate)}
+                  </td>
+                  <td className="erp-table-cell">
+                    <StatusBadge status={row.status as InvoiceStatus} size="sm" />
+                  </td>
+                  <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(row.amount)}</td>
+                  <td className="erp-table-cell font-tabular text-right text-emerald-600">
+                    {row.paid > 0 ? formatRp(row.paid) : '—'}
+                  </td>
+                  <td className={`erp-table-cell font-700 font-tabular text-right ${row.balance > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                    {row.balance > 0 ? formatRp(row.balance) : '—'}
+                  </td>
+                  <td className="erp-table-cell">
+                    {row.agingDays > 0
+                      ? <span className="text-red-600 font-medium">{row.agingDays} hari</span>
+                      : <span className="text-muted-foreground">—</span>
+                    }
+                  </td>
+                  <td className="erp-table-cell erp-action-col">
+                    <RowActionMenu items={[
+                      { icon: <Eye size={13} />,      label: 'Lihat Detail',    onClick: () => router.push(`/invoice/${row.id}`) },
+                      { icon: <CreditCard size={13} />, label: 'Record Payment', onClick: () => openPayModal(row), disabled: row.status === 'Paid' },
+                      { icon: <Trash2 size={13} />,   label: 'Hapus Invoice',   onClick: () => openDeleteModal(row), danger: true, separator: true },
+                    ]} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          totalCount={total}
+          perPage={perPage}
+          onPageChange={setPage}
+          onPerPageChange={handlePerPageChange}
+        />
       </div>
 
-      <TablePagination page={page} totalPages={totalPages} totalCount={filtered.length} perPage={perPage} onPageChange={setPage} onPerPageChange={handlePerPageChange} />
-    </div>
+      {/* Record Payment Modal */}
+      <ERPModal
+        isOpen={payModal}
+        onClose={() => setPayModal(false)}
+        title="Record Pembayaran"
+        subtitle={payTarget?.no}
+        size="sm"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={() => setPayModal(false)} disabled={paying}>Batal</button>
+            <button className="btn-primary" onClick={handlePay} disabled={paying}>
+              {paying ? 'Menyimpan...' : 'Simpan Pembayaran'}
+            </button>
+          </>
+        }
+      >
+        {payTarget && (
+          <div className="space-y-4">
+            <div className="bg-muted/40 rounded-lg p-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Sisa Tagihan</span>
+                <span className="font-700 text-red-600">{formatRp(payTarget.balance)}</span>
+              </div>
+            </div>
+            <div>
+              <label className="erp-form-label">Tanggal Pembayaran<span className="text-red-500 ml-0.5">*</span></label>
+              <input
+                type="date"
+                className="erp-input"
+                value={payForm.paymentDate}
+                onChange={(e) => setPayForm((f) => ({ ...f, paymentDate: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="erp-form-label">Jumlah<span className="text-red-500 ml-0.5">*</span></label>
+              <CurrencyInput
+                placeholder={String(payTarget.balance)}
+                value={Number(payForm.amount) || 0}
+                onChange={(v) => setPayForm((f) => ({ ...f, amount: v ? String(v) : '' }))}
+              />
+            </div>
+            <div>
+              <label className="erp-form-label">Metode<span className="text-red-500 ml-0.5">*</span></label>
+              <select
+                className="erp-input"
+                value={payForm.method}
+                onChange={(e) => setPayForm((f) => ({ ...f, method: e.target.value }))}
+              >
+                {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="erp-form-label">Referensi</label>
+              <input
+                type="text"
+                className="erp-input"
+                placeholder="No. transfer / cek / giro"
+                value={payForm.reference}
+                onChange={(e) => setPayForm((f) => ({ ...f, reference: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="erp-form-label">Catatan</label>
+              <textarea
+                className="erp-input resize-none"
+                rows={2}
+                value={payForm.notes}
+                onChange={(e) => setPayForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+          </div>
+        )}
+      </ERPModal>
+
+      {/* Delete Confirm Modal */}
+      <ConfirmModal
+        isOpen={deleteModal}
+        onClose={() => setDeleteModal(false)}
+        onConfirm={handleDelete}
+        title="Hapus Invoice?"
+        description={`Invoice "${deleteTarget?.no}" akan dihapus. Tindakan ini tidak dapat dibatalkan.`}
+        confirmLabel="Hapus"
+        loading={deleting}
+      />
+    </>
   );
 }

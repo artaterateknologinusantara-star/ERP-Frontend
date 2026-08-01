@@ -1,8 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Download, FileText, Filter, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Download, TrendingUp, TrendingDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { getMonthlyChart, getFinanceSummary, getARStats, getAPStats, MonthlyChartItem, FinanceSummary, ARStats, APStats } from '@/services/finance.service';
+import { getSalesOrderStats, SalesOrderStats } from '@/services/salesorder.service';
+import { getInvoiceStats, InvoiceStats } from '@/services/invoice.service';
+import { getPOStats, PurchaseOrderStats } from '@/services/purchase.service';
+import { getInventoryStats, InventoryStats } from '@/services/inventory.service';
+import { formatRp } from '@/lib/format';
 
 type ReportType = 'sales' | 'finance' | 'purchasing' | 'inventory';
 
@@ -10,162 +16,141 @@ interface ReportsModuleProps {
   reportType: ReportType;
 }
 
-const reportConfig: Record<ReportType, { title: string; color: string; data: { month: string; value: number; value2?: number }[]; label1: string; label2?: string }> = {
-  sales: {
-    title: 'Laporan Penjualan',
-    color: '#2563EB',
-    label1: 'Revenue',
-    label2: 'Target',
-    data: [
-      { month: 'Jan', value: 4200000000, value2: 4000000000 },
-      { month: 'Feb', value: 3800000000, value2: 4000000000 },
-      { month: 'Mar', value: 5100000000, value2: 4500000000 },
-      { month: 'Apr', value: 4600000000, value2: 4500000000 },
-      { month: 'Mei', value: 5800000000, value2: 5000000000 },
-    ],
-  },
-  finance: {
-    title: 'Laporan Keuangan',
-    color: '#22C55E',
-    label1: 'Cash In',
-    label2: 'Cash Out',
-    data: [
-      { month: 'Jan', value: 4200000000, value2: 2800000000 },
-      { month: 'Feb', value: 3800000000, value2: 2400000000 },
-      { month: 'Mar', value: 5100000000, value2: 3200000000 },
-      { month: 'Apr', value: 4600000000, value2: 2900000000 },
-      { month: 'Mei', value: 5800000000, value2: 3200000000 },
-    ],
-  },
-  purchasing: {
-    title: 'Laporan Pembelian',
-    color: '#F59E0B',
-    label1: 'Total PO',
-    data: [
-      { month: 'Jan', value: 1800000000 },
-      { month: 'Feb', value: 1500000000 },
-      { month: 'Mar', value: 2100000000 },
-      { month: 'Apr', value: 1900000000 },
-      { month: 'Mei', value: 2400000000 },
-    ],
-  },
-  inventory: {
-    title: 'Laporan Inventori',
-    color: '#8B5CF6',
-    label1: 'Stock In',
-    label2: 'Stock Out',
-    data: [
-      { month: 'Jan', value: 120, value2: 95 },
-      { month: 'Feb', value: 98, value2: 87 },
-      { month: 'Mar', value: 145, value2: 112 },
-      { month: 'Apr', value: 132, value2: 108 },
-      { month: 'Mei', value: 158, value2: 124 },
-    ],
-  },
-};
-
-const summaryRows: Record<ReportType, { label: string; value: string; trend: string; up: boolean }[]> = {
-  sales: [
-    { label: 'Total Revenue', value: 'Rp 23,5M', trend: '+14,2%', up: true },
-    { label: 'Total Penawaran', value: '148', trend: '+8 vs bulan lalu', up: true },
-    { label: 'Conversion Rate', value: '31,8%', trend: '+2,1%', up: true },
-    { label: 'Avg Deal Size', value: 'Rp 124,3Jt', trend: '+8,4%', up: true },
-  ],
-  finance: [
-    { label: 'Total Cash In', value: 'Rp 23,5M', trend: '+12%', up: true },
-    { label: 'Total Cash Out', value: 'Rp 14,5M', trend: '-5%', up: false },
-    { label: 'Net Cashflow', value: 'Rp 9,0M', trend: '+18%', up: true },
-    { label: 'Outstanding AR', value: 'Rp 8,4M', trend: '-3%', up: false },
-  ],
-  purchasing: [
-    { label: 'Total PO', value: 'Rp 9,8M', trend: '+6%', up: true },
-    { label: 'Jumlah PO', value: '19', trend: '+3 vs bulan lalu', up: true },
-    { label: 'Avg PO Value', value: 'Rp 516Jt', trend: '+2,1%', up: true },
-    { label: 'Outstanding AP', value: 'Rp 5,8M', trend: '+8%', up: false },
-  ],
-  inventory: [
-    { label: 'Total Item', value: '312', trend: '+12 item baru', up: true },
-    { label: 'Stock In', value: '653 unit', trend: '+47 bulan ini', up: true },
-    { label: 'Stock Out', value: '526 unit', trend: '+38 bulan ini', up: true },
-    { label: 'Low Stock Alert', value: '18 item', trend: '+3 vs bulan lalu', up: false },
-  ],
-};
-
-const formatVal = (val: number, type: ReportType) => {
-  if (type === 'inventory') return val.toLocaleString('id-ID');
-  return `Rp ${(val / 1000000000).toFixed(1)}M`;
+const fmtAxis = (v: number) => {
+  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}M`;
+  if (v >= 1_000_000)     return `${(v / 1_000_000).toFixed(0)}Jt`;
+  return String(v);
 };
 
 export default function ReportsModule({ reportType }: ReportsModuleProps) {
-  const [dateFrom, setDateFrom] = useState('2026-01-01');
-  const [dateTo, setDateTo] = useState('2026-05-31');
-  const config = reportConfig[reportType];
-  const summary = summaryRows[reportType];
+  const [monthly, setMonthly] = useState<MonthlyChartItem[]>([]);
+  const [fin, setFin]         = useState<FinanceSummary | null>(null);
+  const [ar, setAR]           = useState<ARStats | null>(null);
+  const [ap, setAP]           = useState<APStats | null>(null);
+  const [so, setSO]           = useState<SalesOrderStats | null>(null);
+  const [inv, setInv]         = useState<InvoiceStats | null>(null);
+  const [po, setPO]           = useState<PurchaseOrderStats | null>(null);
+  const [stock, setStock]     = useState<InventoryStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.allSettled([
+      getMonthlyChart(), getFinanceSummary(), getARStats(), getAPStats(),
+      getSalesOrderStats(), getInvoiceStats(), getPOStats(), getInventoryStats(),
+    ]).then(([m, f, a, ap2, s, i, p, st]) => {
+      if (m.status  === 'fulfilled') setMonthly(m.value);
+      if (f.status  === 'fulfilled') setFin(f.value);
+      if (a.status  === 'fulfilled') setAR(a.value);
+      if (ap2.status === 'fulfilled') setAP(ap2.value);
+      if (s.status  === 'fulfilled') setSO(s.value);
+      if (i.status  === 'fulfilled') setInv(i.value);
+      if (p.status  === 'fulfilled') setPO(p.value);
+      if (st.status === 'fulfilled') setStock(st.value);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  const titles: Record<ReportType, string> = {
+    sales: 'Laporan Penjualan',
+    finance: 'Laporan Keuangan',
+    purchasing: 'Laporan Pembelian',
+    inventory: 'Laporan Inventori',
+  };
+
+  // Build chart data from monthly
+  const chartData = monthly.slice(-6).map((d) => ({
+    month: d.month,
+    'Cash In':  d.cashIn,
+    'Cash Out': d.cashOut,
+    Net:        d.net,
+  }));
+
+  // Summary rows
+  const summaryRows: Record<ReportType, { label: string; value: string; up: boolean }[]> = {
+    sales: [
+      { label: 'Total Cash In (All Time)', value: fin ? formatRp(fin.totalCashInAllTime) : '—', up: true },
+      { label: 'Total SO', value: so ? so.total.toLocaleString('id-ID') : '—', up: true },
+      { label: 'SO Completed Bulan Ini', value: so ? so.completedThisMonth.toLocaleString('id-ID') : '—', up: true },
+      { label: 'Outstanding Invoice', value: inv ? formatRp(inv.outstanding) : '—', up: false },
+    ],
+    finance: [
+      { label: 'Cash In Bulan Ini', value: fin ? formatRp(fin.totalCashInThisMonth) : '—', up: true },
+      { label: 'Cash Out Bulan Ini', value: fin ? formatRp(fin.totalCashOutThisMonth) : '—', up: false },
+      { label: 'Net Cashflow Bulan Ini', value: fin ? formatRp(fin.netCashThisMonth) : '—', up: (fin?.netCashThisMonth ?? 0) >= 0 },
+      { label: 'Total AR Outstanding', value: ar ? formatRp(ar.totalOutstanding) : '—', up: false },
+    ],
+    purchasing: [
+      { label: 'Total PO', value: po ? po.total.toLocaleString('id-ID') : '—', up: true },
+      { label: 'PO Ordered', value: po ? po.ordered.toLocaleString('id-ID') : '—', up: true },
+      { label: 'Total Nilai PO', value: po ? formatRp(po.totalValue) : '—', up: true },
+      { label: 'Total AP Pending', value: ap ? formatRp(ap.totalPending) : '—', up: false },
+    ],
+    inventory: [
+      { label: 'Total Item Aktif', value: stock ? stock.activeItems.toLocaleString('id-ID') : '—', up: true },
+      { label: 'Nilai Stok', value: stock ? formatRp(stock.totalStockValue) : '—', up: true },
+      { label: 'Low Stock Alert', value: stock ? stock.lowStockItems.toLocaleString('id-ID') : '—', up: false },
+      { label: 'Out of Stock', value: stock ? stock.outOfStockItems.toLocaleString('id-ID') : '—', up: false },
+    ],
+  };
 
   return (
     <div className="space-y-5">
-      {/* Filter Bar */}
+      {/* Header */}
       <div className="erp-card shadow-card">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Filter size={14} className="text-muted-foreground" />
-            <span className="text-[13px] font-600 text-foreground">Filter Laporan</span>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-700 text-foreground">{titles[reportType]}</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Data real-time dari sistem ERP</p>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-muted-foreground">Dari:</label>
-            <input type="date" className="erp-input w-36" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-muted-foreground">Sampai:</label>
-            <input type="date" className="erp-input w-36" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          </div>
-          <select className="erp-input min-w-[140px]">
-            <option>Semua Cabang</option>
-            <option>Jakarta</option>
-            <option>Surabaya</option>
-            <option>Bandung</option>
-          </select>
-          <div className="flex items-center gap-2 ml-auto">
-            <button className="btn-secondary"><Download size={14} /> Export Excel</button>
-            <button className="btn-secondary"><FileText size={14} /> Export PDF</button>
-          </div>
+          <button className="btn-secondary"><Download size={14} /> Export</button>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {summary.map((item, i) => (
-          <div key={i} className="erp-card shadow-card">
-            <p className="text-xs text-muted-foreground font-500 mb-1">{item.label}</p>
-            <p className="text-2xl font-800 text-foreground font-tabular">{item.value}</p>
-            <div className={`flex items-center gap-1 mt-1 text-xs font-500 ${item.up ? 'text-emerald-600' : 'text-red-500'}`}>
-              {item.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-              {item.trend}
+        {summaryRows[reportType].map((row) => (
+          <div key={row.label} className="erp-card shadow-card">
+            <p className="text-xs text-muted-foreground font-500 mb-2">{row.label}</p>
+            <p className="text-xl font-800 text-foreground font-tabular leading-tight">
+              {loading ? <span className="inline-block w-20 h-5 bg-muted animate-pulse rounded" /> : row.value}
+            </p>
+            <div className={`flex items-center gap-1 mt-2 text-xs font-500 ${row.up ? 'text-emerald-600' : 'text-red-500'}`}>
+              {row.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {row.up ? 'Positif' : 'Perlu perhatian'}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Chart */}
+      {/* Chart — Finance data for all report types */}
       <div className="erp-card shadow-card">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-[13px] font-700 text-foreground">{config.title}</h3>
-            <p className="text-xs text-muted-foreground">Trend 5 bulan terakhir</p>
-          </div>
-          <BarChart2 size={16} className="text-muted-foreground" />
+        <div className="mb-4">
+          <h3 className="text-[13px] font-700 text-foreground">
+            {reportType === 'finance' ? 'Cashflow 6 Bulan Terakhir' : 'Cash In vs Cash Out — 6 Bulan Terakhir'}
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Data dari sistem keuangan (Rp)</p>
         </div>
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={config.data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-            <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748B' }} />
-            <YAxis tickFormatter={(v) => formatVal(v, reportType)} tick={{ fontSize: 10, fill: '#64748B' }} width={65} />
-            <Tooltip formatter={(v: number) => formatVal(v, reportType)} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="value" name={config.label1} fill={config.color} radius={[3, 3, 0, 0]} />
-            {config.label2 && <Bar dataKey="value2" name={config.label2} fill="#E2E8F0" radius={[3, 3, 0, 0]} />}
-          </BarChart>
-        </ResponsiveContainer>
+
+        {loading ? (
+          <div className="h-[240px] flex items-center justify-center text-muted-foreground text-sm">Memuat chart...</div>
+        ) : chartData.length === 0 ? (
+          <div className="h-[240px] flex items-center justify-center text-muted-foreground text-sm">Belum ada data cashflow</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+              <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} width={60} />
+              <Tooltip
+                formatter={(val: number, name: string) => [`Rp ${Math.abs(val).toLocaleString('id-ID')}`, name]}
+                labelFormatter={(l) => `Bulan: ${l}`}
+              />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="Cash In"  fill="#16a34a" radius={[3,3,0,0]} maxBarSize={40} />
+              <Bar dataKey="Cash Out" fill="#dc2626" radius={[3,3,0,0]} maxBarSize={40} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

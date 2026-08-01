@@ -37,7 +37,7 @@ export default function InformasiPenawaranSection({ values, onChange, errors }: 
   const comboRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    customerService.list({ perPage: 200, status: 'Aktif' })
+    customerService.list({ perPage: 200, isActive: true })
       .then((res) => setCustomers(res.data))
       .catch(() => {});
 

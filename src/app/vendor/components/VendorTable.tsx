@@ -1,108 +1,306 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Search, Download, Plus, Eye, Edit2, Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
+import StatusBadge from '@/components/ui/StatusBadge';
+import TableToolbar from '@/components/ui/TableToolbar';
+import TablePagination from '@/components/ui/TablePagination';
+import ERPModal from '@/components/ui/ERPModal';
+import { ActiveStatus } from '@/types';
+import { supplierService, CreateSupplierDto } from '@/services/supplier.service';
+import { downloadCsv } from '@/lib/export';
+import { Eye, Edit2, Plus, Trash2 } from 'lucide-react';
+import RowActionMenu from '@/components/ui/RowActionMenu';
 
-interface Vendor {
+interface SupplierRow {
   id: string;
   code: string;
   name: string;
-  category: string;
-  contact: string;
-  phone: string;
-  city: string;
-  rating: number;
-  totalPO: number;
-  status: 'Aktif' | 'Tidak Aktif';
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  npwp?: string;
+  bankName?: string;
+  bankAccount?: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
-const vendorData: Vendor[] = [
-  { id: 'v-001', code: 'VND-001', name: 'PT Ruijie Networks Indonesia', category: 'Network Equipment', contact: 'Andi Wijaya', phone: '021-5551234', city: 'Jakarta', rating: 5, totalPO: 12, status: 'Aktif' },
-  { id: 'v-002', code: 'VND-002', name: 'PT Draka Indonesia', category: 'Cabling', contact: 'Budi Hartono', phone: '021-5552345', city: 'Jakarta', rating: 4, totalPO: 8, status: 'Aktif' },
-  { id: 'v-003', code: 'VND-003', name: 'PT Netviel Distributor', category: 'Fiber Optic', contact: 'Citra Dewi', phone: '022-5553456', city: 'Bandung', rating: 5, totalPO: 15, status: 'Aktif' },
-  { id: 'v-004', code: 'VND-004', name: 'PT Indorack Multikreasi', category: 'Rack & Cabinet', contact: 'Doni Setiawan', phone: '021-5554567', city: 'Tangerang', rating: 4, totalPO: 6, status: 'Aktif' },
-  { id: 'v-005', code: 'VND-005', name: 'CV Mitra Teknologi', category: 'Accessories', contact: 'Eka Putri', phone: '031-5555678', city: 'Surabaya', rating: 3, totalPO: 4, status: 'Aktif' },
-  { id: 'v-006', code: 'VND-006', name: 'PT Cisco Systems Indonesia', category: 'Network Equipment', contact: 'Fajar Nugroho', phone: '021-5556789', city: 'Jakarta', rating: 5, totalPO: 20, status: 'Aktif' },
-  { id: 'v-007', code: 'VND-007', name: 'PT Hikvision Indonesia', category: 'CCTV', contact: 'Gita Sari', phone: '021-5557890', city: 'Jakarta', rating: 4, totalPO: 9, status: 'Aktif' },
-  { id: 'v-008', code: 'VND-008', name: 'CV Solusi Jaringan', category: 'Accessories', contact: 'Hendra Kusuma', phone: '024-5558901', city: 'Semarang', rating: 3, totalPO: 2, status: 'Tidak Aktif' },
+const STATUS_OPTIONS = [
+  { value: 'Semua', label: 'Semua Status' },
+  { value: 'Aktif', label: 'Aktif' },
+  { value: 'Tidak Aktif', label: 'Tidak Aktif' },
 ];
 
+const PER_PAGE = 10;
+
+const EMPTY_FORM: CreateSupplierDto = {
+  name: '', contactPerson: '', phone: '', email: '', address: '', city: '', npwp: '', bankName: '', bankAccount: '',
+};
+
 export default function VendorTable() {
-  const [search, setSearch] = useState('');
+  const [rows, setRows] = useState<SupplierRow[]>([]);
+  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const perPage = 10;
+  const [perPage, setPerPage] = useState(PER_PAGE);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Semua');
+  const [loading, setLoading] = useState(true);
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return vendorData;
-    const q = search.toLowerCase();
-    return vendorData.filter((r) => r.name.toLowerCase().includes(q) || r.category.toLowerCase().includes(q) || r.city.toLowerCase().includes(q));
-  }, [search]);
+  const [modal, setModal] = useState<'create' | 'edit' | 'detail' | null>(null);
+  const [selected, setSelected] = useState<SupplierRow | null>(null);
+  const [form, setForm] = useState<CreateSupplierDto>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
-  const pageData = filtered.slice((page - 1) * perPage, page * perPage);
+  const load = useCallback(async (q: string, p: number, pp: number) => {
+    setLoading(true);
+    try {
+      const res = await supplierService.list({ page: p, perPage: pp, search: q || undefined });
+      setRows(res.data as unknown as SupplierRow[]);
+      setTotal(res.total);
+    } catch {
+      toast.error('Gagal memuat data vendor');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => load(search, page, perPage), search ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [search, page, perPage, load]);
+
+  // client-side status filter (supplier API doesn't support isActive filter yet)
+  const filtered = statusFilter === 'Aktif' ? rows.filter((r) => r.isActive)
+    : statusFilter === 'Tidak Aktif' ? rows.filter((r) => !r.isActive)
+    : rows;
+
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
+  const handleStatusFilter = (v: string) => setStatusFilter(v);
+  const handlePerPageChange = (pp: number) => { setPerPage(pp); setPage(1); };
+
+  const openCreate = () => { setForm(EMPTY_FORM); setModal('create'); };
+  const openEdit = (row: SupplierRow) => {
+    setSelected(row);
+    setForm({ name: row.name, contactPerson: row.contactPerson || '', phone: row.phone || '', email: row.email || '', address: row.address || '', city: row.city || '', npwp: row.npwp || '', bankName: row.bankName || '', bankAccount: row.bankAccount || '' });
+    setModal('edit');
+  };
+  const openDetail = (row: SupplierRow) => { setSelected(row); setModal('detail'); };
+  const closeModal = () => { setModal(null); setSelected(null); };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast.error('Nama vendor wajib diisi'); return; }
+    setSaving(true);
+    try {
+      if (modal === 'create') {
+        await supplierService.create(form);
+        toast.success('Vendor berhasil ditambahkan');
+      } else if (modal === 'edit' && selected) {
+        await supplierService.update(selected.id, form);
+        toast.success('Vendor berhasil diperbarui');
+      }
+      closeModal();
+      load(search, page, perPage);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal menyimpan vendor');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleStatus = async (row: SupplierRow) => {
+    try {
+      await supplierService.setStatus(row.id, !row.isActive);
+      toast.success(`Vendor ${row.isActive ? 'dinonaktifkan' : 'diaktifkan'}`);
+      load(search, page, perPage);
+    } catch {
+      toast.error('Gagal mengubah status');
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const res = await supplierService.list({ page: 1, perPage: 9999 });
+      const data = res.data as unknown as SupplierRow[];
+      const headers = ['Kode', 'Nama Vendor', 'Contact Person', 'Telepon', 'Email', 'Kota', 'NPWP', 'Nama Bank', 'No. Rekening', 'Alamat', 'Status'];
+      const rows = data.map((s) => [s.code, s.name, s.contactPerson || '', s.phone || '', s.email || '', s.city || '', s.npwp || '', s.bankName || '', s.bankAccount || '', s.address || '', s.isActive ? 'Aktif' : 'Tidak Aktif']);
+      downloadCsv(`vendor_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+      toast.success(`${data.length} vendor berhasil diekspor`);
+    } catch {
+      toast.error('Gagal mengekspor data vendor');
+    }
+  };
+
+  const handleDelete = async (row: SupplierRow) => {
+    if (!confirm(`Hapus vendor "${row.name}"?`)) return;
+    try {
+      await supplierService.delete(row.id);
+      toast.success('Vendor berhasil dihapus');
+      load(search, page, perPage);
+    } catch {
+      toast.error('Gagal menghapus vendor');
+    }
+  };
+
+  const field = (label: string, key: keyof CreateSupplierDto, type = 'text') => (
+    <div>
+      <label className="erp-form-label">{label}{key === 'name' && <span className="text-red-500 ml-0.5">*</span>}</label>
+      <input
+        type={type}
+        className="erp-input"
+        value={form[key] as string}
+        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+      />
+    </div>
+  );
 
   return (
-    <div className="erp-card shadow-card">
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input type="text" placeholder="Cari nama vendor, kategori, kota..." className="erp-input pl-8 w-full" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-        </div>
-        <span className="text-[13px] text-muted-foreground whitespace-nowrap">{filtered.length} vendor</span>
-        <div className="flex items-center gap-2 ml-auto">
-          <button className="btn-secondary"><Download size={14} /> Export</button>
-          <button className="btn-primary"><Plus size={14} /> Tambah Vendor</button>
-        </div>
-      </div>
+    <>
+      <div className="erp-card">
+        <TableToolbar
+          search={search}
+          onSearch={handleSearch}
+          searchPlaceholder="Cari nama, kode, kota vendor..."
+          totalCount={filtered.length}
+          countLabel="vendor"
+          statusFilter={statusFilter}
+          onStatusFilter={handleStatusFilter}
+          statusOptions={STATUS_OPTIONS}
+          onExport={handleExport}
+          actions={
+            <button className="btn-primary" onClick={openCreate}>
+              <Plus size={14} /> Tambah Vendor
+            </button>
+          }
+        />
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse">
-          <thead>
-            <tr className="border-b-2 border-border bg-muted/40">
-              {['Kode', 'Nama Vendor', 'Kategori', 'Contact', 'Telepon', 'Kota', 'Rating', 'Total PO', 'Status', 'Aksi'].map((h) => (
-                <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {pageData.map((row) => (
-              <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
-                <td className="erp-table-cell font-600 text-primary">{row.code}</td>
-                <td className="erp-table-cell font-600">{row.name}</td>
-                <td className="erp-table-cell text-muted-foreground">{row.category}</td>
-                <td className="erp-table-cell">{row.contact}</td>
-                <td className="erp-table-cell text-muted-foreground">{row.phone}</td>
-                <td className="erp-table-cell text-muted-foreground">{row.city}</td>
-                <td className="erp-table-cell">
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} size={11} className={i < row.rating ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground'} />
-                    ))}
-                  </div>
-                </td>
-                <td className="erp-table-cell text-center font-600">{row.totalPO}</td>
-                <td className="erp-table-cell">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 ${row.status === 'Aktif' ? 'status-disetujui' : 'status-draft'}`}>{row.status}</span>
-                </td>
-                <td className="erp-table-cell">
-                  <div className="flex items-center gap-1">
-                    <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"><Eye size={13} /></button>
-                    <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"><Edit2 size={13} /></button>
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px] border-collapse">
+            <thead>
+              <tr className="border-b-2 border-border bg-muted/40">
+                {['Kode', 'Nama Vendor', 'Contact', 'Telepon', 'Kota', 'Bank', 'Status'].map((h) => (
+                  <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
+                ))}
+                <th className="erp-table-cell erp-action-col text-muted-foreground font-600 text-xs uppercase tracking-wider">Aksi</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Memuat data...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Tidak ada vendor ditemukan</td></tr>
+              ) : filtered.map((row) => (
+                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+                  <td className="erp-table-cell font-600 text-primary">{row.code}</td>
+                  <td className="erp-table-cell font-600 max-w-[180px] truncate" title={row.name}>{row.name}</td>
+                  <td className="erp-table-cell">{row.contactPerson || '—'}</td>
+                  <td className="erp-table-cell text-muted-foreground">{row.phone || '—'}</td>
+                  <td className="erp-table-cell text-muted-foreground">{row.city || '—'}</td>
+                  <td className="erp-table-cell text-muted-foreground text-xs">
+                    {row.bankName ? `${row.bankName}${row.bankAccount ? ' · ' + row.bankAccount : ''}` : '—'}
+                  </td>
+                  <td className="erp-table-cell">
+                    <StatusBadge status={(row.isActive ? 'Aktif' : 'Tidak Aktif') as ActiveStatus} size="sm" />
+                  </td>
+                  <td className="erp-table-cell erp-action-col">
+                    <RowActionMenu items={[
+                      { icon: <Eye size={13} />,    label: 'Detail Vendor', onClick: () => openDetail(row) },
+                      { icon: <Edit2 size={13} />,  label: 'Edit Vendor',   onClick: () => openEdit(row) },
+                      { icon: <Trash2 size={13} />, label: 'Hapus Vendor',  onClick: () => handleDelete(row), danger: true, separator: true },
+                    ]} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <TablePagination page={page} totalPages={totalPages} totalCount={total} perPage={perPage} onPageChange={setPage} onPerPageChange={handlePerPageChange} />
       </div>
 
-      <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-        <span className="text-xs text-muted-foreground">Halaman {page} dari {totalPages}</span>
-        <div className="flex items-center gap-1">
-          <button className="btn-secondary py-1 px-2.5 text-xs" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}><ChevronLeft size={13} /></button>
-          <button className="btn-secondary py-1 px-2.5 text-xs" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}><ChevronRight size={13} /></button>
+      {/* Create / Edit Modal */}
+      <ERPModal
+        isOpen={modal === 'create' || modal === 'edit'}
+        onClose={closeModal}
+        title={modal === 'create' ? 'Tambah Vendor' : 'Edit Vendor'}
+        size="md"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={closeModal} disabled={saving}>Batal</button>
+            <button className="btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {field('Nama Vendor', 'name')}
+          {field('Contact Person', 'contactPerson')}
+          {field('Telepon', 'phone')}
+          {field('Email', 'email', 'email')}
+          {field('Kota', 'city')}
+          {field('NPWP', 'npwp')}
+          {field('Nama Bank', 'bankName')}
+          {field('No. Rekening', 'bankAccount')}
+          <div className="md:col-span-2">
+            <label className="erp-form-label">Alamat</label>
+            <textarea
+              className="erp-input resize-none"
+              rows={2}
+              value={form.address}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            />
+          </div>
         </div>
-      </div>
-    </div>
+      </ERPModal>
+
+      {/* Detail Modal */}
+      <ERPModal isOpen={modal === 'detail'} onClose={closeModal} title="Detail Vendor" size="md"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={closeModal}>Tutup</button>
+            <button className="btn-primary" onClick={() => { closeModal(); if (selected) openEdit(selected); }}>Edit</button>
+          </>
+        }
+      >
+        {selected && (
+          <div className="space-y-3 text-[13px]">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+              {[
+                ['Kode', selected.code], ['Nama', selected.name],
+                ['Contact', selected.contactPerson || '—'], ['Telepon', selected.phone || '—'],
+                ['Email', selected.email || '—'], ['Kota', selected.city || '—'],
+                ['NPWP', selected.npwp || '—'], ['Bank', selected.bankName || '—'],
+                ['No. Rekening', selected.bankAccount || '—'],
+              ].map(([label, val]) => (
+                <div key={label}>
+                  <p className="text-xs text-muted-foreground">{label}</p>
+                  <p className="font-500 text-foreground">{val}</p>
+                </div>
+              ))}
+            </div>
+            {selected.address && (
+              <div>
+                <p className="text-xs text-muted-foreground">Alamat</p>
+                <p className="font-500">{selected.address}</p>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <StatusBadge status={(selected.isActive ? 'Aktif' : 'Tidak Aktif') as ActiveStatus} />
+              <button
+                className={`text-xs px-3 py-1.5 rounded-md font-600 transition-colors ${selected.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                onClick={() => { handleToggleStatus(selected); closeModal(); }}
+              >
+                {selected.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+              </button>
+            </div>
+          </div>
+        )}
+      </ERPModal>
+    </>
   );
 }

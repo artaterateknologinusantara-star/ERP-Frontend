@@ -11,7 +11,7 @@ export default function CashOutPage() {
     >
       <div className="space-y-5">
         <FinanceSummaryCards />
-        <CashInTable />
+        <CashInTable type="cash-out" />
       </div>
     </AppLayout>
   );

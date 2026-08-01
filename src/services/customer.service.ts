@@ -1,24 +1,21 @@
 import { api } from '@/lib/api';
-import { Customer, ActiveStatus, PaginatedResponse } from '@/types';
+import { Customer, PaginatedResponse } from '@/types';
 
 export interface CustomerListParams {
   page?: number;
   perPage?: number;
   search?: string;
-  status?: ActiveStatus | 'Semua';
-  industry?: string;
-  city?: string;
+  isActive?: boolean;
 }
 
 export interface CreateCustomerDto {
-  code?: string;
   name: string;
-  industry: string;
-  contactPerson: string;
-  phone: string;
+  industry?: string;
+  contactPerson?: string;
+  phone?: string;
   email?: string;
   address?: string;
-  city: string;
+  city?: string;
   npwp?: string;
 }
 
@@ -28,9 +25,7 @@ export const customerService = {
       page: params?.page,
       perPage: params?.perPage,
       search: params?.search,
-      status: params?.status !== 'Semua' ? params?.status : undefined,
-      industry: params?.industry,
-      city: params?.city,
+      ...(params?.isActive !== undefined ? { isActive: String(params.isActive) } : {}),
     });
   },
 
@@ -46,8 +41,8 @@ export const customerService = {
     return api.put<Customer>(`/customers/${id}`, dto);
   },
 
-  setStatus(id: string, status: ActiveStatus) {
-    return api.patch<Customer>(`/customers/${id}/status`, { status });
+  setStatus(id: string, isActive: boolean) {
+    return api.patch<Customer>(`/customers/${id}/status`, { isActive });
   },
 
   delete(id: string) {
