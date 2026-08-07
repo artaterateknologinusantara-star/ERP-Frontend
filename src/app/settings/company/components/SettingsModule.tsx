@@ -1,8 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Save, Plus, Edit2, Trash2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Save, Plus, Edit2, Trash2, Loader2, ImagePlus } from 'lucide-react';
+import { toast } from 'sonner';
 import UsersTab from './UsersTab';
+import { companySettingsService } from '@/services/companySettings.service';
+import type { CompanySettings } from '@/types';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type SettingsTab = 'company' | 'branch' | 'users' | 'roles' | 'tax' | 'numbering' | 'preferences';
 
@@ -48,27 +53,257 @@ const numberingFormats = [
 ];
 
 export default function SettingsModule({ activeTab }: SettingsModuleProps) {
-  const [companyName, setCompanyName] = useState('PT Syntera Teknologi Indonesia');
-  const [companyEmail, setCompanyEmail] = useState('info@syntera.co.id');
-  const [companyPhone, setCompanyPhone] = useState('021-5550000');
-  const [companyAddress, setCompanyAddress] = useState('Jl. Sudirman No. 45, Jakarta Pusat 10220');
-  const [companyNPWP, setCompanyNPWP] = useState('01.234.567.8-901.000');
+  const [companyName, setCompanyName] = useState('');
+  const [companyEmail, setCompanyEmail] = useState('');
+  const [companyPhone, setCompanyPhone] = useState('');
+  const [companyAddress, setCompanyAddress] = useState('');
+  const [companyNPWP, setCompanyNPWP] = useState('');
+  const [documentPrefix, setDocumentPrefix] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountHolderName, setBankAccountHolderName] = useState('');
   const [currency, setCurrency] = useState('IDR');
   const [timezone, setTimezone] = useState('Asia/Jakarta');
 
+  // Not shown in this form, but round-tripped so saving doesn't null them out server-side
+  // (UpdateAsync writes every field on the request; leaving these out would wipe them).
+  const [website, setWebsite] = useState('');
+  const [footerText, setFooterText] = useState('');
+  const [signatureName, setSignatureName] = useState('');
+  const [signatureTitle, setSignatureTitle] = useState('');
+
+  const [companyNameError, setCompanyNameError] = useState('');
+  const [companyEmailError, setCompanyEmailError] = useState('');
+
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [logoFileName, setLogoFileName] = useState<string | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoUrlRef = useRef<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const setLogoPreview = (url: string | null) => {
+    if (logoUrlRef.current) URL.revokeObjectURL(logoUrlRef.current);
+    logoUrlRef.current = url;
+    setLogoPreviewUrl(url);
+  };
+
+  const applySettings = async (data: CompanySettings) => {
+    setCompanyName(data.companyName ?? '');
+    setCompanyEmail(data.email ?? '');
+    setCompanyPhone(data.phone ?? '');
+    setCompanyAddress(data.address ?? '');
+    setCompanyNPWP(data.npwp ?? '');
+    setDocumentPrefix(data.documentPrefix ?? '');
+    setBankName(data.bankName ?? '');
+    setBankAccountNumber(data.bankAccountNumber ?? '');
+    setBankAccountHolderName(data.bankAccountHolderName ?? '');
+    setWebsite(data.website ?? '');
+    setFooterText(data.footerText ?? '');
+    setSignatureName(data.signatureName ?? '');
+    setSignatureTitle(data.signatureTitle ?? '');
+    setLogoFileName(data.logoFileName ?? null);
+
+    if (data.logoPath) {
+      setLogoPreview(await companySettingsService.getLogoObjectUrl());
+    } else {
+      setLogoPreview(null);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'company') return;
+    let active = true;
+    setLoadingSettings(true);
+    companySettingsService
+      .get()
+      .then(async (res) => {
+        if (!active) return;
+        if (res.success && res.data) await applySettings(res.data);
+        else toast.error(res.message ?? 'Gagal memuat Company Settings');
+      })
+      .catch((err) => {
+        if (active) toast.error(err instanceof Error ? err.message : 'Gagal memuat Company Settings');
+      })
+      .finally(() => { if (active) setLoadingSettings(false); });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  useEffect(() => () => { if (logoUrlRef.current) URL.revokeObjectURL(logoUrlRef.current); }, []);
+
+  const validateCompanyProfile = () => {
+    let ok = true;
+    if (!companyName.trim()) {
+      setCompanyNameError('Nama Perusahaan wajib diisi.');
+      ok = false;
+    } else {
+      setCompanyNameError('');
+    }
+    if (companyEmail.trim() && !EMAIL_RE.test(companyEmail.trim())) {
+      setCompanyEmailError('Format Email tidak valid.');
+      ok = false;
+    } else {
+      setCompanyEmailError('');
+    }
+    return ok;
+  };
+
+  const handleSaveCompanyProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateCompanyProfile()) {
+      toast.error('Periksa kembali data yang wajib diisi.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await companySettingsService.update({
+        companyName: companyName.trim(),
+        address: companyAddress.trim() || undefined,
+        phone: companyPhone.trim() || undefined,
+        email: companyEmail.trim() || undefined,
+        website: website.trim() || undefined,
+        footerText: footerText.trim() || undefined,
+        signatureName: signatureName.trim() || undefined,
+        signatureTitle: signatureTitle.trim() || undefined,
+        documentPrefix: documentPrefix.trim() || undefined,
+        npwp: companyNPWP.trim() || undefined,
+        bankName: bankName.trim() || undefined,
+        bankAccountNumber: bankAccountNumber.trim() || undefined,
+        bankAccountHolderName: bankAccountHolderName.trim() || undefined,
+      });
+      if (res.success && res.data) {
+        await applySettings(res.data);
+        toast.success(res.message ?? 'Company Settings berhasil disimpan');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menyimpan Company Settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const res = await companySettingsService.uploadLogo(file);
+      if (res.success && res.data) {
+        await applySettings(res.data);
+        toast.success(res.message ?? 'Logo berhasil diunggah');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal mengunggah logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setUploadingLogo(true);
+    try {
+      const res = await companySettingsService.deleteLogo();
+      if (res.success && res.data) {
+        await applySettings(res.data);
+        toast.success(res.message ?? 'Logo berhasil dihapus');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menghapus logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   if (activeTab === 'company') {
+    if (loadingSettings) {
+      return (
+        <div className="erp-card shadow-card flex items-center justify-center gap-2 py-16 text-muted-foreground">
+          <Loader2 size={16} className="animate-spin" />
+          <span className="text-[13px]">Memuat Company Settings...</span>
+        </div>
+      );
+    }
     return (
-      <div className="space-y-5">
+      <form onSubmit={handleSaveCompanyProfile} className="space-y-5">
         <div className="erp-card shadow-card">
           <h3 className="text-[13px] font-700 text-foreground mb-4 pb-3 border-b border-border">Informasi Perusahaan</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-600 text-muted-foreground mb-1.5">Logo Perusahaan</label>
+              <div className="flex items-start gap-4">
+                <div
+                  className="border border-dashed border-border rounded-lg w-28 h-28 flex items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors overflow-hidden flex-shrink-0"
+                  onClick={() => logoInputRef.current?.click()}
+                >
+                  {uploadingLogo ? (
+                    <Loader2 size={18} className="animate-spin text-primary" />
+                  ) : logoPreviewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={logoPreviewUrl} alt="Logo perusahaan" className="w-full h-full object-contain" />
+                  ) : (
+                    <div className="text-center text-muted-foreground text-[11px] px-2">
+                      <ImagePlus size={16} className="mx-auto mb-1" />
+                      Klik untuk upload
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 pt-1">
+                  {logoFileName && (
+                    <div className="flex items-center gap-2 text-[13px] mb-1.5">
+                      <span className="font-500 text-foreground truncate max-w-[220px]">{logoFileName}</span>
+                      <button
+                        type="button"
+                        onClick={handleRemoveLogo}
+                        disabled={uploadingLogo}
+                        className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">Format PNG, JPG, GIF, atau WEBP. Maksimal 2MB.</p>
+                </div>
+              </div>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept=".png,.jpg,.jpeg,.gif,.webp"
+                className="hidden"
+                onChange={handleLogoFileChange}
+              />
+            </div>
             <div>
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">Nama Perusahaan <span className="text-red-500">*</span></label>
-              <input type="text" className="erp-input" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+              <input
+                type="text"
+                className={`erp-input ${companyNameError ? 'border-red-500' : ''}`}
+                value={companyName}
+                onChange={(e) => {
+                  setCompanyName(e.target.value);
+                  if (e.target.value.trim()) setCompanyNameError('');
+                }}
+                onBlur={validateCompanyProfile}
+              />
+              {companyNameError && <p className="text-xs text-red-500 mt-1">{companyNameError}</p>}
             </div>
             <div>
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">Email Perusahaan</label>
-              <input type="email" className="erp-input" value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} />
+              <input
+                type="email"
+                className={`erp-input ${companyEmailError ? 'border-red-500' : ''}`}
+                value={companyEmail}
+                onChange={(e) => {
+                  setCompanyEmail(e.target.value);
+                  if (!e.target.value.trim() || EMAIL_RE.test(e.target.value.trim())) setCompanyEmailError('');
+                }}
+                onBlur={validateCompanyProfile}
+              />
+              {companyEmailError && <p className="text-xs text-red-500 mt-1">{companyEmailError}</p>}
             </div>
             <div>
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">Telepon</label>
@@ -76,11 +311,21 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
             </div>
             <div>
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">NPWP</label>
-              <input type="text" className="erp-input" value={companyNPWP} onChange={(e) => setCompanyNPWP(e.target.value)} />
+              <input type="text" maxLength={20} className="erp-input" value={companyNPWP} onChange={(e) => setCompanyNPWP(e.target.value)} />
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">Alamat</label>
               <textarea className="erp-input resize-none" rows={2} value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-600 text-muted-foreground mb-1.5">Kode/Prefix Dokumen</label>
+              <input type="text" maxLength={20} className="erp-input" value={documentPrefix} onChange={(e) => setDocumentPrefix(e.target.value)} />
+              <p className="text-xs text-muted-foreground mt-1">
+                Contoh: ABC atau NAMAPERUSAHAAN — akan dipakai di nomor dokumen baru, seperti INV.ABC-26.0001.
+              </p>
+              <p className="text-xs text-amber-600 mt-1">
+                Mengubah prefix ini tidak akan mempengaruhi dokumen yang sudah ada, hanya dokumen baru ke depan.
+              </p>
             </div>
             <div>
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">Mata Uang</label>
@@ -88,6 +333,7 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
                 <option value="IDR">IDR — Rupiah Indonesia</option>
                 <option value="USD">USD — US Dollar</option>
               </select>
+              <p className="text-xs text-muted-foreground mt-1">Preferensi tampilan lokal (belum tersimpan ke server).</p>
             </div>
             <div>
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">Zona Waktu</label>
@@ -96,13 +342,35 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
                 <option value="Asia/Makassar">Asia/Makassar (WITA)</option>
                 <option value="Asia/Jayapura">Asia/Jayapura (WIT)</option>
               </select>
+              <p className="text-xs text-muted-foreground mt-1">Preferensi tampilan lokal (belum tersimpan ke server).</p>
             </div>
           </div>
-          <div className="flex justify-end mt-4 pt-4 border-t border-border">
-            <button className="btn-primary"><Save size={14} /> Simpan Perubahan</button>
+        </div>
+
+        <div className="erp-card shadow-card">
+          <h3 className="text-[13px] font-700 text-foreground mb-4 pb-3 border-b border-border">Informasi Bank</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-600 text-muted-foreground mb-1.5">Nama Bank</label>
+              <input type="text" className="erp-input" value={bankName} onChange={(e) => setBankName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs font-600 text-muted-foreground mb-1.5">Nomor Rekening</label>
+              <input type="text" className="erp-input" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs font-600 text-muted-foreground mb-1.5">Nama Pemilik Rekening</label>
+              <input type="text" className="erp-input" value={bankAccountHolderName} onChange={(e) => setBankAccountHolderName(e.target.value)} />
+            </div>
           </div>
         </div>
-      </div>
+
+        <div className="flex justify-end pt-1">
+          <button type="submit" className="btn-primary" disabled={saving || !companyName.trim()}>
+            {saving ? <><Loader2 size={14} className="animate-spin" /> Menyimpan...</> : <><Save size={14} /> Simpan Perubahan</>}
+          </button>
+        </div>
+      </form>
     );
   }
 

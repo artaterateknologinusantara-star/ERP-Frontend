@@ -328,6 +328,28 @@ export interface AuthState {
   isAuthenticated: boolean;
 }
 
+// ─── Company Settings ──────────────────────────────────────────────────────────
+
+export interface CompanySettings {
+  id: string;
+  companyName: string;
+  logoPath?: string | null;
+  logoFileName?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  footerText?: string | null;
+  signatureName?: string | null;
+  signatureTitle?: string | null;
+  documentPrefix?: string | null;
+  npwp?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  bankAccountHolderName?: string | null;
+  updatedAt: string;
+}
+
 // ─── Table / UI Helpers ───────────────────────────────────────────────────────
 
 export interface SummaryCardData {
