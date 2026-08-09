@@ -20,7 +20,10 @@ async function request<T>(
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
-  if (res.status === 401) {
+  // 401 from /auth/login itself means "wrong credentials", not "session expired" — falling through
+  // to the generic handling below lets the caller's own error message (from the response body) surface,
+  // instead of this redirecting to /login (the page the user is already on) and swallowing that message.
+  if (res.status === 401 && path !== '/auth/login') {
     localStorage.removeItem('syntera_token');
     localStorage.removeItem('syntera_user');
     window.location.href = '/login';
