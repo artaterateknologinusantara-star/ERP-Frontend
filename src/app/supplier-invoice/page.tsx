@@ -7,7 +7,7 @@ export default function SupplierInvoicePage() {
   return (
     <AppLayout
       title="Supplier Invoice"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Purchasing' }, { label: 'Supplier Invoice' }]}
+      breadcrumbs={[{ label: 'Purchasing' }, { label: 'Supplier Invoice' }]}
     >
       <div className="space-y-5">
         <APSummaryCards />

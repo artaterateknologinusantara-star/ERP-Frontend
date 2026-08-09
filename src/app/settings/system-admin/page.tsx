@@ -7,7 +7,6 @@ export default function SystemAdminPage() {
     <AppLayout
       title="System Administration"
       breadcrumbs={[
-        { label: 'SynteraERP' },
         { label: 'Settings' },
         { label: 'System Administration' },
       ]}

@@ -6,7 +6,7 @@ export default function SettingsNumberingPage() {
   return (
     <AppLayout
       title="Numbering Format"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Settings' }, { label: 'Numbering Format' }]}
+      breadcrumbs={[{ label: 'Settings' }, { label: 'Numbering Format' }]}
     >
       <SettingsModule activeTab="numbering" />
     </AppLayout>

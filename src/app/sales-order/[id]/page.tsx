@@ -464,7 +464,7 @@ export default function SalesOrderDetailPage() {
   if (loading) {
     return (
       <AppLayout title="Sales Order Detail" breadcrumbs={[
-        { label: 'SynteraERP' }, { label: 'Sales' },
+        { label: 'Sales' },
         { label: 'Sales Order', href: '/sales-order' }, { label: '...' },
       ]}>
         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Memuat data...</div>
@@ -475,7 +475,7 @@ export default function SalesOrderDetailPage() {
   if (!so) {
     return (
       <AppLayout title="Sales Order Detail" breadcrumbs={[
-        { label: 'SynteraERP' }, { label: 'Sales' },
+        { label: 'Sales' },
         { label: 'Sales Order', href: '/sales-order' }, { label: 'Tidak ditemukan' },
       ]}>
         <div className="text-center py-20 text-muted-foreground text-sm">Sales Order tidak ditemukan.</div>
@@ -487,7 +487,7 @@ export default function SalesOrderDetailPage() {
     <AppLayout
       title={`SO ${so.no}`}
       breadcrumbs={[
-        { label: 'SynteraERP' }, { label: 'Sales' },
+        { label: 'Sales' },
         { label: 'Sales Order', href: '/sales-order' }, { label: so.no },
       ]}
     >

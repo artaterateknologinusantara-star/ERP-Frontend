@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
+import { companySettingsService } from '@/services/companySettings.service';
 import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database, Calculator } from 'lucide-react';
 
 interface NavItem {
@@ -159,6 +161,20 @@ const findActiveHref = (pathname: string): string | undefined => {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const { data: companySettings } = useCompanySettings();
+  const companyName = companySettings?.companyName || 'SynteraERP';
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!companySettings?.logoPath) { setLogoUrl(null); return; }
+    let currentUrl: string | null = null;
+    companySettingsService.getLogoObjectUrl().then((url) => {
+      currentUrl = url;
+      setLogoUrl(url);
+    });
+    return () => { if (currentUrl) URL.revokeObjectURL(currentUrl); };
+  }, [companySettings?.logoPath]);
+
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     navGroups.forEach((g) => { init[g.id] = g.defaultOpen ?? false; });
@@ -199,10 +215,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center h-14 px-4 border-b border-border flex-shrink-0 overflow-hidden">
         <div className="flex items-center gap-2 min-w-0">
-          <AppLogo size={28} />
+          <AppLogo size={28} src={logoUrl ?? undefined} />
           {!collapsed && (
-            <span className="font-extrabold text-xl text-foreground tracking-tight whitespace-nowrap">
-              Syntera<span className="text-primary">ERP</span>
+            <span className="font-extrabold text-xl text-foreground tracking-tight whitespace-nowrap truncate">
+              {companyName}
             </span>
           )}
         </div>

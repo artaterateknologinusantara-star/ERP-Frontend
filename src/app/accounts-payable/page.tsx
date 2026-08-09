@@ -7,7 +7,7 @@ export default function AccountsPayablePage() {
   return (
     <AppLayout
       title="Accounts Payable"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Finance' }, { label: 'Accounts Payable' }]}
+      breadcrumbs={[{ label: 'Finance' }, { label: 'Accounts Payable' }]}
     >
       <div className="space-y-5">
         <APSummaryCards />

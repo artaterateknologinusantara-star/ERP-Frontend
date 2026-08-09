@@ -23,12 +23,34 @@ export interface UpdateCompanySettingsDto {
   bankAccountHolderName?: string;
 }
 
+export interface PublicCompanySettings {
+  companyName: string;
+  hasLogo: boolean;
+}
+
+export interface NumberingConfigEntry {
+  docType: string;
+  prefix: string;
+  lastNumber: number;
+}
+
+export interface RegeneratePrefixesResponse {
+  updatedCount: number;
+  numberingConfigs: NumberingConfigEntry[];
+}
+
 async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
   const err = await res.json().catch(() => null);
   return err?.message ?? fallback;
 }
 
 export const companySettingsService = {
+  // No auth required — safe to call before login (login page, browser tab title).
+  getPublic(): Promise<ApiResponse<PublicCompanySettings>> {
+    return fetch(`${BASE_URL}/company-settings/public`)
+      .then((r) => r.json() as Promise<ApiResponse<PublicCompanySettings>>);
+  },
+
   get(): Promise<ApiResponse<CompanySettings>> {
     const token = getToken();
     return fetch(`${BASE_URL}/company-settings`, {
@@ -75,6 +97,17 @@ export const companySettingsService = {
 
     if (!res.ok) throw new Error(await parseErrorMessage(res, 'Gagal menghapus logo'));
     return res.json() as Promise<ApiResponse<CompanySettings>>;
+  },
+
+  async regeneratePrefixes(): Promise<ApiResponse<RegeneratePrefixesResponse>> {
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/company-settings/regenerate-prefixes`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+
+    if (!res.ok) throw new Error(await parseErrorMessage(res, 'Gagal memperbarui prefix dokumen'));
+    return res.json() as Promise<ApiResponse<RegeneratePrefixesResponse>>;
   },
 
   // GetLogo is [Authorize]-protected (no query-string token support server-side), so an <img src="...">

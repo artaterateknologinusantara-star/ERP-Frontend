@@ -7,7 +7,7 @@ export default function CustomerPage() {
   return (
     <AppLayout
       title="Customer"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Sales' }, { label: 'Customer' }]}
+      breadcrumbs={[{ label: 'Sales' }, { label: 'Customer' }]}
     >
       <div className="space-y-5">
         <CustomerSummaryCards />

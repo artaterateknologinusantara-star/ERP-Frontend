@@ -6,7 +6,7 @@ export default function ReportsPurchasingPage() {
   return (
     <AppLayout
       title="Purchasing Report"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Reports' }, { label: 'Purchasing Report' }]}
+      breadcrumbs={[{ label: 'Reports' }, { label: 'Purchasing Report' }]}
     >
       <ReportsModule reportType="purchasing" />
     </AppLayout>

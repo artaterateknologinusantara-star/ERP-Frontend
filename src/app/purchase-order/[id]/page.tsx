@@ -160,7 +160,7 @@ export default function PurchaseOrderDetailPage() {
 
   if (loading) {
     return (
-      <AppLayout title="Purchase Order Detail" breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Purchasing' }, { label: 'Purchase Order', href: '/purchase-order' }, { label: '...' }]}>
+      <AppLayout title="Purchase Order Detail" breadcrumbs={[{ label: 'Purchasing' }, { label: 'Purchase Order', href: '/purchase-order' }, { label: '...' }]}>
         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Memuat data...</div>
       </AppLayout>
     );
@@ -168,7 +168,7 @@ export default function PurchaseOrderDetailPage() {
 
   if (!po) {
     return (
-      <AppLayout title="Purchase Order Detail" breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Purchasing' }, { label: 'Purchase Order', href: '/purchase-order' }, { label: 'Tidak ditemukan' }]}>
+      <AppLayout title="Purchase Order Detail" breadcrumbs={[{ label: 'Purchasing' }, { label: 'Purchase Order', href: '/purchase-order' }, { label: 'Tidak ditemukan' }]}>
         <div className="text-center py-20 text-muted-foreground text-sm">Purchase Order tidak ditemukan.</div>
       </AppLayout>
     );
@@ -177,7 +177,7 @@ export default function PurchaseOrderDetailPage() {
   return (
     <AppLayout
       title={`PO ${po.no}`}
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Purchasing' }, { label: 'Purchase Order', href: '/purchase-order' }, { label: po.no }]}
+      breadcrumbs={[{ label: 'Purchasing' }, { label: 'Purchase Order', href: '/purchase-order' }, { label: po.no }]}
     >
       <div className="space-y-6">
 

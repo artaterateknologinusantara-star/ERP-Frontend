@@ -9,7 +9,7 @@ export default function DashboardPage() {
   return (
     <AppLayout
       title="Dashboard"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Dashboard' }]}
+      breadcrumbs={[{ label: 'Dashboard' }]}
     >
       <div className="space-y-5">
         {/* KPI Cards */}

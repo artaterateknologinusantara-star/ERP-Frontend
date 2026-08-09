@@ -6,7 +6,7 @@ export default function TrialBalancePage() {
   return (
     <AppLayout
       title="Trial Balance"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Accounting' }, { label: 'Trial Balance' }]}
+      breadcrumbs={[{ label: 'Accounting' }, { label: 'Trial Balance' }]}
     >
       <div className="space-y-5">
         <TrialBalanceReport />

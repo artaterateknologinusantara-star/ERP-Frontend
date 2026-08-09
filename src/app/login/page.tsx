@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
+import { usePublicCompanySettings } from '@/hooks/useCompanySettings';
 
 interface LoginResponse {
   token: string;
@@ -16,6 +17,8 @@ interface LoginResponse {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { data: publicSettings } = usePublicCompanySettings();
+  const companyName = publicSettings?.companyName || 'Syntera ERP';
   const [email, setEmail] = useState('admin@syntera.id');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -52,7 +55,7 @@ export default function LoginPage() {
           <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4">
             <LogIn size={22} className="text-white" />
           </div>
-          <h1 className="text-2xl font-700 text-foreground">Syntera ERP</h1>
+          <h1 className="text-2xl font-700 text-foreground">{companyName}</h1>
           <p className="text-sm text-muted-foreground mt-1">Masuk ke akun Anda</p>
         </div>
 
@@ -105,7 +108,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Syntera ERP &copy; {new Date().getFullYear()}
+          {companyName} &copy; {new Date().getFullYear()}
         </p>
       </div>
     </div>

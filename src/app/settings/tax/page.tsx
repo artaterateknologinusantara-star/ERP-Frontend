@@ -6,7 +6,7 @@ export default function SettingsTaxPage() {
   return (
     <AppLayout
       title="Tax Settings"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Settings' }, { label: 'Tax Settings' }]}
+      breadcrumbs={[{ label: 'Settings' }, { label: 'Tax Settings' }]}
     >
       <SettingsModule activeTab="tax" />
     </AppLayout>

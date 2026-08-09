@@ -6,7 +6,7 @@ export default function SettingsUsersPage() {
   return (
     <AppLayout
       title="User Management"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Settings' }, { label: 'User Management' }]}
+      breadcrumbs={[{ label: 'Settings' }, { label: 'User Management' }]}
     >
       <SettingsModule activeTab="users" />
     </AppLayout>

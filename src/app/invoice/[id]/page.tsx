@@ -115,7 +115,7 @@ export default function InvoiceDetailPage() {
     return (
       <AppLayout
         title="Invoice Detail"
-        breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Sales' }, { label: 'Invoice', href: '/invoice' }, { label: '...' }]}
+        breadcrumbs={[{ label: 'Sales' }, { label: 'Invoice', href: '/invoice' }, { label: '...' }]}
       >
         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Memuat data...</div>
       </AppLayout>
@@ -126,7 +126,7 @@ export default function InvoiceDetailPage() {
     return (
       <AppLayout
         title="Invoice Detail"
-        breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Sales' }, { label: 'Invoice', href: '/invoice' }, { label: 'Tidak ditemukan' }]}
+        breadcrumbs={[{ label: 'Sales' }, { label: 'Invoice', href: '/invoice' }, { label: 'Tidak ditemukan' }]}
       >
         <div className="text-center py-20 text-muted-foreground text-sm">Invoice tidak ditemukan.</div>
       </AppLayout>
@@ -137,7 +137,6 @@ export default function InvoiceDetailPage() {
     <AppLayout
       title={`Invoice ${inv.no}`}
       breadcrumbs={[
-        { label: 'SynteraERP' },
         { label: 'Sales' },
         { label: 'Invoice', href: '/invoice' },
         { label: inv.no },

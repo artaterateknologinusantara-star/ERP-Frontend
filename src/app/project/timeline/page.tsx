@@ -6,7 +6,7 @@ export default function ProjectTimelinePage() {
   return (
     <AppLayout
       title="Timeline"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Project' }, { label: 'Timeline' }]}
+      breadcrumbs={[{ label: 'Project' }, { label: 'Timeline' }]}
     >
       <div className="space-y-5">
         <ProjectSummaryCards />

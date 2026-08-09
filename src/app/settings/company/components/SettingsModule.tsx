@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Save, Plus, Edit2, Trash2, Loader2, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import UsersTab from './UsersTab';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { companySettingsService } from '@/services/companySettings.service';
 import type { CompanySettings } from '@/types';
 
@@ -53,12 +55,16 @@ const numberingFormats = [
 ];
 
 export default function SettingsModule({ activeTab }: SettingsModuleProps) {
+  const queryClient = useQueryClient();
   const [companyName, setCompanyName] = useState('');
   const [companyEmail, setCompanyEmail] = useState('');
   const [companyPhone, setCompanyPhone] = useState('');
   const [companyAddress, setCompanyAddress] = useState('');
   const [companyNPWP, setCompanyNPWP] = useState('');
   const [documentPrefix, setDocumentPrefix] = useState('');
+  const [savedDocumentPrefix, setSavedDocumentPrefix] = useState('');
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const [bankName, setBankName] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankAccountHolderName, setBankAccountHolderName] = useState('');
@@ -97,6 +103,7 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
     setCompanyAddress(data.address ?? '');
     setCompanyNPWP(data.npwp ?? '');
     setDocumentPrefix(data.documentPrefix ?? '');
+    setSavedDocumentPrefix(data.documentPrefix ?? '');
     setBankName(data.bankName ?? '');
     setBankAccountNumber(data.bankAccountNumber ?? '');
     setBankAccountHolderName(data.bankAccountHolderName ?? '');
@@ -176,12 +183,30 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
       });
       if (res.success && res.data) {
         await applySettings(res.data);
+        queryClient.invalidateQueries({ queryKey: ['company-settings'] });
         toast.success(res.message ?? 'Company Settings berhasil disimpan');
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal menyimpan Company Settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const hasUnsavedDocumentPrefix = documentPrefix.trim() !== savedDocumentPrefix.trim();
+
+  const handleRegeneratePrefixes = async () => {
+    setRegenerating(true);
+    try {
+      const res = await companySettingsService.regeneratePrefixes();
+      if (res.success && res.data) {
+        toast.success(res.message ?? `Prefix diperbarui untuk ${res.data.updatedCount} tipe dokumen.`);
+        setShowRegenerateConfirm(false);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal memperbarui prefix dokumen');
+    } finally {
+      setRegenerating(false);
     }
   };
 
@@ -194,6 +219,7 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
       const res = await companySettingsService.uploadLogo(file);
       if (res.success && res.data) {
         await applySettings(res.data);
+        queryClient.invalidateQueries({ queryKey: ['company-settings'] });
         toast.success(res.message ?? 'Logo berhasil diunggah');
       }
     } catch (err) {
@@ -210,6 +236,7 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
       const res = await companySettingsService.deleteLogo();
       if (res.success && res.data) {
         await applySettings(res.data);
+        queryClient.invalidateQueries({ queryKey: ['company-settings'] });
         toast.success(res.message ?? 'Logo berhasil dihapus');
       }
     } catch (err) {
@@ -229,6 +256,7 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
       );
     }
     return (
+      <>
       <form onSubmit={handleSaveCompanyProfile} className="space-y-5">
         <div className="erp-card shadow-card">
           <h3 className="text-[13px] font-700 text-foreground mb-4 pb-3 border-b border-border">Informasi Perusahaan</h3>
@@ -326,6 +354,22 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
               <p className="text-xs text-amber-600 mt-1">
                 Mengubah prefix ini tidak akan mempengaruhi dokumen yang sudah ada, hanya dokumen baru ke depan.
               </p>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  className="btn-secondary text-xs"
+                  disabled={hasUnsavedDocumentPrefix || !savedDocumentPrefix}
+                  title={hasUnsavedDocumentPrefix ? 'Simpan perubahan Kode/Prefix Dokumen dulu sebelum menerapkannya' : undefined}
+                  onClick={() => setShowRegenerateConfirm(true)}
+                >
+                  Terapkan Prefix ke Dokumen Baru
+                </button>
+                {hasUnsavedDocumentPrefix && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Simpan perubahan Kode/Prefix Dokumen di atas dulu (klik &quot;Simpan Perubahan&quot;) sebelum menerapkannya ke dokumen baru.
+                  </p>
+                )}
+              </div>
             </div>
             <div>
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">Mata Uang</label>
@@ -371,6 +415,18 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
           </button>
         </div>
       </form>
+
+      <ConfirmModal
+        isOpen={showRegenerateConfirm}
+        onClose={() => setShowRegenerateConfirm(false)}
+        onConfirm={handleRegeneratePrefixes}
+        loading={regenerating}
+        variant="default"
+        title="Terapkan Prefix ke Dokumen Baru?"
+        description={`Ini akan mengubah prefix nomor dokumen BARU ke depan (contoh: Q.SYN jadi Q.${savedDocumentPrefix || 'SYN'}). Dokumen yang SUDAH ADA tidak akan berubah nomornya.`}
+        confirmLabel="Terapkan"
+      />
+    </>
     );
   }
 

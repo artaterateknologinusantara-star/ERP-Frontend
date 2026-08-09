@@ -7,7 +7,7 @@ export default function BankPage() {
   return (
     <AppLayout
       title="Bank"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Finance' }, { label: 'Bank' }]}
+      breadcrumbs={[{ label: 'Finance' }, { label: 'Bank' }]}
     >
       <div className="space-y-5">
         <FinanceSummaryCards />

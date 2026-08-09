@@ -6,7 +6,7 @@ export default function SettingsBranchPage() {
   return (
     <AppLayout
       title="Branch Management"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Settings' }, { label: 'Branch' }]}
+      breadcrumbs={[{ label: 'Settings' }, { label: 'Branch' }]}
     >
       <SettingsModule activeTab="branch" />
     </AppLayout>

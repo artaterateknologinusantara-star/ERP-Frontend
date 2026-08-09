@@ -7,7 +7,7 @@ export default function VendorPage() {
   return (
     <AppLayout
       title="Vendor"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Purchasing' }, { label: 'Vendor' }]}
+      breadcrumbs={[{ label: 'Purchasing' }, { label: 'Vendor' }]}
     >
       <div className="space-y-5">
         <VendorSummaryCards />

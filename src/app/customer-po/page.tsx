@@ -69,7 +69,7 @@ export default function CustomerPoPage() {
   return (
     <AppLayout
       title="Customer PO"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Sales' }, { label: 'Customer PO' }]}
+      breadcrumbs={[{ label: 'Sales' }, { label: 'Customer PO' }]}
     >
       <div className="space-y-5">
 

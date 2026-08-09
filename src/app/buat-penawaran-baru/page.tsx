@@ -7,7 +7,6 @@ export default function BuatPenawaranBaruPage() {
     <AppLayout
       title="Buat Penawaran Baru"
       breadcrumbs={[
-        { label: 'SynteraERP' },
         { label: 'Penawaran' },
         { label: 'Riwayat Penawaran', href: '/riwayat-penawaran' },
         { label: 'Buat Penawaran Baru' },

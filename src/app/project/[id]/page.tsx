@@ -74,7 +74,7 @@ export default function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <AppLayout title="Detail Project" breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Project' }, { label: 'Detail' }]}>
+      <AppLayout title="Detail Project" breadcrumbs={[{ label: 'Project' }, { label: 'Detail' }]}>
         <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Memuat data...</div>
       </AppLayout>
     );
@@ -82,7 +82,7 @@ export default function ProjectDetailPage() {
 
   if (!detail) {
     return (
-      <AppLayout title="Detail Project" breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Project' }, { label: 'Detail' }]}>
+      <AppLayout title="Detail Project" breadcrumbs={[{ label: 'Project' }, { label: 'Detail' }]}>
         <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">Project tidak ditemukan.</div>
       </AppLayout>
     );
@@ -95,7 +95,6 @@ export default function ProjectDetailPage() {
     <AppLayout
       title={detail.name}
       breadcrumbs={[
-        { label: 'SynteraERP' },
         { label: 'Project', href: '/project' },
         { label: detail.code },
       ]}

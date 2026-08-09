@@ -6,7 +6,7 @@ export default function SettingsPreferencesPage() {
   return (
     <AppLayout
       title="ERP Preferences"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Settings' }, { label: 'ERP Preferences' }]}
+      breadcrumbs={[{ label: 'Settings' }, { label: 'ERP Preferences' }]}
     >
       <SettingsModule activeTab="preferences" />
     </AppLayout>

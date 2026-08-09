@@ -6,7 +6,7 @@ export default function SettingsRolesPage() {
   return (
     <AppLayout
       title="Role Management"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Settings' }, { label: 'Role Management' }]}
+      breadcrumbs={[{ label: 'Settings' }, { label: 'Role Management' }]}
     >
       <SettingsModule activeTab="roles" />
     </AppLayout>

@@ -6,7 +6,7 @@ export default function ExpensePage() {
   return (
     <AppLayout
       title="Expense Management"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Finance' }, { label: 'Expense Management' }]}
+      breadcrumbs={[{ label: 'Finance' }, { label: 'Expense Management' }]}
     >
       <ExpenseTable />
     </AppLayout>

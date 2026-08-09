@@ -6,7 +6,7 @@ export default function ExpenseCategoryPage() {
   return (
     <AppLayout
       title="Kategori Pengeluaran"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Finance' }, { label: 'Kategori Pengeluaran' }]}
+      breadcrumbs={[{ label: 'Finance' }, { label: 'Kategori Pengeluaran' }]}
     >
       <ExpenseCategoryTable />
     </AppLayout>

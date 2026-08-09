@@ -6,7 +6,7 @@ export default function StockInPage() {
   return (
     <AppLayout
       title="Stock In"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Inventory' }, { label: 'Stock In' }]}
+      breadcrumbs={[{ label: 'Inventory' }, { label: 'Stock In' }]}
     >
       <StockInContent />
     </AppLayout>

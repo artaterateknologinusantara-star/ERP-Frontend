@@ -157,7 +157,6 @@ export default function OpeningBalancePage() {
     <AppLayout
       title="Opening Balance"
       breadcrumbs={[
-        { label: 'SynteraERP' },
         { label: 'Accounting' },
         { label: 'Opening Balance' },
       ]}

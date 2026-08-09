@@ -6,7 +6,7 @@ export default function PpnReconciliationPage() {
   return (
     <AppLayout
       title="Rekapitulasi PPN"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Accounting' }, { label: 'Rekapitulasi PPN' }]}
+      breadcrumbs={[{ label: 'Accounting' }, { label: 'Rekapitulasi PPN' }]}
     >
       <div className="space-y-5">
         <PpnReconciliationReport />

@@ -113,7 +113,7 @@ export default function WarehousePage() {
   return (
     <AppLayout
       title="Warehouse"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Inventory' }, { label: 'Warehouse' }]}
+      breadcrumbs={[{ label: 'Inventory' }, { label: 'Warehouse' }]}
     >
       <div className="space-y-6">
 

@@ -202,7 +202,7 @@ export default function BuatDOPage() {
     <AppLayout
       title="Buat Delivery Order"
       breadcrumbs={[
-        { label: 'SynteraERP' }, { label: 'Inventory' },
+        { label: 'Inventory' },
         { label: 'Stock Out / DO', href: '/stock-out' },
         { label: 'Buat DO' },
       ]}

@@ -217,7 +217,6 @@ export default function BuatPurchaseRequestPage() {
     <AppLayout
       title="Buat Purchase Request"
       breadcrumbs={[
-        { label: 'SynteraERP' },
         { label: 'Purchasing' },
         { label: 'Purchase Request', href: '/purchase-request' },
         { label: 'Buat Baru' },

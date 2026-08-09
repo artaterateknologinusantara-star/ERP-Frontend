@@ -7,7 +7,7 @@ export default function ItemMasterPage() {
   return (
     <AppLayout
       title="Item Master"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Inventory' }, { label: 'Item Master' }]}
+      breadcrumbs={[{ label: 'Inventory' }, { label: 'Item Master' }]}
     >
       <div className="space-y-5">
         <InventorySummaryCards />

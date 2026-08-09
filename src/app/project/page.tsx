@@ -8,7 +8,7 @@ export default function ProjectPage() {
   return (
     <AppLayout
       title="Project Dashboard"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Project' }, { label: 'Project Dashboard' }]}
+      breadcrumbs={[{ label: 'Project' }, { label: 'Project Dashboard' }]}
     >
       <div className="space-y-5">
         <ProjectSummaryCards />

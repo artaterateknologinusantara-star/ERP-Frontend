@@ -342,7 +342,6 @@ export default function BuatSalesOrderPage() {
     <AppLayout
       title="Buat Sales Order"
       breadcrumbs={[
-        { label: 'SynteraERP' },
         { label: 'Sales' },
         { label: 'Sales Order', href: '/sales-order' },
         { label: 'Buat Baru' },

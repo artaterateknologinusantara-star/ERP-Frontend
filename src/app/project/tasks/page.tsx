@@ -7,7 +7,7 @@ export default function ProjectTasksPage() {
   return (
     <AppLayout
       title="Task Management"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Project' }, { label: 'Task Management' }]}
+      breadcrumbs={[{ label: 'Project' }, { label: 'Task Management' }]}
     >
       <div className="space-y-5">
         <ProjectSummaryCards />

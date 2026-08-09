@@ -82,7 +82,6 @@ export default function BuatExpensePage() {
     <AppLayout
       title="Buat Expense"
       breadcrumbs={[
-        { label: 'SynteraERP' },
         { label: 'Finance' },
         { label: 'Expense Management', href: '/expense' },
         { label: 'Buat Baru' },

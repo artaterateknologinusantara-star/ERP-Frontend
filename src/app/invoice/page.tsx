@@ -9,7 +9,7 @@ export default function InvoicePage() {
   return (
     <AppLayout
       title="Invoice"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Sales' }, { label: 'Invoice' }]}
+      breadcrumbs={[{ label: 'Sales' }, { label: 'Invoice' }]}
     >
       <div className="space-y-5">
         <InvoiceSummaryCards />

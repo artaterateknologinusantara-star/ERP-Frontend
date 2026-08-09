@@ -7,7 +7,7 @@ export default function PurchaseOrderPage() {
   return (
     <AppLayout
       title="Purchase Order"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Purchasing' }, { label: 'Purchase Order' }]}
+      breadcrumbs={[{ label: 'Purchasing' }, { label: 'Purchase Order' }]}
     >
       <div className="space-y-5">
         <PurchaseOrderSummaryCards />

@@ -7,7 +7,7 @@ export default function AccountsReceivablePage() {
   return (
     <AppLayout
       title="Accounts Receivable"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Finance' }, { label: 'Accounts Receivable' }]}
+      breadcrumbs={[{ label: 'Finance' }, { label: 'Accounts Receivable' }]}
     >
       <div className="space-y-5">
         <ARSummaryCards />

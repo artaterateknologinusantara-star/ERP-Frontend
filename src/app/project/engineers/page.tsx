@@ -6,7 +6,7 @@ export default function ProjectEngineersPage() {
   return (
     <AppLayout
       title="Engineer Assignment"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Project' }, { label: 'Engineer Assignment' }]}
+      breadcrumbs={[{ label: 'Project' }, { label: 'Engineer Assignment' }]}
     >
       <div className="space-y-5">
         <ProjectSummaryCards />

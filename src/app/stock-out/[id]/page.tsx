@@ -91,7 +91,7 @@ export default function DeliveryOrderDetailPage() {
       <AppLayout
         title="Delivery Order Detail"
         breadcrumbs={[
-          { label: 'SynteraERP' }, { label: 'Inventory' },
+          { label: 'Inventory' },
           { label: 'Stock Out / DO', href: '/stock-out' }, { label: '...' },
         ]}
       >
@@ -105,7 +105,7 @@ export default function DeliveryOrderDetailPage() {
       <AppLayout
         title="Delivery Order Detail"
         breadcrumbs={[
-          { label: 'SynteraERP' }, { label: 'Inventory' },
+          { label: 'Inventory' },
           { label: 'Stock Out / DO', href: '/stock-out' }, { label: 'Tidak ditemukan' },
         ]}
       >
@@ -118,7 +118,7 @@ export default function DeliveryOrderDetailPage() {
     <AppLayout
       title={`DO ${do_.no}`}
       breadcrumbs={[
-        { label: 'SynteraERP' }, { label: 'Inventory' },
+        { label: 'Inventory' },
         { label: 'Stock Out / DO', href: '/stock-out' },
         { label: do_.no },
       ]}

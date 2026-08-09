@@ -7,7 +7,7 @@ export default function StockAdjustmentPage() {
   return (
     <AppLayout
       title="Stock Adjustment"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Inventory' }, { label: 'Stock Adjustment' }]}
+      breadcrumbs={[{ label: 'Inventory' }, { label: 'Stock Adjustment' }]}
     >
       <div className="space-y-5">
         <InventorySummaryCards />

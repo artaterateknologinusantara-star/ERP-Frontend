@@ -6,7 +6,7 @@ export default function StockOutPage() {
   return (
     <AppLayout
       title="Delivery Order"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Inventory' }, { label: 'Stock Out / DO' }]}
+      breadcrumbs={[{ label: 'Inventory' }, { label: 'Stock Out / DO' }]}
     >
       <StockOutContent />
     </AppLayout>

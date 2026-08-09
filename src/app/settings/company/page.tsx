@@ -6,7 +6,7 @@ export default function SettingsCompanyPage() {
   return (
     <AppLayout
       title="Company Profile"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Settings' }, { label: 'Company Profile' }]}
+      breadcrumbs={[{ label: 'Settings' }, { label: 'Company Profile' }]}
     >
       <SettingsModule activeTab="company" />
     </AppLayout>

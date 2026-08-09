@@ -7,7 +7,7 @@ export default function CashOutPage() {
   return (
     <AppLayout
       title="Cash Out"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Finance' }, { label: 'Cash Out' }]}
+      breadcrumbs={[{ label: 'Finance' }, { label: 'Cash Out' }]}
     >
       <div className="space-y-5">
         <FinanceSummaryCards />

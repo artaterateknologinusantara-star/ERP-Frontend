@@ -124,7 +124,7 @@ export default function ExpenseDetailPage() {
 
   if (loading) {
     return (
-      <AppLayout title="Expense Detail" breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Finance' }, { label: 'Expense Management', href: '/expense' }, { label: '...' }]}>
+      <AppLayout title="Expense Detail" breadcrumbs={[{ label: 'Finance' }, { label: 'Expense Management', href: '/expense' }, { label: '...' }]}>
         <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Memuat data...</div>
       </AppLayout>
     );
@@ -132,7 +132,7 @@ export default function ExpenseDetailPage() {
 
   if (!expense) {
     return (
-      <AppLayout title="Expense Detail" breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Finance' }, { label: 'Expense Management', href: '/expense' }, { label: 'Tidak ditemukan' }]}>
+      <AppLayout title="Expense Detail" breadcrumbs={[{ label: 'Finance' }, { label: 'Expense Management', href: '/expense' }, { label: 'Tidak ditemukan' }]}>
         <div className="text-center py-20 text-muted-foreground text-sm">Expense tidak ditemukan.</div>
       </AppLayout>
     );
@@ -142,7 +142,6 @@ export default function ExpenseDetailPage() {
     <AppLayout
       title={expense.expenseNo}
       breadcrumbs={[
-        { label: 'SynteraERP' },
         { label: 'Finance' },
         { label: 'Expense Management', href: '/expense' },
         { label: expense.expenseNo },

@@ -25,7 +25,7 @@ export default function RiwayatPenawaranPage() {
   return (
     <AppLayout
       title="Riwayat Penawaran"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Penawaran' }, { label: 'Riwayat Penawaran' }]}
+      breadcrumbs={[{ label: 'Penawaran' }, { label: 'Riwayat Penawaran' }]}
     >
       <div className="space-y-5">
         <RiwayatSummaryCards quotations={quotations} loading={loading} />

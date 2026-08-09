@@ -209,7 +209,6 @@ export default function PurchaseRequestDetailPage() {
       <AppLayout
         title="Purchase Request Detail"
         breadcrumbs={[
-          { label: 'SynteraERP' },
           { label: 'Purchasing' },
           { label: 'Purchase Request', href: '/purchase-request' },
           { label: '...' },
@@ -227,7 +226,6 @@ export default function PurchaseRequestDetailPage() {
       <AppLayout
         title="Purchase Request Detail"
         breadcrumbs={[
-          { label: 'SynteraERP' },
           { label: 'Purchasing' },
           { label: 'Purchase Request', href: '/purchase-request' },
           { label: 'Tidak ditemukan' },
@@ -244,7 +242,6 @@ export default function PurchaseRequestDetailPage() {
     <AppLayout
       title={`PR ${pr.no}`}
       breadcrumbs={[
-        { label: 'SynteraERP' },
         { label: 'Purchasing' },
         { label: 'Purchase Request', href: '/purchase-request' },
         { label: pr.no },

@@ -6,7 +6,7 @@ export default function ReportsFinancePage() {
   return (
     <AppLayout
       title="Finance Report"
-      breadcrumbs={[{ label: 'SynteraERP' }, { label: 'Reports' }, { label: 'Finance Report' }]}
+      breadcrumbs={[{ label: 'Reports' }, { label: 'Finance Report' }]}
     >
       <ReportsModule reportType="finance" />
     </AppLayout>
