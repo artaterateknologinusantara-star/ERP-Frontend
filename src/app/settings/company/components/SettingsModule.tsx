@@ -6,7 +6,9 @@ import { Save, Plus, Edit2, Trash2, Loader2, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import UsersTab from './UsersTab';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import ERPModal from '@/components/ui/ERPModal';
 import { companySettingsService } from '@/services/companySettings.service';
+import { branchService, Branch, CreateBranchDto } from '@/services/branch.service';
 import type { CompanySettings } from '@/types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -17,11 +19,7 @@ interface SettingsModuleProps {
   activeTab: SettingsTab;
 }
 
-const branches = [
-  { id: 'br-001', name: 'Jakarta Pusat', address: 'Jl. Sudirman No. 45, Jakarta Pusat', phone: '021-5551234', manager: 'Budi Santoso', status: 'Aktif' },
-  { id: 'br-002', name: 'Surabaya', address: 'Jl. Pemuda No. 12, Surabaya', phone: '031-5552345', manager: 'Rizky Ananda', status: 'Aktif' },
-  { id: 'br-003', name: 'Bandung', address: 'Jl. Asia Afrika No. 8, Bandung', phone: '022-5553456', manager: 'Sari Wulandari', status: 'Aktif' },
-];
+const EMPTY_BRANCH_FORM: CreateBranchDto = { name: '', address: '', phone: '', manager: '' };
 
 const users = [
   { id: 'usr-001', name: 'Budi Santoso', email: 'budi@syntera.co.id', role: 'Sales Manager', branch: 'Jakarta', status: 'Aktif', lastLogin: '12/05/2026' },
@@ -56,6 +54,91 @@ const numberingFormats = [
 
 export default function SettingsModule({ activeTab }: SettingsModuleProps) {
   const queryClient = useQueryClient();
+
+  // ── Branch (Manajemen Cabang) ─────────────────────────────────────────────
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(true);
+  const [branchModal, setBranchModal] = useState<'create' | 'edit' | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  const [branchForm, setBranchForm] = useState<CreateBranchDto>(EMPTY_BRANCH_FORM);
+  const [branchNameError, setBranchNameError] = useState('');
+  const [savingBranch, setSavingBranch] = useState(false);
+  const [deleteBranchTarget, setDeleteBranchTarget] = useState<Branch | null>(null);
+  const [deletingBranch, setDeletingBranch] = useState(false);
+
+  const loadBranches = async () => {
+    setLoadingBranches(true);
+    try {
+      const res = await branchService.list({ perPage: 100 });
+      setBranches(res.data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal memuat data Cabang');
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'branch') return;
+    loadBranches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const openCreateBranch = () => {
+    setBranchForm(EMPTY_BRANCH_FORM);
+    setBranchNameError('');
+    setBranchModal('create');
+  };
+
+  const openEditBranch = (b: Branch) => {
+    setSelectedBranch(b);
+    setBranchForm({ name: b.name, address: b.address ?? '', phone: b.phone ?? '', manager: b.manager ?? '' });
+    setBranchNameError('');
+    setBranchModal('edit');
+  };
+
+  const closeBranchModal = () => {
+    setBranchModal(null);
+    setSelectedBranch(null);
+  };
+
+  const handleSaveBranch = async () => {
+    if (!branchForm.name.trim()) {
+      setBranchNameError('Nama Cabang wajib diisi.');
+      return;
+    }
+    setSavingBranch(true);
+    try {
+      if (branchModal === 'create') {
+        await branchService.create(branchForm);
+        toast.success('Cabang berhasil ditambahkan');
+      } else if (branchModal === 'edit' && selectedBranch) {
+        await branchService.update(selectedBranch.id, { ...branchForm, isActive: selectedBranch.isActive });
+        toast.success('Cabang berhasil diperbarui');
+      }
+      closeBranchModal();
+      loadBranches();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menyimpan Cabang');
+    } finally {
+      setSavingBranch(false);
+    }
+  };
+
+  const handleDeleteBranch = async () => {
+    if (!deleteBranchTarget) return;
+    setDeletingBranch(true);
+    try {
+      await branchService.delete(deleteBranchTarget.id);
+      toast.success('Cabang berhasil dihapus');
+      setDeleteBranchTarget(null);
+      loadBranches();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menghapus Cabang');
+    } finally {
+      setDeletingBranch(false);
+    }
+  };
   const [companyName, setCompanyName] = useState('');
   const [companyEmail, setCompanyEmail] = useState('');
   const [companyPhone, setCompanyPhone] = useState('');
@@ -432,32 +515,52 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
 
   if (activeTab === 'branch') {
     return (
+      <>
       <div className="erp-card shadow-card">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-[13px] font-700 text-foreground">Manajemen Cabang</h3>
-          <button className="btn-primary"><Plus size={14} /> Tambah Cabang</button>
+          <button className="btn-primary" onClick={openCreateBranch}><Plus size={14} /> Tambah Cabang</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] border-collapse">
             <thead>
               <tr className="border-b-2 border-border bg-muted/40">
-                {['Nama Cabang', 'Alamat', 'Telepon', 'Manager', 'Status', 'Aksi'].map((h) => (
+                {['Kode', 'Nama Cabang', 'Alamat', 'Telepon', 'Manager', 'Status', 'Aksi'].map((h) => (
                   <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {branches.map((row) => (
+              {loadingBranches ? (
+                <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">Memuat data...</td></tr>
+              ) : branches.length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">Belum ada cabang</td></tr>
+              ) : branches.map((row) => (
                 <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
+                  <td className="erp-table-cell font-600 text-primary">{row.code}</td>
                   <td className="erp-table-cell font-600">{row.name}</td>
-                  <td className="erp-table-cell text-muted-foreground max-w-[250px] truncate">{row.address}</td>
-                  <td className="erp-table-cell text-muted-foreground">{row.phone}</td>
-                  <td className="erp-table-cell">{row.manager}</td>
-                  <td className="erp-table-cell"><span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 status-disetujui">{row.status}</span></td>
+                  <td className="erp-table-cell text-muted-foreground max-w-[250px] truncate">{row.address || '—'}</td>
+                  <td className="erp-table-cell text-muted-foreground">{row.phone || '—'}</td>
+                  <td className="erp-table-cell">{row.manager || '—'}</td>
+                  <td className="erp-table-cell">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 ${row.isActive ? 'status-disetujui' : 'status-draft'}`}>
+                      {row.isActive ? 'Aktif' : 'Tidak Aktif'}
+                    </span>
+                  </td>
                   <td className="erp-table-cell">
                     <div className="flex items-center gap-1">
-                      <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"><Edit2 size={13} /></button>
-                      <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors"><Trash2 size={13} /></button>
+                      <button
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
+                        onClick={() => openEditBranch(row)}
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                      <button
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors"
+                        onClick={() => setDeleteBranchTarget(row)}
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -466,6 +569,78 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
           </table>
         </div>
       </div>
+
+      <ERPModal
+        isOpen={branchModal !== null}
+        onClose={closeBranchModal}
+        title={branchModal === 'create' ? 'Tambah Cabang' : 'Edit Cabang'}
+        size="md"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={closeBranchModal} disabled={savingBranch}>Batal</button>
+            <button className="btn-primary" onClick={handleSaveBranch} disabled={savingBranch}>
+              {savingBranch ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="erp-form-label">Nama Cabang <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              className={`erp-input ${branchNameError ? 'border-red-500' : ''}`}
+              value={branchForm.name}
+              onChange={(e) => {
+                setBranchForm((f) => ({ ...f, name: e.target.value }));
+                if (e.target.value.trim()) setBranchNameError('');
+              }}
+            />
+            {branchNameError && <p className="text-xs text-red-500 mt-1">{branchNameError}</p>}
+          </div>
+          <div>
+            <label className="erp-form-label">Alamat</label>
+            <textarea
+              className="erp-input resize-none"
+              rows={2}
+              value={branchForm.address}
+              onChange={(e) => setBranchForm((f) => ({ ...f, address: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="erp-form-label">Telepon</label>
+              <input
+                type="text"
+                className="erp-input"
+                value={branchForm.phone}
+                onChange={(e) => setBranchForm((f) => ({ ...f, phone: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="erp-form-label">Manager</label>
+              <input
+                type="text"
+                className="erp-input"
+                value={branchForm.manager}
+                onChange={(e) => setBranchForm((f) => ({ ...f, manager: e.target.value }))}
+              />
+            </div>
+          </div>
+        </div>
+      </ERPModal>
+
+      <ConfirmModal
+        isOpen={deleteBranchTarget !== null}
+        onClose={() => setDeleteBranchTarget(null)}
+        onConfirm={handleDeleteBranch}
+        loading={deletingBranch}
+        variant="danger"
+        title="Hapus Cabang?"
+        description={`Cabang "${deleteBranchTarget?.name}" akan dihapus dari daftar. Tindakan ini dapat dipulihkan lewat database kalau diperlukan.`}
+        confirmLabel="Hapus"
+      />
+      </>
     );
   }
 
