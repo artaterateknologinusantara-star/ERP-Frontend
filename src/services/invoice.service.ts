@@ -127,6 +127,7 @@ export interface InvoiceDetail {
   invoiceDate: string;
   dueDate: string;
   terms?: string;
+  salesOrderId?: string;
   salesOrderNo?: string;
   amount: number;
   subTotal: number;
@@ -195,4 +196,19 @@ export async function recordPayment(id: string, data: RecordPaymentRequest): Pro
     reference: data.reference,
     notes: data.notes,
   });
+}
+
+// ── Down Payment Customer ────────────────────────────────────────────────────
+
+export interface ApplyDownPaymentRequest {
+  salesOrderPaymentId: string;
+  amountToApply: number;
+}
+
+export async function applyDownPaymentToInvoice(
+  invoiceId: string,
+  data: ApplyDownPaymentRequest
+): Promise<InvoiceDetail> {
+  const res = await api.post<InvoiceDetail>(`/invoices/${invoiceId}/apply-down-payment`, data);
+  return res.data;
 }

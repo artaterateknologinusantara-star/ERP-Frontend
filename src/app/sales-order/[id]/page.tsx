@@ -12,12 +12,18 @@ import {
   ShoppingCart, Truck, CheckCircle2, XCircle, FileText,
   Receipt, AlertCircle, Info, Clock, Eye,
 } from 'lucide-react';
-import { getSalesOrderDetail, SalesOrderDetail, salesOrderService } from '@/services/salesorder.service';
+import {
+  getSalesOrderDetail, SalesOrderDetail, salesOrderService,
+  getSalesOrderDownPayments, recordDownPayment, SalesOrderPaymentRecord,
+} from '@/services/salesorder.service';
 import { generatePRFromSO, getPOList, PurchaseOrderListItem } from '@/services/purchase.service';
 import { createDOFromSO, getDeliveryOrders, DeliveryOrderListItem } from '@/services/inventory.service';
 import { invoiceService } from '@/services/invoice.service';
 import { api } from '@/lib/api';
+import CurrencyInput from '@/components/ui/CurrencyInput';
 import { SalesOrderStatus } from '@/types';
+
+const DP_METHODS = ['Transfer', 'Tunai', 'Giro', 'Cek'];
 
 // ── Local interfaces ──────────────────────────────────────────────────────────
 
@@ -262,6 +268,15 @@ export default function SalesOrderDetailPage() {
   const [linkedPOsDone,   setLinkedPOsDone]   = useState(false);
   const [loadingRelated,  setLoadingRelated]  = useState(false);
 
+  // Down Payment
+  const [downPayments, setDownPayments]   = useState<SalesOrderPaymentRecord[]>([]);
+  const [loadingDp, setLoadingDp]         = useState(false);
+  const [dpModal, setDpModal]             = useState(false);
+  const [dpForm, setDpForm] = useState<{ paymentDate: string; amount: string; method: string; reference: string; notes: string }>({
+    paymentDate: todayStr(), amount: '', method: 'Transfer', reference: '', notes: '',
+  });
+  const [savingDp, setSavingDp] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -279,8 +294,58 @@ export default function SalesOrderDetailPage() {
   useEffect(() => {
     if (!so) return;
     fetchRelatedDocuments(so.id, so.no);
+    loadDownPayments(so.id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [so?.id]);
+
+  async function loadDownPayments(soId: string) {
+    setLoadingDp(true);
+    try {
+      setDownPayments(await getSalesOrderDownPayments(soId));
+    } catch {
+      // silent — DP section just shows empty state
+    } finally {
+      setLoadingDp(false);
+    }
+  }
+
+  const totalDpReceived = downPayments.reduce((s, dp) => s + dp.amount, 0);
+
+  const openDpModal = () => {
+    setDpForm({ paymentDate: todayStr(), amount: '', method: 'Transfer', reference: '', notes: '' });
+    setDpModal(true);
+  };
+
+  const handleRecordDp = async () => {
+    if (!so) return;
+    const amount = parseFloat(dpForm.amount);
+    if (!dpForm.amount || isNaN(amount) || amount <= 0) {
+      toast.error('Jumlah DP wajib diisi dan harus lebih dari 0');
+      return;
+    }
+    const remainingCap = so.grandTotal - totalDpReceived;
+    if (amount > remainingCap) {
+      toast.error(`Jumlah melebihi sisa kapasitas DP (${formatRp(remainingCap)})`);
+      return;
+    }
+    setSavingDp(true);
+    try {
+      await recordDownPayment(so.id, {
+        paymentDate: dpForm.paymentDate,
+        amount,
+        method: dpForm.method,
+        reference: dpForm.reference || undefined,
+        notes: dpForm.notes || undefined,
+      });
+      toast.success('Down Payment berhasil dicatat');
+      setDpModal(false);
+      loadDownPayments(so.id);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal mencatat Down Payment');
+    } finally {
+      setSavingDp(false);
+    }
+  };
 
   // Pre-fill invoice dates when modal opens
   useEffect(() => {
@@ -702,6 +767,68 @@ export default function SalesOrderDetailPage() {
           </div>
         </div>
 
+        {/* ── Down Payment ── */}
+        <div className="erp-card">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-600 text-muted-foreground uppercase tracking-wider">Down Payment</h3>
+              <span className="text-xs bg-muted px-2 py-0.5 rounded-full font-600 text-muted-foreground">
+                {downPayments.length} DP
+              </span>
+            </div>
+            <button
+              onClick={openDpModal}
+              disabled={totalDpReceived >= so.grandTotal}
+              title={totalDpReceived >= so.grandTotal ? 'Total DP sudah mencapai Grand Total SO' : undefined}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-emerald-300 text-emerald-700 rounded-md hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-600"
+            >
+              <Receipt size={14} /> Terima DP
+            </button>
+          </div>
+
+          {loadingDp ? (
+            <div className="h-16 bg-muted animate-pulse rounded-lg" />
+          ) : downPayments.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Belum ada Down Payment tercatat.</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px] border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-border bg-muted/40">
+                      {['Tanggal', 'Metode', 'Referensi', 'Jumlah DP', 'Sudah Diterapkan', 'Sisa'].map((h) => (
+                        <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {downPayments.map((dp) => (
+                      <tr key={dp.id} className="border-b border-border hover:bg-muted/20 transition-colors">
+                        <td className="erp-table-cell text-muted-foreground">{formatDate(dp.paymentDate)}</td>
+                        <td className="erp-table-cell">{dp.method}</td>
+                        <td className="erp-table-cell text-muted-foreground">{dp.reference || '—'}</td>
+                        <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(dp.amount)}</td>
+                        <td className="erp-table-cell font-tabular text-right text-muted-foreground">{formatRp(dp.amountApplied)}</td>
+                        <td className="erp-table-cell font-tabular text-right">
+                          {dp.remaining > 0 ? (
+                            <span className="text-emerald-600 font-700">{formatRp(dp.remaining)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">Rp 0</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex justify-end mt-3 text-sm gap-2">
+                <span className="text-muted-foreground">Total DP diterima:</span>
+                <span className="font-700 font-tabular text-emerald-600">{formatRp(totalDpReceived)}</span>
+              </div>
+            </>
+          )}
+        </div>
+
         {/* ── Dokumen Terkait ── */}
         <div className="erp-card">
           <h3 className="text-xs font-600 text-muted-foreground uppercase tracking-wider mb-4">Dokumen Terkait</h3>
@@ -1015,6 +1142,91 @@ export default function SalesOrderDetailPage() {
                 className="btn-primary flex-1 disabled:opacity-50"
               >
                 {creatingInvoice ? 'Membuat...' : 'Buat Invoice'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Down Payment Modal ── */}
+      {dpModal && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setDpModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-700 text-foreground mb-0.5">Terima Down Payment</h3>
+            <p className="text-sm text-muted-foreground mb-5">
+              {so.no} — {so.customerName}
+            </p>
+
+            <div className="space-y-4">
+              <div className="bg-muted/40 rounded-lg p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Sisa kapasitas DP</span>
+                  <span className="font-700 text-emerald-600">{formatRp(so.grandTotal - totalDpReceived)}</span>
+                </div>
+              </div>
+              <div>
+                <label className="erp-form-label">Tanggal DP<span className="text-red-500 ml-0.5">*</span></label>
+                <input
+                  type="date"
+                  className="erp-input"
+                  value={dpForm.paymentDate}
+                  onChange={(e) => setDpForm((f) => ({ ...f, paymentDate: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="erp-form-label">Jumlah<span className="text-red-500 ml-0.5">*</span></label>
+                <CurrencyInput
+                  value={Number(dpForm.amount) || 0}
+                  onChange={(v) => setDpForm((f) => ({ ...f, amount: v ? String(v) : '' }))}
+                />
+              </div>
+              <div>
+                <label className="erp-form-label">Metode<span className="text-red-500 ml-0.5">*</span></label>
+                <select
+                  className="erp-input"
+                  value={dpForm.method}
+                  onChange={(e) => setDpForm((f) => ({ ...f, method: e.target.value }))}
+                >
+                  {DP_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="erp-form-label">Referensi</label>
+                <input
+                  type="text"
+                  className="erp-input"
+                  placeholder="No. transfer / cek / giro"
+                  value={dpForm.reference}
+                  onChange={(e) => setDpForm((f) => ({ ...f, reference: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="erp-form-label">Catatan</label>
+                <textarea
+                  className="erp-input resize-none"
+                  rows={2}
+                  value={dpForm.notes}
+                  onChange={(e) => setDpForm((f) => ({ ...f, notes: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button onClick={() => setDpModal(false)} className="btn-secondary flex-1" disabled={savingDp}>
+                Batal
+              </button>
+              <button
+                onClick={handleRecordDp}
+                disabled={savingDp || !dpForm.amount}
+                className="btn-primary flex-1 disabled:opacity-50"
+              >
+                {savingDp ? 'Menyimpan...' : 'Simpan DP'}
               </button>
             </div>
           </div>

@@ -12,9 +12,11 @@ import { AlertTriangle, CreditCard, DollarSign } from 'lucide-react';
 import {
   getInvoiceDetail,
   recordPayment,
+  applyDownPaymentToInvoice,
   InvoiceDetail,
   RecordPaymentRequest,
 } from '@/services/invoice.service';
+import { getSalesOrderDownPayments, SalesOrderPaymentRecord } from '@/services/salesorder.service';
 import { InvoiceStatus } from '@/types';
 
 const PAYMENT_METHODS = ['Transfer', 'Tunai', 'Giro', 'Cek'];
@@ -53,6 +55,15 @@ export default function InvoiceDetailPage() {
   });
   const [paying, setPaying] = useState(false);
 
+  // Down Payment
+  const [availableDps, setAvailableDps]   = useState<SalesOrderPaymentRecord[]>([]);
+  const [loadingDps, setLoadingDps]       = useState(false);
+  const [applyDpModal, setApplyDpModal]   = useState(false);
+  const [applyDpForm, setApplyDpForm]     = useState<{ salesOrderPaymentId: string; amount: string }>({
+    salesOrderPaymentId: '', amount: '',
+  });
+  const [applyingDp, setApplyingDp]       = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -66,6 +77,54 @@ export default function InvoiceDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!inv?.salesOrderId) { setAvailableDps([]); return; }
+    setLoadingDps(true);
+    getSalesOrderDownPayments(inv.salesOrderId)
+      .then((dps) => setAvailableDps(dps.filter((dp) => dp.remaining > 0)))
+      .catch(() => setAvailableDps([]))
+      .finally(() => setLoadingDps(false));
+  }, [inv?.salesOrderId]);
+
+  const totalDpAvailable = availableDps.reduce((s, dp) => s + dp.remaining, 0);
+
+  const openApplyDpModal = () => {
+    if (availableDps.length === 0) return;
+    setApplyDpForm({ salesOrderPaymentId: availableDps[0].id, amount: '' });
+    setApplyDpModal(true);
+  };
+
+  const handleApplyDp = async () => {
+    if (!inv) return;
+    const selected = availableDps.find((dp) => dp.id === applyDpForm.salesOrderPaymentId);
+    if (!selected) return;
+    const amount = parseFloat(applyDpForm.amount);
+    if (!applyDpForm.amount || isNaN(amount) || amount <= 0) {
+      toast.error('Jumlah yang diterapkan wajib diisi dan harus lebih dari 0');
+      return;
+    }
+    const cap = Math.min(selected.remaining, inv.balance);
+    if (amount > cap) {
+      toast.error(`Jumlah melebihi batas (sisa DP: ${formatRp(selected.remaining)}, sisa tagihan: ${formatRp(inv.balance)})`);
+      return;
+    }
+    setApplyingDp(true);
+    try {
+      await applyDownPaymentToInvoice(inv.id, {
+        salesOrderPaymentId: selected.id,
+        amountToApply: amount,
+      });
+      toast.success('Down Payment berhasil diterapkan ke Invoice');
+      setApplyDpModal(false);
+      load();
+      if (inv.salesOrderId) getSalesOrderDownPayments(inv.salesOrderId).then((dps) => setAvailableDps(dps.filter((dp) => dp.remaining > 0)));
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal menerapkan Down Payment');
+    } finally {
+      setApplyingDp(false);
+    }
+  };
 
   const openPayModal = () => {
     if (!inv) return;
@@ -274,6 +333,21 @@ export default function InvoiceDetailPage() {
           </div>
         )}
 
+        {/* ── Down Payment tersedia ── */}
+        {!loadingDps && totalDpAvailable > 0 && inv.balance > 0 && (
+          <div className="flex items-center justify-between gap-3 flex-wrap bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3 rounded-lg">
+            <span>
+              DP tersedia dari Sales Order ini: <strong>{formatRp(totalDpAvailable)}</strong>
+            </span>
+            <button
+              onClick={openApplyDpModal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-emerald-400 bg-white text-emerald-700 rounded-md hover:bg-emerald-100 transition-colors font-600"
+            >
+              <DollarSign size={14} /> Terapkan DP ke Invoice ini
+            </button>
+          </div>
+        )}
+
         {/* ── Payment Summary ── */}
         <div className="erp-card">
           <h3 className="text-xs font-600 text-muted-foreground uppercase tracking-wider mb-4">Ringkasan Pembayaran</h3>
@@ -425,6 +499,63 @@ export default function InvoiceDetailPage() {
               value={payForm.notes}
               onChange={(e) => setPayForm((f) => ({ ...f, notes: e.target.value }))}
             />
+          </div>
+        </div>
+      </ERPModal>
+
+      {/* ── Terapkan Down Payment Modal ── */}
+      <ERPModal
+        isOpen={applyDpModal}
+        onClose={() => setApplyDpModal(false)}
+        title="Terapkan Down Payment"
+        subtitle={inv.no}
+        size="sm"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={() => setApplyDpModal(false)} disabled={applyingDp}>Batal</button>
+            <button className="btn-primary" onClick={handleApplyDp} disabled={applyingDp}>
+              {applyingDp ? 'Menerapkan...' : 'Terapkan DP'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="bg-muted/40 rounded-lg p-3 text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Sisa Tagihan Invoice</span>
+              <span className="font-700 text-red-600">{formatRp(inv.balance)}</span>
+            </div>
+          </div>
+          <div>
+            <label className="erp-form-label">Pilih Down Payment<span className="text-red-500 ml-0.5">*</span></label>
+            <select
+              className="erp-input"
+              value={applyDpForm.salesOrderPaymentId}
+              onChange={(e) => setApplyDpForm((f) => ({ ...f, salesOrderPaymentId: e.target.value }))}
+            >
+              {availableDps.map((dp) => (
+                <option key={dp.id} value={dp.id}>
+                  {formatDate(dp.paymentDate)} — Sisa {formatRp(dp.remaining)} ({dp.method})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="erp-form-label">Jumlah yang Diterapkan<span className="text-red-500 ml-0.5">*</span></label>
+            <CurrencyInput
+              value={Number(applyDpForm.amount) || 0}
+              onChange={(v) => setApplyDpForm((f) => ({ ...f, amount: v ? String(v) : '' }))}
+            />
+            {(() => {
+              const selected = availableDps.find((dp) => dp.id === applyDpForm.salesOrderPaymentId);
+              if (!selected) return null;
+              const cap = Math.min(selected.remaining, inv.balance);
+              return (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Maksimum: {formatRp(cap)} (dibatasi sisa DP dan sisa tagihan Invoice)
+                </p>
+              );
+            })()}
           </div>
         </div>
       </ERPModal>

@@ -188,3 +188,41 @@ export async function createSOFromQuotation(
   );
   return res.data;
 }
+
+// ── Down Payment Customer ────────────────────────────────────────────────────
+
+export interface SalesOrderPaymentRecord {
+  id: string;
+  salesOrderId: string;
+  paymentDate: string;
+  amount: number;
+  method: string;
+  reference?: string;
+  notes?: string;
+  amountApplied: number;
+  remaining: number;
+  createdAt: string;
+}
+
+export interface RecordDownPaymentRequest {
+  paymentDate?: string;
+  amount: number;
+  method: string;
+  reference?: string;
+  notes?: string;
+}
+
+export async function getSalesOrderDownPayments(
+  salesOrderId: string
+): Promise<SalesOrderPaymentRecord[]> {
+  const res = await api.get<SalesOrderPaymentRecord[]>(`/sales-orders/${salesOrderId}/down-payments`);
+  return res.data;
+}
+
+export async function recordDownPayment(
+  salesOrderId: string,
+  data: RecordDownPaymentRequest
+): Promise<SalesOrderPaymentRecord> {
+  const res = await api.post<SalesOrderPaymentRecord>(`/sales-orders/${salesOrderId}/down-payments`, data);
+  return res.data;
+}
