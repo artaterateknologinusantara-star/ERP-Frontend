@@ -40,7 +40,7 @@ const navGroups: NavGroup[] = [
     icon: <ShoppingCart size={16} />,
     defaultOpen: true,
     items: [
-      { id: 'nav-penawaran', label: 'Penawaran', icon: <FileText size={15} />, href: '/riwayat-penawaran', badge: 3 },
+      { id: 'nav-penawaran', label: 'Penawaran', icon: <FileText size={15} />, href: '/riwayat-penawaran' },
       { id: 'nav-customer-po', label: 'Customer PO', icon: <FileCheck size={15} />, href: '/customer-po' },
       { id: 'nav-sales-order', label: 'Sales Order', icon: <ShoppingCart size={15} />, href: '/sales-order' },
       { id: 'nav-invoice', label: 'Invoice', icon: <Receipt size={15} />, href: '/invoice' },
@@ -162,7 +162,7 @@ const findActiveHref = (pathname: string): string | undefined => {
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { data: companySettings } = useCompanySettings();
-  const companyName = companySettings?.companyName || 'SynteraERP';
+  const companyName = companySettings?.companyName || 'ERP System';
 
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -174,6 +174,17 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     });
     return () => { if (currentUrl) URL.revokeObjectURL(currentUrl); };
   }, [companySettings?.logoPath]);
+
+  // Same localStorage key + shape Topbar.tsx already reads correctly ({name, email, role} set at
+  // login) — the footer below was never wired to it and showed a hardcoded mock name/role instead.
+  const [loggedInUser, setLoggedInUser] = useState<{ name: string; role: string } | null>(null);
+  useEffect(() => {
+    const raw = localStorage.getItem('syntera_user');
+    if (!raw) return;
+    try {
+      setLoggedInUser(JSON.parse(raw) as { name: string; role: string });
+    } catch {}
+  }, []);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
@@ -318,8 +329,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <User size={14} className="text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-600 text-foreground truncate">Budi Santoso</p>
-              <p className="text-xs text-muted-foreground truncate">Sales Manager</p>
+              <p className="text-[13px] font-600 text-foreground truncate">{loggedInUser?.name || 'Pengguna'}</p>
+              <p className="text-xs text-muted-foreground truncate">{loggedInUser?.role || '—'}</p>
             </div>
             <Settings size={14} className="text-muted-foreground flex-shrink-0" />
           </div>

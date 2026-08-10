@@ -16,9 +16,9 @@ export default function BankPage() {
           <h3 className="text-[13px] font-700 text-foreground mb-4">Rekening Bank Perusahaan</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { bank: 'Bank BCA', account: '123-456-7890', name: 'PT Syntera Teknologi Indonesia', balance: 1240000000, color: 'bg-blue-50 border-blue-200' },
-              { bank: 'Bank Mandiri', account: '098-765-4321', name: 'PT Syntera Teknologi Indonesia', balance: 850000000, color: 'bg-amber-50 border-amber-200' },
-              { bank: 'Bank BNI', account: '567-890-1234', name: 'PT Syntera Teknologi Indonesia', balance: 320000000, color: 'bg-green-50 border-green-200' },
+              { bank: 'Bank BCA', account: '123-456-7890', name: 'PT Contoh Perusahaan', balance: 1240000000, color: 'bg-blue-50 border-blue-200' },
+              { bank: 'Bank Mandiri', account: '098-765-4321', name: 'PT Contoh Perusahaan', balance: 850000000, color: 'bg-amber-50 border-amber-200' },
+              { bank: 'Bank BNI', account: '567-890-1234', name: 'PT Contoh Perusahaan', balance: 320000000, color: 'bg-green-50 border-green-200' },
             ]?.map((acc) => (
               <div key={acc?.bank} className={`p-4 rounded-lg border ${acc?.color}`}>
                 <p className="text-[13px] font-700 text-foreground">{acc?.bank}</p>

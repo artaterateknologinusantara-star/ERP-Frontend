@@ -21,14 +21,6 @@ interface SettingsModuleProps {
 
 const EMPTY_BRANCH_FORM: CreateBranchDto = { name: '', address: '', phone: '', manager: '' };
 
-const users = [
-  { id: 'usr-001', name: 'Budi Santoso', email: 'budi@syntera.co.id', role: 'Sales Manager', branch: 'Jakarta', status: 'Aktif', lastLogin: '12/05/2026' },
-  { id: 'usr-002', name: 'Rizky Ananda', email: 'rizky@syntera.co.id', role: 'Sales Executive', branch: 'Surabaya', status: 'Aktif', lastLogin: '11/05/2026' },
-  { id: 'usr-003', name: 'Sari Wulandari', email: 'sari@syntera.co.id', role: 'Finance Manager', branch: 'Jakarta', status: 'Aktif', lastLogin: '10/05/2026' },
-  { id: 'usr-004', name: 'Dian Pratiwi', email: 'dian@syntera.co.id', role: 'Procurement', branch: 'Bandung', status: 'Aktif', lastLogin: '09/05/2026' },
-  { id: 'usr-005', name: 'Ahmad Fauzi', email: 'ahmad@syntera.co.id', role: 'Engineer', branch: 'Jakarta', status: 'Tidak Aktif', lastLogin: '01/04/2026' },
-];
-
 const roles = [
   { id: 'rol-001', name: 'Super Admin', description: 'Akses penuh ke semua modul', users: 1, permissions: 'All' },
   { id: 'rol-002', name: 'Sales Manager', description: 'Kelola penawaran, SO, invoice', users: 2, permissions: 'Sales, Reports' },

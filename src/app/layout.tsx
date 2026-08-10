@@ -18,7 +18,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Syntera ERP — Manajemen Penawaran IT Infrastructure',
+  title: 'ERP System',
   description:
     'Platform ERP untuk manajemen penawaran dan costing proyek IT Infrastructure, Network Integration, CCTV, Fiber Optic, dan Data Center.',
   icons: {

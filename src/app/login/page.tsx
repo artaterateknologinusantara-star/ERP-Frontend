@@ -18,8 +18,8 @@ interface LoginResponse {
 export default function LoginPage() {
   const router = useRouter();
   const { data: publicSettings } = usePublicCompanySettings();
-  const companyName = publicSettings?.companyName || 'Syntera ERP';
-  const [email, setEmail] = useState('admin@syntera.id');
+  const companyName = publicSettings?.companyName || 'ERP System';
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -67,7 +67,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@syntera.id"
+              placeholder="email@perusahaan.id"
               className="erp-input"
               autoComplete="username"
             />

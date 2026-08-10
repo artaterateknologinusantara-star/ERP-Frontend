@@ -17,7 +17,7 @@ export default function AppLayout({ children, title, breadcrumbs }: AppLayoutPro
   const [collapsed, setCollapsed] = useState(false);
   const [ready, setReady] = useState(false);
   const { data: companySettings } = useCompanySettings();
-  const companyName = companySettings?.companyName || 'SynteraERP';
+  const companyName = companySettings?.companyName || 'ERP System';
   // Every page passes its own breadcrumbs without the root label — this is the one place that
   // supplies it, dynamically, so white-label customers see their own company name instead of a
   // hardcoded string repeated across ~60 page files.
