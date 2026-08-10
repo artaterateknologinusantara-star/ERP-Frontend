@@ -138,7 +138,7 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
           </tr>
         </thead>
         <tbody>
-          {tabData.groups.map((group) => {
+          {tabData.groups.map((group, groupIndex) => {
             const isCollapsed = collapsed.includes(group.id);
             return (
               <React.Fragment key={group.id}>
@@ -165,10 +165,6 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
                   <td className="erp-table-cell text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button
-                        onClick={() => addRow(group.id)}
-                        className="flex items-center gap-1 px-2 py-1 text-xs font-600 text-primary bg-primary/10 hover:bg-primary/20 rounded transition-colors whitespace-nowrap"
-                      ><Plus size={11} /> Tambah Baris</button>
-                      <button
                         onClick={() => deleteGroup(group.id)}
                         className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
                       ><Trash2 size={13} /></button>
@@ -177,12 +173,12 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
                 </tr>
 
                 {/* Rows */}
-                {!isCollapsed && group.rows.map((row) => (
+                {!isCollapsed && group.rows.map((row, rowIndex) => (
                   <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group/row">
                     <td className="erp-table-cell text-muted-foreground text-xs font-tabular text-center">
                       <span className="flex items-center gap-1">
                         <GripVertical size={11} className="text-muted-foreground/40 cursor-grab" />
-                        {row.no}
+                        {groupIndex + 1}.{rowIndex + 1}
                       </span>
                     </td>
                     <td className="erp-table-cell">
@@ -239,6 +235,18 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
                     </td>
                   </tr>
                 ))}
+
+                {/* Add Row — placed at the bottom of the group's items, per requested position */}
+                {!isCollapsed && (
+                  <tr className="border-b border-border">
+                    <td className="erp-table-cell" colSpan={12}>
+                      <button
+                        onClick={() => addRow(group.id)}
+                        className="flex items-center gap-1 px-2 py-1 text-xs font-600 text-primary bg-primary/10 hover:bg-primary/20 rounded transition-colors"
+                      ><Plus size={11} /> Tambah Baris</button>
+                    </td>
+                  </tr>
+                )}
 
                 {/* Group Subtotal */}
                 {!isCollapsed && (
