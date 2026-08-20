@@ -97,4 +97,30 @@ export const customerPoService = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     }).then((r) => r.json() as Promise<ApiResponse<void>>);
   },
+
+  async updateNumber(id: string, newPoNo: string, reason?: string): Promise<ApiResponse<CustomerPO>> {
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/customer-pos/${id}/number`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ newPoNo, reason }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(err.message ?? 'Gagal memperbarui nomor PO');
+    }
+    return res.json() as Promise<ApiResponse<CustomerPO>>;
+  },
+
+  async history(id: string): Promise<ApiResponse<CustomerPO[]>> {
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/customer-pos/${id}/history`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    if (!res.ok) throw new Error('Gagal memuat riwayat');
+    return res.json() as Promise<ApiResponse<CustomerPO[]>>;
+  },
 };

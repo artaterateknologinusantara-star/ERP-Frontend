@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { formatRp } from '@/lib/format';
 import { toast } from 'sonner';
 import { X, Paperclip, Download, Loader2, CheckCircle, AlertTriangle, GitBranch } from 'lucide-react';
+import EditPoNoModal from './EditPoNoModal';
 import type { CustomerPO, QuotationListItem } from '@/types';
 import { customerPoService } from '@/services/customerpo.service';
 import CurrencyInput from '@/components/ui/CurrencyInput';
@@ -27,6 +28,7 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -156,6 +158,10 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
                   {existing.attachmentName ?? 'Unduh Lampiran'}
                 </button>
               )}
+              <div className="flex justify-end">
+                <button className="btn-secondary text-[13px]" onClick={() => setEditOpen(true)}>Edit Nomor PO</button>
+              </div>
+              <EditPoNoModal isOpen={editOpen} onClose={() => setEditOpen(false)} customerPo={existing} onUpdated={() => { onSuccess(); }} />
             </div>
           ) : (
             /* ── Create mode ───────────────────────────────────────────── */
