@@ -43,6 +43,13 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
       .finally(() => setFetching(false));
   }, [isOpen, quotation.id]);
 
+  // Auto-fill Nilai PO with the approved quotation total; user can still edit it,
+  // and the existing isUnder/isOver diff warnings kick in once it no longer matches.
+  useEffect(() => {
+    if (!isOpen) return;
+    setAmount(quotation.grandTotal);
+  }, [isOpen, quotation.id, quotation.grandTotal]);
+
   // ── Amount validation ───────────────────────────────────────────────────────
   const poAmount = amount;
   const quotaTotal = quotation.grandTotal;
