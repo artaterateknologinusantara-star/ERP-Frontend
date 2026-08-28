@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import { Toaster } from 'sonner';
 import Providers from '@/components/providers';
+import AppShell from '@/components/AppShell';
 import '../styles/tailwind.css';
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -33,7 +34,7 @@ export default function RootLayout({
     <html lang="id" className={plusJakartaSans.variable}>
       <body className={plusJakartaSans.className}>
         <Providers>
-          {children}
+          <AppShell>{children}</AppShell>
         </Providers>
         <Toaster
           position="bottom-right"
