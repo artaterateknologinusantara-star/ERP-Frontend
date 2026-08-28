@@ -360,11 +360,10 @@ export default function SalesOrderDetailPage() {
   async function fetchRelatedDocuments(soId: string, soNo: string) {
     setLoadingRelated(true);
     try {
-      const [dosRes, invoicesRes, prsRes, posRes] = await Promise.allSettled([
+      const [dosRes, invoicesRes, prsRes] = await Promise.allSettled([
         getDeliveryOrders({ perPage: 200 }),
         api.get<{ data: RelatedInvoice[] }>('/invoices?perPage=200'),
         api.get<{ data: RelatedPR[] }>('/purchase-requests?perPage=200'),
-        getPOList({ perPage: 200 }),
       ]);
 
       if (dosRes.status === 'fulfilled')
@@ -385,13 +384,11 @@ export default function SalesOrderDetailPage() {
         linkedPRIds = filtered.map((pr) => pr.id);
       }
 
-      // Check linked POs and whether all GR are done
-      if (posRes.status === 'fulfilled' && linkedPRIds.length > 0) {
-        const linkedPOs = posRes.value.data.filter(
-          (po) => po.purchaseRequestId && linkedPRIds.includes(po.purchaseRequestId),
-        );
-        setRelatedPOs(linkedPOs);
-        const allDone = linkedPOs.length > 0 && linkedPOs.every((po) => po.status === 'Completed');
+      // Check linked POs (across all vendors) and whether all GR are done
+      if (linkedPRIds.length > 0) {
+        const posRes = await getPOList({ perPage: 100, purchaseRequestIds: linkedPRIds.join(',') });
+        setRelatedPOs(posRes.data);
+        const allDone = posRes.data.length > 0 && posRes.data.every((po) => po.status === 'Completed');
         setLinkedPOsDone(allDone);
       }
     } catch {

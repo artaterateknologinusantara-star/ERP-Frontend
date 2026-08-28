@@ -6,6 +6,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
 import ERPModal from '@/components/ui/ERPModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { ActiveStatus } from '@/types';
 import { customerService, CreateCustomerDto } from '@/services/customer.service';
 import { downloadCsv } from '@/lib/export';
@@ -52,6 +53,8 @@ export default function CustomerTable() {
   const [selected, setSelected] = useState<CustomerRow | null>(null);
   const [form, setForm] = useState<CreateCustomerDto>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CustomerRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async (q: string, p: number, pp: number, st: string) => {
     setLoading(true);
@@ -130,14 +133,18 @@ export default function CustomerTable() {
     }
   };
 
-  const handleDelete = async (row: CustomerRow) => {
-    if (!confirm(`Hapus customer "${row.name}"?`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await customerService.delete(row.id);
+      await customerService.delete(deleteTarget.id);
       toast.success('Customer berhasil dihapus');
+      setDeleteTarget(null);
       load(search, page, perPage, statusFilter);
     } catch {
       toast.error('Gagal menghapus customer');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -189,7 +196,11 @@ export default function CustomerTable() {
               ) : rows.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Tidak ada customer ditemukan</td></tr>
               ) : rows.map((row) => (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-primary/5 transition-colors group cursor-pointer"
+                  onClick={() => openDetail(row)}
+                >
                   <td className="erp-table-cell font-600 text-primary">{row.code}</td>
                   <td className="erp-table-cell font-600 max-w-[180px] truncate" title={row.name}>{row.name}</td>
                   <td className="erp-table-cell text-muted-foreground">{row.industry || '—'}</td>
@@ -199,11 +210,11 @@ export default function CustomerTable() {
                   <td className="erp-table-cell">
                     <StatusBadge status={(row.isActive ? 'Aktif' : 'Tidak Aktif') as ActiveStatus} size="sm" />
                   </td>
-                  <td className="erp-table-cell erp-action-col">
+                  <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />,    label: 'Detail Customer', onClick: () => openDetail(row) },
                       { icon: <Edit2 size={13} />,  label: 'Edit Customer',   onClick: () => openEdit(row) },
-                      { icon: <Trash2 size={13} />, label: 'Hapus Customer',  onClick: () => handleDelete(row), danger: true, separator: true },
+                      { icon: <Trash2 size={13} />, label: 'Hapus Customer',  onClick: () => setDeleteTarget(row), danger: true, separator: true },
                     ]} />
                   </td>
                 </tr>
@@ -291,6 +302,16 @@ export default function CustomerTable() {
           </div>
         )}
       </ERPModal>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Hapus Customer?"
+        description={`Customer "${deleteTarget?.name}" akan dihapus permanen.`}
+        confirmLabel="Hapus"
+        loading={deleting}
+      />
     </>
   );
 }

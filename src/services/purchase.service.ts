@@ -186,6 +186,8 @@ export async function getPOList(params?: {
   perPage?: number;
   search?: string;
   status?: string;
+  purchaseRequestId?: string;
+  purchaseRequestIds?: string;
 }): Promise<PaginatedResponse<PurchaseOrderListItem>> {
   return api.getList<PurchaseOrderListItem>('/purchase-orders', params);
 }

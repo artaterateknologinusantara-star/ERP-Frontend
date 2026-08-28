@@ -148,7 +148,11 @@ export default function ExpenseCategoryTable() {
                 {search ? `Tidak ada kategori untuk "${search}".` : 'Belum ada Kategori Pengeluaran.'}
               </td></tr>
             ) : filtered.map((row) => (
-              <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+              <tr
+                key={row.id}
+                className="border-b border-border hover:bg-primary/5 transition-colors group cursor-pointer"
+                onClick={() => openDetail(row)}
+              >
                 <td className="erp-table-cell font-600 text-primary">{row.code}</td>
                 <td className="erp-table-cell font-500">{row.name}</td>
                 <td className="erp-table-cell text-muted-foreground">{row.accountCode} — {row.accountName}</td>
@@ -157,7 +161,7 @@ export default function ExpenseCategoryTable() {
                     {row.isActive ? 'Aktif' : 'Nonaktif'}
                   </span>
                 </td>
-                <td className="erp-table-cell erp-action-col">
+                <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                   <RowActionMenu items={[
                     { icon: <Eye size={13} />, label: 'Detail', onClick: () => openDetail(row) },
                     { icon: <Edit2 size={13} />, label: 'Edit', onClick: () => openEdit(row) },

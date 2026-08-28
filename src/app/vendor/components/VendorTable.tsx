@@ -6,6 +6,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
 import ERPModal from '@/components/ui/ERPModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { ActiveStatus } from '@/types';
 import { supplierService, CreateSupplierDto } from '@/services/supplier.service';
 import { downloadCsv } from '@/lib/export';
@@ -53,6 +54,8 @@ export default function VendorTable() {
   const [selected, setSelected] = useState<SupplierRow | null>(null);
   const [form, setForm] = useState<CreateSupplierDto>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<SupplierRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async (q: string, p: number, pp: number) => {
     setLoading(true);
@@ -135,14 +138,18 @@ export default function VendorTable() {
     }
   };
 
-  const handleDelete = async (row: SupplierRow) => {
-    if (!confirm(`Hapus vendor "${row.name}"?`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await supplierService.delete(row.id);
+      await supplierService.delete(deleteTarget.id);
       toast.success('Vendor berhasil dihapus');
+      setDeleteTarget(null);
       load(search, page, perPage);
     } catch {
       toast.error('Gagal menghapus vendor');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -194,7 +201,11 @@ export default function VendorTable() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-10 text-muted-foreground">Tidak ada vendor ditemukan</td></tr>
               ) : filtered.map((row) => (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-primary/5 transition-colors group cursor-pointer"
+                  onClick={() => openDetail(row)}
+                >
                   <td className="erp-table-cell font-600 text-primary">{row.code}</td>
                   <td className="erp-table-cell font-600 max-w-[180px] truncate" title={row.name}>{row.name}</td>
                   <td className="erp-table-cell">{row.contactPerson || '—'}</td>
@@ -206,11 +217,11 @@ export default function VendorTable() {
                   <td className="erp-table-cell">
                     <StatusBadge status={(row.isActive ? 'Aktif' : 'Tidak Aktif') as ActiveStatus} size="sm" />
                   </td>
-                  <td className="erp-table-cell erp-action-col">
+                  <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />,    label: 'Detail Vendor', onClick: () => openDetail(row) },
                       { icon: <Edit2 size={13} />,  label: 'Edit Vendor',   onClick: () => openEdit(row) },
-                      { icon: <Trash2 size={13} />, label: 'Hapus Vendor',  onClick: () => handleDelete(row), danger: true, separator: true },
+                      { icon: <Trash2 size={13} />, label: 'Hapus Vendor',  onClick: () => setDeleteTarget(row), danger: true, separator: true },
                     ]} />
                   </td>
                 </tr>
@@ -301,6 +312,16 @@ export default function VendorTable() {
           </div>
         )}
       </ERPModal>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Hapus Vendor?"
+        description={`Vendor "${deleteTarget?.name}" akan dihapus permanen.`}
+        confirmLabel="Hapus"
+        loading={deleting}
+      />
     </>
   );
 }

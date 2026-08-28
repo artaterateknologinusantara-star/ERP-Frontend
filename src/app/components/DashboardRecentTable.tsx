@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Eye, ArrowRight } from 'lucide-react';
 import { quotationService } from '@/services/quotation.service';
@@ -9,6 +10,7 @@ import { formatRp } from '@/lib/format';
 import type { QuotationListItem, QuotationStatus } from '@/types';
 
 export default function DashboardRecentTable() {
+  const router = useRouter();
   const [quotations, setQuotations] = useState<QuotationListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,13 +56,17 @@ export default function DashboardRecentTable() {
             ) : quotations.length === 0 ? (
               <tr><td colSpan={6} className="erp-table-cell text-center text-muted-foreground py-8">Belum ada penawaran</td></tr>
             ) : quotations.map((q, i) => (
-              <tr key={q.id} className={`border-b border-border hover:bg-muted/50 transition-colors ${i % 2 !== 0 ? 'bg-muted/20' : ''}`}>
+              <tr
+                key={q.id}
+                className={`border-b border-border hover:bg-muted/50 transition-colors cursor-pointer ${i % 2 !== 0 ? 'bg-muted/20' : ''}`}
+                onClick={() => router.push(q.status === 'Draft' ? `/buat-penawaran-baru?id=${q.id}` : '/riwayat-penawaran')}
+              >
                 <td className="erp-table-cell font-600 text-primary">{q.no}</td>
                 <td className="erp-table-cell text-foreground">{q.customerName}</td>
                 <td className="erp-table-cell font-600 text-foreground font-tabular">{formatRp(q.grandTotal)}</td>
                 <td className="erp-table-cell"><StatusBadge status={q.status as QuotationStatus} size="sm" /></td>
                 <td className="erp-table-cell text-muted-foreground">{q.salesName}</td>
-                <td className="erp-table-cell">
+                <td className="erp-table-cell" onClick={(e) => e.stopPropagation()}>
                   <Link
                     href={q.status === 'Draft' ? `/buat-penawaran-baru?id=${q.id}` : `/riwayat-penawaran`}
                     className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors inline-flex"

@@ -124,7 +124,11 @@ export default function ARTable() {
             ) : pageData.length === 0 ? (
               <tr><td colSpan={12} className="text-center py-12 text-muted-foreground text-sm">Tidak ada data</td></tr>
             ) : pageData.map((row) => (
-              <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
+              <tr
+                key={row.id}
+                className="border-b border-border hover:bg-primary/5 transition-colors cursor-pointer"
+                onClick={() => router.push(`/invoice/${row.id}`)}
+              >
                 <td className="erp-table-cell font-700 text-primary">{row.invoiceNo}</td>
                 <td className="erp-table-cell font-500 max-w-[160px] truncate" title={row.customerName}>{row.customerName}</td>
                 <td className="erp-table-cell text-muted-foreground text-xs">{row.salesOrderNo || '—'}</td>
@@ -146,7 +150,7 @@ export default function ARTable() {
                 <td className="erp-table-cell">
                   <StatusBadge status={row.status as InvoiceStatus} size="sm" />
                 </td>
-                <td className="erp-table-cell erp-action-col">
+                <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                   <RowActionMenu items={[
                     { icon: <Eye size={13} />, label: 'Lihat Invoice', onClick: () => router.push(`/invoice/${row.id}`) },
                   ]} />

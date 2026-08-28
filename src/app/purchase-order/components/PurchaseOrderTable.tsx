@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { formatRp, formatDate } from '@/lib/format';
 import { Eye, CheckCircle, Truck, Trash2 } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
@@ -38,6 +39,9 @@ export default function PurchaseOrderTable() {
   const [perPage, setPerPage] = useState(10);
   const [refreshKey, setRefreshKey] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; no: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,21 +93,26 @@ export default function PurchaseOrderTable() {
     }
   };
 
-  const handleDelete = async (id: string, no: string) => {
-    if (!confirm(`Hapus ${no}? Tindakan ini tidak dapat dibatalkan.`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await deletePO(id);
-      toast.success(`${no} berhasil dihapus`);
+      await deletePO(deleteTarget.id);
+      toast.success(`${deleteTarget.no} berhasil dihapus`);
+      setDeleteTarget(null);
       reload();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menghapus PO');
+    } finally {
+      setDeleting(false);
     }
   };
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   return (
-    <div className="erp-card">
+    <React.Fragment>
+      <div className="erp-card">
       <TableToolbar
         search={searchInput}
         onSearch={handleSearch}
@@ -142,7 +151,11 @@ export default function PurchaseOrderTable() {
               </tr>
             ) : (
               items.map((row) => (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-primary/5 transition-colors group cursor-pointer"
+                  onClick={() => router.push(`/purchase-order/${row.id}`)}
+                >
                   <td className="erp-table-cell font-700 text-primary">{row.no}</td>
                   <td className="erp-table-cell text-muted-foreground text-xs">{row.purchaseRequestNo || '—'}</td>
                   <td className="erp-table-cell font-500">{row.supplierName}</td>
@@ -153,12 +166,12 @@ export default function PurchaseOrderTable() {
                     <StatusBadge status={row.status as PurchaseOrderStatus} size="sm" />
                   </td>
                   <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(row.total)}</td>
-                  <td className="erp-table-cell erp-action-col">
+                  <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />,   label: 'Lihat Detail', onClick: () => router.push(`/purchase-order/${row.id}`) },
                       ...(row.status === 'Draft' ? [
                         { icon: <CheckCircle size={13} />, label: 'Konfirmasi Order', onClick: () => handleConfirmOrder(row.id, row.no), separator: true },
-                        { icon: <Trash2 size={13} />,      label: 'Hapus PO',         onClick: () => handleDelete(row.id, row.no), danger: true },
+                        { icon: <Trash2 size={13} />,      label: 'Hapus PO',         onClick: () => setDeleteTarget({ id: row.id, no: row.no }), danger: true },
                       ] : []),
                       ...(row.status === 'Ordered' ? [
                         { icon: <Truck size={13} />, label: 'Terima Barang', onClick: () => router.push(`/purchase-order/${row.id}`), separator: true },
@@ -184,5 +197,16 @@ export default function PurchaseOrderTable() {
         onPerPageChange={(pp) => { setPerPage(pp); setPage(1); }}
       />
     </div>
+
+    <ConfirmModal
+      isOpen={!!deleteTarget}
+      onClose={() => setDeleteTarget(null)}
+      onConfirm={handleDelete}
+      title="Hapus Purchase Order?"
+      description={`${deleteTarget?.no} akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`}
+      confirmLabel="Hapus"
+      loading={deleting}
+    />
+    </React.Fragment>
   );
 }

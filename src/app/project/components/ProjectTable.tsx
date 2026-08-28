@@ -94,7 +94,11 @@ export default function ProjectTable() {
             ) : filtered.length === 0 ? (
               <tr><td colSpan={10} className="text-center py-10 text-muted-foreground">Belum ada project</td></tr>
             ) : filtered.map((row) => (
-              <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+              <tr
+                key={row.id}
+                className="border-b border-border hover:bg-primary/5 transition-colors group cursor-pointer"
+                onClick={() => router.push(`/project/${row.id}`)}
+              >
                 <td className="erp-table-cell font-600 text-primary">{row.code}</td>
                 <td className="erp-table-cell font-500 max-w-[160px] truncate" title={row.name}>{row.name}</td>
                 <td className="erp-table-cell text-muted-foreground max-w-[140px] truncate" title={row.customerName}>{row.customerName}</td>
@@ -118,7 +122,7 @@ export default function ProjectTable() {
                     {row.status === 'OnHold' ? 'On Hold' : row.status}
                   </span>
                 </td>
-                <td className="erp-table-cell erp-action-col">
+                <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                   <RowActionMenu items={[
                     { icon: <Eye size={13} />, label: 'Lihat Detail', onClick: () => router.push(`/project/${row.id}`) },
                   ]} />

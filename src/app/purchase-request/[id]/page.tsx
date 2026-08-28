@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ERPModal from '@/components/ui/ERPModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { formatRp, formatDate } from '@/lib/format';
 import { ChevronDown, X, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import {
@@ -68,9 +69,9 @@ export default function PurchaseRequestDetailPage() {
   useEffect(() => {
     if (!pr || (pr.status !== 'Ordered' && pr.status !== 'PartiallyOrdered')) return;
     setLoadingPOs(true);
-    getPOList({ perPage: 100 })
+    getPOList({ perPage: 100, purchaseRequestId: pr.id })
       .then((res) => {
-        setRelatedPOs(res.data.filter((po) => po.purchaseRequestId === pr.id));
+        setRelatedPOs(res.data);
       })
       .catch(() => {})
       .finally(() => setLoadingPOs(false));
@@ -102,15 +103,19 @@ export default function PurchaseRequestDetailPage() {
     }
   };
 
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const handleDelete = async () => {
     if (!pr) return;
-    if (!confirm(`Hapus ${pr.no}? Tindakan ini tidak dapat dibatalkan.`)) return;
+    setDeleting(true);
     try {
       await deletePR(pr.id);
       toast.success(`${pr.no} berhasil dihapus`);
       router.push('/purchase-request');
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menghapus PR');
+      setDeleting(false);
     }
   };
 
@@ -315,7 +320,7 @@ export default function PurchaseRequestDetailPage() {
                   </button>
                   <button
                     className="btn-secondary text-red-500 hover:bg-red-50"
-                    onClick={handleDelete}
+                    onClick={() => setDeleteModal(true)}
                     disabled={saving}
                   >
                     Hapus
@@ -718,6 +723,16 @@ export default function PurchaseRequestDetailPage() {
           </div>
         </div>
       </ERPModal>
+
+      <ConfirmModal
+        isOpen={deleteModal}
+        onClose={() => setDeleteModal(false)}
+        onConfirm={handleDelete}
+        title="Hapus Purchase Request?"
+        description={`${pr?.no} akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`}
+        confirmLabel="Hapus"
+        loading={deleting}
+      />
     </AppLayout>
   );
 }

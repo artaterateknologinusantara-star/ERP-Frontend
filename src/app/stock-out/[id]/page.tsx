@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { AlertTriangle, CheckCircle2, Trash2, Truck } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { formatDate } from '@/lib/format';
 import {
   getDeliveryOrderDetail,
@@ -24,6 +25,7 @@ export default function DeliveryOrderDetailPage() {
   const [do_, setDO] = useState<DeliveryOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'confirm' | 'deliver' | 'delete' | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -39,48 +41,37 @@ export default function DeliveryOrderDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleConfirm = async () => {
-    if (!do_) return;
-    if (!confirm(`Konfirmasi DO ${do_.no}? Stok akan dikurangi sesuai items DO.`)) return;
+  const executeConfirmedAction = async () => {
+    if (!do_ || !confirmAction) return;
     setActioning(true);
     try {
-      await confirmDeliveryOrder(id);
-      toast.success('DO berhasil dikonfirmasi');
-      load();
+      if (confirmAction === 'confirm') {
+        await confirmDeliveryOrder(id);
+        toast.success('DO berhasil dikonfirmasi');
+        setConfirmAction(null);
+        load();
+      } else if (confirmAction === 'deliver') {
+        await markDODelivered(id);
+        toast.success('DO ditandai Terkirim');
+        setConfirmAction(null);
+        load();
+      } else {
+        await deleteDeliveryOrder(id);
+        toast.success('DO berhasil dihapus');
+        router.push('/stock-out');
+        return;
+      }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Gagal konfirmasi DO');
+      toast.error(e instanceof Error ? e.message : 'Operasi gagal');
     } finally {
       setActioning(false);
     }
   };
 
-  const handleDeliver = async () => {
-    if (!do_) return;
-    if (!confirm(`Tandai DO ${do_.no} sebagai Terkirim?`)) return;
-    setActioning(true);
-    try {
-      await markDODelivered(id);
-      toast.success('DO ditandai Terkirim');
-      load();
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Gagal update status');
-    } finally {
-      setActioning(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!do_) return;
-    if (!confirm(`Hapus DO ${do_.no}? Tindakan ini tidak dapat dibatalkan.`)) return;
-    setActioning(true);
-    try {
-      await deleteDeliveryOrder(id);
-      toast.success('DO berhasil dihapus');
-      router.push('/stock-out');
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Gagal menghapus DO');
-      setActioning(false);
-    }
+  const CONFIRM_COPY: Record<'confirm' | 'deliver' | 'delete', { title: string; description: string; confirmLabel: string; variant: 'danger' | 'default' }> = {
+    confirm: { title: 'Konfirmasi Delivery Order?', description: `DO ${do_?.no} akan dikonfirmasi. Stok akan dikurangi sesuai items DO.`, confirmLabel: 'Konfirmasi', variant: 'default' },
+    deliver: { title: 'Tandai Sebagai Terkirim?', description: `DO ${do_?.no} akan ditandai sebagai Terkirim.`, confirmLabel: 'Tandai Terkirim', variant: 'default' },
+    delete:  { title: 'Hapus Delivery Order?', description: `DO ${do_?.no} akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, confirmLabel: 'Hapus', variant: 'danger' },
   };
 
   const isConfirmedOrDelivered = do_?.status === 'Confirmed' || do_?.status === 'Delivered';
@@ -138,17 +129,17 @@ export default function DeliveryOrderDetailPage() {
                   <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-md font-500">
                     ⚠ Stok akan dikurangi saat dikonfirmasi
                   </p>
-                  <button className="btn-primary flex items-center gap-1.5" onClick={handleConfirm} disabled={actioning}>
-                    <CheckCircle2 size={14} /> {actioning ? 'Memproses...' : 'Konfirmasi DO'}
+                  <button className="btn-primary flex items-center gap-1.5" onClick={() => setConfirmAction('confirm')} disabled={actioning}>
+                    <CheckCircle2 size={14} /> Konfirmasi DO
                   </button>
-                  <button className="btn-secondary text-red-600 border-red-200 hover:bg-red-50" onClick={handleDelete} disabled={actioning}>
+                  <button className="btn-secondary text-red-600 border-red-200 hover:bg-red-50" onClick={() => setConfirmAction('delete')} disabled={actioning}>
                     <Trash2 size={14} /> Hapus
                   </button>
                 </>
               )}
               {do_.status === 'Confirmed' && (
-                <button className="btn-primary flex items-center gap-1.5" onClick={handleDeliver} disabled={actioning}>
-                  <Truck size={14} /> {actioning ? 'Memproses...' : 'Tandai Terkirim'}
+                <button className="btn-primary flex items-center gap-1.5" onClick={() => setConfirmAction('deliver')} disabled={actioning}>
+                  <Truck size={14} /> Tandai Terkirim
                 </button>
               )}
             </div>
@@ -285,6 +276,17 @@ export default function DeliveryOrderDetailPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={executeConfirmedAction}
+        title={confirmAction ? CONFIRM_COPY[confirmAction].title : ''}
+        description={confirmAction ? CONFIRM_COPY[confirmAction].description : ''}
+        confirmLabel={confirmAction ? CONFIRM_COPY[confirmAction].confirmLabel : ''}
+        variant={confirmAction ? CONFIRM_COPY[confirmAction].variant : 'default'}
+        loading={actioning}
+      />
     </AppLayout>
   );
 }

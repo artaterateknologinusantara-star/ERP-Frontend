@@ -110,7 +110,11 @@ export default function CashInTable({ type }: CashInTableProps) {
               <tr><td colSpan={8} className="text-center py-12 text-muted-foreground text-sm">Tidak ada data</td></tr>
             ) : isCashIn ? (
               (pageData as CashInItem[]).map((row) => (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-primary/5 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/invoice/${row.invoiceId}`)}
+                >
                   <td className="erp-table-cell text-muted-foreground">{formatDate(row.date)}</td>
                   <td className="erp-table-cell font-600 text-primary text-xs">{row.refNo}</td>
                   <td className="erp-table-cell max-w-[180px] truncate">{row.description}</td>
@@ -124,7 +128,7 @@ export default function CashInTable({ type }: CashInTableProps) {
                   <td className="erp-table-cell font-700 font-tabular text-right text-emerald-600">
                     +{formatRp(row.amount)}
                   </td>
-                  <td className="erp-table-cell">
+                  <td className="erp-table-cell" onClick={(e) => e.stopPropagation()}>
                     <button
                       className="btn-secondary py-1 px-2 text-xs flex items-center gap-1"
                       onClick={() => router.push(`/invoice/${row.invoiceId}`)}
@@ -136,7 +140,11 @@ export default function CashInTable({ type }: CashInTableProps) {
               ))
             ) : (
               (pageData as CashOutItem[]).map((row) => (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-primary/5 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/purchase-order/${row.id}`)}
+                >
                   <td className="erp-table-cell text-muted-foreground">{formatDate(row.date)}</td>
                   <td className="erp-table-cell font-600 text-primary text-xs">{row.refNo}</td>
                   <td className="erp-table-cell max-w-[180px] truncate">{row.description}</td>
@@ -150,7 +158,7 @@ export default function CashInTable({ type }: CashInTableProps) {
                   <td className="erp-table-cell font-700 font-tabular text-right text-red-600">
                     -{formatRp(row.amount)}
                   </td>
-                  <td className="erp-table-cell">
+                  <td className="erp-table-cell" onClick={(e) => e.stopPropagation()}>
                     <button
                       className="btn-secondary py-1 px-2 text-xs flex items-center gap-1"
                       onClick={() => router.push(`/purchase-order/${row.id}`)}

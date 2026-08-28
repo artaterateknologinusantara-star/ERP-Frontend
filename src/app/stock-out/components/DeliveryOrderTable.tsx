@@ -15,6 +15,7 @@ import { formatDate } from '@/lib/format';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 const PER_PAGE = 20;
 
@@ -40,6 +41,7 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
   const [page, setPage] = useState(1);
   const [perPage] = useState(PER_PAGE);
   const [actioning, setActioning] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'confirm' | 'deliver' | 'delete'; id: string; no: string } | null>(null);
 
   const load = useCallback(async (q: string, st: string, p: number, pp: number) => {
     setLoading(true);
@@ -68,53 +70,40 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
 
   const totalPages = Math.max(1, Math.ceil(rows.length / perPage));
 
-  const handleConfirm = async (id: string, no: string) => {
-    if (!confirm(`Konfirmasi DO ${no}? Stok akan dikurangi sesuai DO.`)) return;
+  const executeConfirmedAction = async () => {
+    if (!confirmAction) return;
+    const { type, id, no } = confirmAction;
     setActioning(id);
     try {
-      await confirmDeliveryOrder(id);
-      toast.success(`DO ${no} dikonfirmasi`);
+      if (type === 'confirm') {
+        await confirmDeliveryOrder(id);
+        toast.success(`DO ${no} dikonfirmasi`);
+      } else if (type === 'deliver') {
+        await markDODelivered(id);
+        toast.success(`DO ${no} ditandai Terkirim`);
+      } else {
+        await deleteDeliveryOrder(id);
+        toast.success(`DO ${no} berhasil dihapus`);
+      }
+      setConfirmAction(null);
       load(search, statusFilter, page, perPage);
       onRefresh?.();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Gagal konfirmasi DO');
+      toast.error(e instanceof Error ? e.message : 'Operasi gagal');
     } finally {
       setActioning(null);
     }
   };
 
-  const handleDeliver = async (id: string, no: string) => {
-    if (!confirm(`Tandai DO ${no} sebagai Terkirim?`)) return;
-    setActioning(id);
-    try {
-      await markDODelivered(id);
-      toast.success(`DO ${no} ditandai Terkirim`);
-      load(search, statusFilter, page, perPage);
-      onRefresh?.();
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Gagal update status');
-    } finally {
-      setActioning(null);
-    }
-  };
-
-  const handleDelete = async (id: string, no: string) => {
-    if (!confirm(`Hapus DO ${no}? Tindakan ini tidak dapat dibatalkan.`)) return;
-    setActioning(id);
-    try {
-      await deleteDeliveryOrder(id);
-      toast.success(`DO ${no} berhasil dihapus`);
-      load(search, statusFilter, page, perPage);
-      onRefresh?.();
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Gagal menghapus DO');
-    } finally {
-      setActioning(null);
-    }
+  const CONFIRM_COPY: Record<'confirm' | 'deliver' | 'delete', { title: string; description: (no: string) => string; confirmLabel: string; variant: 'danger' | 'default' }> = {
+    confirm: { title: 'Konfirmasi Delivery Order?', description: (no) => `DO ${no} akan dikonfirmasi. Stok akan dikurangi sesuai DO.`, confirmLabel: 'Konfirmasi', variant: 'default' },
+    deliver: { title: 'Tandai Sebagai Terkirim?', description: (no) => `DO ${no} akan ditandai sebagai Terkirim.`, confirmLabel: 'Tandai Terkirim', variant: 'default' },
+    delete:  { title: 'Hapus Delivery Order?', description: (no) => `DO ${no} akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, confirmLabel: 'Hapus', variant: 'danger' },
   };
 
   return (
-    <div className="erp-card shadow-card">
+    <React.Fragment>
+      <div className="erp-card shadow-card">
       <TableToolbar
         search={search}
         onSearch={handleSearch}
@@ -158,7 +147,11 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
             ) : rows.map((row) => {
               const busy = actioning === row.id;
               return (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-primary/5 transition-colors group cursor-pointer"
+                  onClick={() => router.push(`/stock-out/${row.id}`)}
+                >
                   <td className="erp-table-cell font-700 text-primary">{row.no}</td>
                   <td className="erp-table-cell text-muted-foreground">{row.salesOrderNo ?? '—'}</td>
                   <td className="erp-table-cell font-500">{row.customerName ?? '—'}</td>
@@ -166,7 +159,7 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
                   <td className="erp-table-cell text-muted-foreground max-w-[160px] truncate">{row.deliveryAddress ?? '—'}</td>
                   <td className="erp-table-cell text-center font-tabular">{row.itemCount}</td>
                   <td className="erp-table-cell"><StatusBadge status={row.status} /></td>
-                  <td className="erp-table-cell">
+                  <td className="erp-table-cell" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1">
                       <button
                         className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary"
@@ -181,7 +174,7 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
                             className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600 disabled:opacity-40"
                             title="Konfirmasi"
                             disabled={busy}
-                            onClick={() => handleConfirm(row.id, row.no)}
+                            onClick={() => setConfirmAction({ type: 'confirm', id: row.id, no: row.no })}
                           >
                             <CheckCircle2 size={13} />
                           </button>
@@ -189,7 +182,7 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
                             className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 disabled:opacity-40"
                             title="Hapus"
                             disabled={busy}
-                            onClick={() => handleDelete(row.id, row.no)}
+                            onClick={() => setConfirmAction({ type: 'delete', id: row.id, no: row.no })}
                           >
                             <Trash2 size={13} />
                           </button>
@@ -200,7 +193,7 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
                           className="p-1.5 rounded hover:bg-green-50 text-muted-foreground hover:text-green-600 disabled:opacity-40"
                           title="Tandai Terkirim"
                           disabled={busy}
-                          onClick={() => handleDeliver(row.id, row.no)}
+                          onClick={() => setConfirmAction({ type: 'deliver', id: row.id, no: row.no })}
                         >
                           <Package size={13} />
                         </button>
@@ -222,5 +215,17 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
         onPageChange={setPage}
       />
     </div>
+
+    <ConfirmModal
+      isOpen={!!confirmAction}
+      onClose={() => setConfirmAction(null)}
+      onConfirm={executeConfirmedAction}
+      title={confirmAction ? CONFIRM_COPY[confirmAction.type].title : ''}
+      description={confirmAction ? CONFIRM_COPY[confirmAction.type].description(confirmAction.no) : ''}
+      confirmLabel={confirmAction ? CONFIRM_COPY[confirmAction.type].confirmLabel : ''}
+      variant={confirmAction ? CONFIRM_COPY[confirmAction.type].variant : 'default'}
+      loading={!!actioning}
+    />
+    </React.Fragment>
   );
 }

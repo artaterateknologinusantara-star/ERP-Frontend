@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { formatRp, formatDate } from '@/lib/format';
 import { Eye, Plus, Send, CheckCircle, XCircle, ShoppingBag, RotateCcw, Trash2 } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
@@ -38,6 +39,9 @@ export default function PurchaseRequestTable() {
   const [perPage, setPerPage] = useState(10);
   const [refreshKey, setRefreshKey] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; no: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,21 +93,26 @@ export default function PurchaseRequestTable() {
     }
   };
 
-  const handleDelete = async (id: string, no: string) => {
-    if (!confirm(`Hapus ${no}? Tindakan ini tidak dapat dibatalkan.`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await deletePR(id);
-      toast.success(`${no} berhasil dihapus`);
+      await deletePR(deleteTarget.id);
+      toast.success(`${deleteTarget.no} berhasil dihapus`);
+      setDeleteTarget(null);
       reload();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menghapus PR');
+    } finally {
+      setDeleting(false);
     }
   };
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   return (
-    <div className="erp-card">
+    <React.Fragment>
+      <div className="erp-card">
       <TableToolbar
         search={searchInput}
         onSearch={handleSearch}
@@ -147,7 +156,11 @@ export default function PurchaseRequestTable() {
               </tr>
             ) : (
               items.map((row) => (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-primary/5 transition-colors group cursor-pointer"
+                  onClick={() => router.push(`/purchase-request/${row.id}`)}
+                >
                   <td className="erp-table-cell font-700 text-primary">{row.no}</td>
                   <td className="erp-table-cell text-muted-foreground text-xs">{row.salesOrderNo || '—'}</td>
                   <td className="erp-table-cell font-500">{row.requestedByName}</td>
@@ -157,12 +170,12 @@ export default function PurchaseRequestTable() {
                     <StatusBadge status={row.status as PurchaseRequestStatus} size="sm" />
                   </td>
                   <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(row.total)}</td>
-                  <td className="erp-table-cell erp-action-col">
+                  <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />, label: 'Lihat Detail', onClick: () => router.push(`/purchase-request/${row.id}`) },
                       ...(row.status === 'Draft' ? [
                         { icon: <Send size={13} />,    label: 'Submit PR',  onClick: () => handleStatusAction(row.id, 'Submitted', 'PR berhasil diajukan'), separator: true },
-                        { icon: <Trash2 size={13} />,  label: 'Hapus PR',   onClick: () => handleDelete(row.id, row.no), danger: true },
+                        { icon: <Trash2 size={13} />,  label: 'Hapus PR',   onClick: () => setDeleteTarget({ id: row.id, no: row.no }) },
                       ] : []),
                       ...(row.status === 'Submitted' ? [
                         { icon: <CheckCircle size={13} />, label: 'Approve PR', onClick: () => handleStatusAction(row.id, 'Approved', 'PR disetujui'), separator: true },
@@ -173,10 +186,10 @@ export default function PurchaseRequestTable() {
                       ] : []),
                       ...(row.status === 'Rejected' ? [
                         { icon: <RotateCcw size={13} />, label: 'Reset ke Draft', onClick: () => handleStatusAction(row.id, 'Draft', 'PR di-reset ke Draft'), separator: true },
-                        { icon: <Trash2 size={13} />,    label: 'Hapus PR',       onClick: () => handleDelete(row.id, row.no), danger: true },
+                        { icon: <Trash2 size={13} />,    label: 'Hapus PR',       onClick: () => setDeleteTarget({ id: row.id, no: row.no }) },
                       ] : []),
                       ...(row.status === 'Ordered' ? [
-                        { icon: <Trash2 size={13} />, label: 'Hapus PR', onClick: () => handleDelete(row.id, row.no), danger: true, separator: true },
+                        { icon: <Trash2 size={13} />, label: 'Hapus PR', onClick: () => setDeleteTarget({ id: row.id, no: row.no }), danger: true, separator: true },
                       ] : []),
                     ]} />
                   </td>
@@ -196,5 +209,16 @@ export default function PurchaseRequestTable() {
         onPerPageChange={(pp) => { setPerPage(pp); setPage(1); }}
       />
     </div>
+
+    <ConfirmModal
+      isOpen={!!deleteTarget}
+      onClose={() => setDeleteTarget(null)}
+      onConfirm={handleDelete}
+      title="Hapus Purchase Request?"
+      description={`${deleteTarget?.no} akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`}
+      confirmLabel="Hapus"
+      loading={deleting}
+    />
+    </React.Fragment>
   );
 }

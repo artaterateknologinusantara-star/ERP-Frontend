@@ -155,7 +155,11 @@ export default function ExpenseTable() {
               <tr><td colSpan={8} className="text-center py-12 text-muted-foreground text-sm">Tidak ada data ditemukan</td></tr>
             ) : (
               items.map((row) => (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-primary/5 transition-colors group cursor-pointer"
+                  onClick={() => router.push(`/expense/${row.id}`)}
+                >
                   <td className="erp-table-cell font-700 text-primary">{row.expenseNo}</td>
                   <td className="erp-table-cell text-muted-foreground">{formatDate(row.expenseDate)}</td>
                   <td className="erp-table-cell font-500">{row.expenseCategoryName}</td>
@@ -165,7 +169,7 @@ export default function ExpenseTable() {
                     <StatusBadge status={row.status as ExpenseStatus} size="sm" />
                   </td>
                   <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(row.amount)}</td>
-                  <td className="erp-table-cell erp-action-col">
+                  <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />, label: 'Lihat Detail', onClick: () => router.push(`/expense/${row.id}`) },
                       ...(row.status === 'Draft' ? [

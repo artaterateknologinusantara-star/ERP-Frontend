@@ -109,7 +109,11 @@ export default function APTable() {
             ) : pageData.map((row) => {
               const sisa = row.balance ?? row.total;
               return (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-primary/5 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/purchase-order/${row.id}`)}
+                >
                   <td className="erp-table-cell font-700 text-primary">{row.poNo}</td>
                   <td className="erp-table-cell font-500 max-w-[160px] truncate" title={row.supplierName}>{row.supplierName}</td>
                   <td className="erp-table-cell text-muted-foreground text-xs">{row.purchaseRequestNo || '—'}</td>
@@ -128,7 +132,7 @@ export default function APTable() {
                   <td className="erp-table-cell text-muted-foreground text-xs">
                     {row.agingDays > 0 ? `${row.agingDays} hari` : '—'}
                   </td>
-                  <td className="erp-table-cell erp-action-col">
+                  <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />,        label: 'Lihat PO',    onClick: () => router.push(`/purchase-order/${row.id}`) },
                       ...(sisa > 0 ? [{ icon: <CreditCard size={13} />, label: 'Catat Pembayaran', onClick: () => router.push(`/purchase-order/${row.id}`) }] : []),

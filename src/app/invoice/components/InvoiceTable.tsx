@@ -176,7 +176,11 @@ export default function InvoiceTable() {
               ) : displayRows.length === 0 ? (
                 <tr><td colSpan={10} className="text-center py-12 text-muted-foreground">Tidak ada data ditemukan</td></tr>
               ) : displayRows.map((row) => (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-primary/5 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/invoice/${row.id}`)}
+                >
                   <td className="erp-table-cell font-700 text-primary">{row.no}</td>
                   <td className="erp-table-cell font-500 max-w-[160px] truncate" title={row.customerName}>{row.customerName}</td>
                   <td className="erp-table-cell text-muted-foreground">{formatDate(row.invoiceDate)}</td>
@@ -199,7 +203,7 @@ export default function InvoiceTable() {
                       : <span className="text-muted-foreground">—</span>
                     }
                   </td>
-                  <td className="erp-table-cell erp-action-col">
+                  <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />,      label: 'Lihat Detail',    onClick: () => router.push(`/invoice/${row.id}`) },
                       { icon: <CreditCard size={13} />, label: 'Record Payment', onClick: () => openPayModal(row), disabled: row.status === 'Paid' },

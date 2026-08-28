@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import ERPModal from '@/components/ui/ERPModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { userService, UserListItem, CreateUserDto, UpdateUserDto, RoleOption } from '@/services/user.service';
 import { formatDate } from '@/lib/format';
@@ -19,6 +20,8 @@ export default function UsersTab() {
   const [selected, setSelected] = useState<UserListItem | null>(null);
   const [form, setForm]     = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,14 +78,18 @@ export default function UsersTab() {
     }
   };
 
-  const handleDelete = async (u: UserListItem) => {
-    if (!confirm(`Hapus user "${u.name}"?`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await userService.delete(u.id);
+      await userService.delete(deleteTarget.id);
       toast.success('User berhasil dihapus');
+      setDeleteTarget(null);
       load();
     } catch {
       toast.error('Gagal menghapus user');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -122,7 +129,11 @@ export default function UsersTab() {
               ) : users.length === 0 ? (
                 <tr><td colSpan={6} className="erp-table-cell text-center py-8 text-muted-foreground">Belum ada user</td></tr>
               ) : users.map((u) => (
-                <tr key={u.id} className="border-b border-border hover:bg-primary/5 transition-colors group">
+                <tr
+                  key={u.id}
+                  className="border-b border-border hover:bg-primary/5 transition-colors group cursor-pointer"
+                  onClick={() => openEdit(u)}
+                >
                   <td className="erp-table-cell font-600">{u.name}</td>
                   <td className="erp-table-cell text-muted-foreground">{u.email}</td>
                   <td className="erp-table-cell">
@@ -134,10 +145,10 @@ export default function UsersTab() {
                   <td className="erp-table-cell text-muted-foreground">
                     {u.lastLoginAt ? formatDate(u.lastLoginAt) : '—'}
                   </td>
-                  <td className="erp-table-cell">
+                  <td className="erp-table-cell" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600" onClick={() => openEdit(u)}><Edit2 size={13} /></button>
-                      <button className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500" onClick={() => handleDelete(u)}><Trash2 size={13} /></button>
+                      <button className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500" onClick={() => setDeleteTarget(u)}><Trash2 size={13} /></button>
                     </div>
                   </td>
                 </tr>
@@ -201,6 +212,16 @@ export default function UsersTab() {
           )}
         </div>
       </ERPModal>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Hapus User?"
+        description={`User "${deleteTarget?.name}" akan dihapus permanen.`}
+        confirmLabel="Hapus"
+        loading={deleting}
+      />
     </>
   );
 }
