@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Package, AlertTriangle, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import { Package, AlertTriangle, ArrowDownCircle, ArrowUpCircle, TrendingDown } from 'lucide-react';
 import { itemMasterService, ItemMasterStats } from '@/services/itemmaster.service';
 
 export default function InventorySummaryCards() {
@@ -33,6 +33,15 @@ export default function InventorySummaryCards() {
       iconColor: 'text-amber-600',
     },
     {
+      id: 'inv-margin',
+      label: 'Margin di Bawah Minimum',
+      value: stats ? stats.belowMinimumMarginCount.toLocaleString('id-ID') : '—',
+      sub: 'Perlu direview',
+      icon: <TrendingDown size={16} />,
+      iconBg: 'bg-red-50',
+      iconColor: 'text-red-600',
+    },
+    {
       id: 'inv-in',
       label: 'Stock In Bulan Ini',
       value: '—',
@@ -53,7 +62,7 @@ export default function InventorySummaryCards() {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
       {cards.map((card) => (
         <div key={card.id} className="erp-card shadow-card flex items-center gap-3">
           <div className={`w-10 h-10 rounded-lg ${card.iconBg} flex items-center justify-center flex-shrink-0`}>

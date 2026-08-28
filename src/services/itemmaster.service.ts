@@ -8,12 +8,14 @@ export interface ItemMasterListParams {
   sortBy?: string;
   sortDir?: string;
   isActive?: boolean;
+  belowMinimumMargin?: boolean;
 }
 
 export interface ItemMasterStats {
   totalActive: number;
   totalAll: number;
   lowStockCount: number;
+  belowMinimumMarginCount: number;
 }
 
 export interface CreateItemMasterDto {
@@ -27,6 +29,20 @@ export interface CreateItemMasterDto {
   minStock: number;
   sellingPrice: number;
   purchasePrice?: number;
+  marginType?: 'percent' | 'nominal';
+  marginDefault?: number;
+  marginMinimum?: number;
+  isSellingPriceManual?: boolean;
+}
+
+export interface BulkApplyMarginParams {
+  search?: string;
+  isActive?: boolean;
+}
+
+export interface BulkApplyMarginResult {
+  updated: number;
+  skipped: number;
 }
 
 export const itemMasterService = {
@@ -38,6 +54,7 @@ export const itemMasterService = {
       sortBy: params?.sortBy,
       sortDir: params?.sortDir,
       ...(params?.isActive !== undefined ? { isActive: String(params.isActive) } : {}),
+      ...(params?.belowMinimumMargin !== undefined ? { belowMinimumMargin: String(params.belowMinimumMargin) } : {}),
     });
   },
 
@@ -64,5 +81,10 @@ export const itemMasterService = {
 
   delete(id: string) {
     return api.delete(`/item-masters/${id}`);
+  },
+
+  async bulkApplyMargin(params: BulkApplyMarginParams): Promise<BulkApplyMarginResult> {
+    const res = await api.post<BulkApplyMarginResult>('/item-masters/bulk-apply-margin', params);
+    return res.data!;
   },
 };
