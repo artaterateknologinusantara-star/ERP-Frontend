@@ -416,6 +416,10 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">NPWP</label>
               <input type="text" maxLength={20} className="erp-input" value={companyNPWP} onChange={(e) => setCompanyNPWP(e.target.value)} />
             </div>
+            <div>
+              <label className="block text-xs font-600 text-muted-foreground mb-1.5">Website</label>
+              <input type="text" maxLength={200} className="erp-input" placeholder="www.perusahaananda.com" value={website} onChange={(e) => setWebsite(e.target.value)} />
+            </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">Alamat</label>
               <textarea className="erp-input resize-none" rows={2} value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} />
