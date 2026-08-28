@@ -37,6 +37,7 @@ interface Props {
 
 export default function StockInTable({ refreshKey, onStockIn }: Props) {
   const [rows, setRows] = useState<StockTransaction[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [perPage] = useState(PER_PAGE);
@@ -55,8 +56,9 @@ export default function StockInTable({ refreshKey, onStockIn }: Props) {
   const load = useCallback(async (p: number, pp: number) => {
     setLoading(true);
     try {
-      const data = await getStockHistory({ page: p, perPage: pp });
-      setRows(data.filter((r) => r.type === 'StockIn'));
+      const res = await getStockHistory({ page: p, perPage: pp, type: 'StockIn' });
+      setRows(res.data);
+      setTotal(res.total);
     } catch {
       toast.error('Gagal memuat history stock in');
     } finally {
@@ -114,7 +116,7 @@ export default function StockInTable({ refreshKey, onStockIn }: Props) {
   };
 
   const stockInRows = rows;
-  const totalPages = Math.max(1, Math.ceil(stockInRows.length / perPage));
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   return (
     <>
@@ -122,7 +124,7 @@ export default function StockInTable({ refreshKey, onStockIn }: Props) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-[13px] font-700 text-foreground">Riwayat Stock In</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">{stockInRows.length} transaksi masuk</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{total} transaksi masuk</p>
           </div>
           <button className="btn-primary flex items-center gap-1.5" onClick={openModal}>
             <Plus size={14} /> Stock In Manual
@@ -172,7 +174,7 @@ export default function StockInTable({ refreshKey, onStockIn }: Props) {
         <TablePagination
           page={page}
           totalPages={totalPages}
-          totalCount={stockInRows.length}
+          totalCount={total}
           perPage={perPage}
           onPageChange={setPage}
         />

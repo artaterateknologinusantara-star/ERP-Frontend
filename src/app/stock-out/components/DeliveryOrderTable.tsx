@@ -35,6 +35,7 @@ interface Props {
 export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
   const router = useRouter();
   const [rows, setRows] = useState<DeliveryOrderListItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
@@ -46,13 +47,14 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
   const load = useCallback(async (q: string, st: string, p: number, pp: number) => {
     setLoading(true);
     try {
-      const data = await getDeliveryOrders({
+      const res = await getDeliveryOrders({
         page: p,
         perPage: pp,
         search: q || undefined,
         status: st !== 'Semua' ? st : undefined,
       });
-      setRows(data);
+      setRows(res.data);
+      setTotal(res.total);
     } catch {
       toast.error('Gagal memuat Delivery Order');
     } finally {
@@ -68,7 +70,7 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
   const handleSearch = (v: string) => { setSearch(v); setPage(1); };
   const handleStatus = (v: string) => { setStatusFilter(v); setPage(1); };
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / perPage));
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   const executeConfirmedAction = async () => {
     if (!confirmAction) return;
@@ -108,7 +110,7 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
         search={search}
         onSearch={handleSearch}
         searchPlaceholder="Cari nomor DO atau customer..."
-        totalCount={rows.length}
+        totalCount={total}
         countLabel="DO"
         statusFilter={statusFilter}
         onStatusFilter={handleStatus}
@@ -210,7 +212,7 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
       <TablePagination
         page={page}
         totalPages={totalPages}
-        totalCount={rows.length}
+        totalCount={total}
         perPage={perPage}
         onPageChange={setPage}
       />

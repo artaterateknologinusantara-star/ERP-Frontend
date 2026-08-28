@@ -51,7 +51,7 @@ export default function WarehousePage() {
       ]);
       setStats(s);
       setLowStock(ls);
-      setHistory(h);
+      setHistory(h.data);
     } catch {
       toast.error('Gagal memuat data gudang');
     } finally {

@@ -367,7 +367,7 @@ export default function SalesOrderDetailPage() {
       ]);
 
       if (dosRes.status === 'fulfilled')
-        setRelatedDOs(dosRes.value.filter((d) => d.salesOrderNo === soNo));
+        setRelatedDOs(dosRes.value.data.filter((d) => d.salesOrderNo === soNo));
 
       if (invoicesRes.status === 'fulfilled') {
         const all = (invoicesRes.value.data as unknown as { data?: RelatedInvoice[] })?.data

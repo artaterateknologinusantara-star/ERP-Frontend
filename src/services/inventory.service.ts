@@ -1,16 +1,5 @@
 import { api } from '@/lib/api';
-
-// ── Helper ──────────────────────────────────────────────────────────────────
-
-function buildPath(base: string, params?: Record<string, string | number | boolean | undefined>): string {
-  if (!params) return base;
-  const qs = new URLSearchParams(
-    Object.entries(params)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, String(v)])
-  ).toString();
-  return qs ? `${base}?${qs}` : base;
-}
+import { PaginatedResponse } from '@/types';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -127,10 +116,9 @@ export async function getStockHistory(params?: {
   itemMasterId?: string;
   page?: number;
   perPage?: number;
-}): Promise<StockTransaction[]> {
-  const path = buildPath('/inventory/stock-history', params as Record<string, string | number | undefined>);
-  const res = await api.get<StockTransaction[]>(path);
-  return res.data ?? [];
+  type?: string;
+}): Promise<PaginatedResponse<StockTransaction>> {
+  return api.getList<StockTransaction>('/inventory/stock-history', params as Record<string, string | number | undefined>);
 }
 
 export async function recordStockIn(data: RecordStockInRequest): Promise<StockTransaction> {
@@ -143,10 +131,8 @@ export async function getDeliveryOrders(params?: {
   perPage?: number;
   search?: string;
   status?: string;
-}): Promise<DeliveryOrderListItem[]> {
-  const path = buildPath('/inventory/delivery-orders', params as Record<string, string | number | undefined>);
-  const res = await api.get<DeliveryOrderListItem[]>(path);
-  return res.data ?? [];
+}): Promise<PaginatedResponse<DeliveryOrderListItem>> {
+  return api.getList<DeliveryOrderListItem>('/inventory/delivery-orders', params as Record<string, string | number | undefined>);
 }
 
 export async function getDeliveryOrderDetail(id: string): Promise<DeliveryOrderDetail> {
