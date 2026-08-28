@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
@@ -14,7 +15,6 @@ import {
   getPRList,
   updatePRStatus,
   deletePR,
-  PurchaseRequestListItem,
 } from '@/services/purchase.service';
 import { PurchaseRequestStatus } from '@/types';
 
@@ -27,47 +27,40 @@ const STATUS_OPTIONS = [
   { value: 'Ordered', label: 'Ordered' },
 ];
 
+const PURCHASE_REQUESTS_QUERY_KEY = 'purchase-requests';
+
 export default function PurchaseRequestTable() {
   const router = useRouter();
-  const [items, setItems] = useState<PurchaseRequestListItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [refreshKey, setRefreshKey] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; no: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    getPRList({
+  // Server-side pagination (not useTableFilter -- PR count isn't bounded and PaginationParams
+  // clamps perPage at 100). The status filter param below now actually works server-side --
+  // PurchaseRequestQueryParams.Status, added alongside this migration.
+  const { data, isLoading } = useQuery({
+    queryKey: [PURCHASE_REQUESTS_QUERY_KEY, { page, perPage, search, statusFilter }],
+    queryFn: () => getPRList({
       page,
       perPage,
       search: search || undefined,
       status: statusFilter !== 'Semua' ? statusFilter : undefined,
-    })
-      .then((res) => {
-        if (!cancelled) {
-          setItems(res.data);
-          setTotal(res.total);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) toast.error('Gagal memuat data Purchase Request');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [page, perPage, search, statusFilter, refreshKey]);
+    }),
+    placeholderData: keepPreviousData,
+  });
 
-  const reload = () => setRefreshKey((k) => k + 1);
+  const items = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const loading = isLoading;
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [PURCHASE_REQUESTS_QUERY_KEY] });
 
   const handleSearch = (val: string) => {
     setSearchInput(val);
@@ -87,7 +80,7 @@ export default function PurchaseRequestTable() {
     try {
       await updatePRStatus(id, newStatus);
       toast.success(msg);
-      reload();
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Operasi gagal');
     }
@@ -100,7 +93,7 @@ export default function PurchaseRequestTable() {
       await deletePR(deleteTarget.id);
       toast.success(`${deleteTarget.no} berhasil dihapus`);
       setDeleteTarget(null);
-      reload();
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menghapus PR');
     } finally {
