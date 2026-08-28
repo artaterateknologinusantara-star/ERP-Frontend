@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Eye, Send, CheckCircle, XCircle } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TablePagination from '@/components/ui/TablePagination';
 import { formatRp, formatDate } from '@/lib/format';
-import { getExpenseList, submitExpense, approveExpense, ExpenseListItem } from '@/services/expense.service';
-import { getExpenseCategoryList, ExpenseCategory } from '@/services/expenseCategory.service';
+import { getExpenseList, submitExpense, approveExpense } from '@/services/expense.service';
+import { getExpenseCategoryList } from '@/services/expenseCategory.service';
 import { ExpenseStatus } from '@/types';
 
 const STATUS_OPTIONS = [
@@ -21,42 +22,45 @@ const STATUS_OPTIONS = [
   { value: 'Paid', label: 'Paid' },
 ];
 
+const EXPENSES_QUERY_KEY = 'expenses';
+const EXPENSE_CATEGORIES_QUERY_KEY = 'expense-categories';
+
 export default function ExpenseTable() {
   const router = useRouter();
-  const [items, setItems] = useState<ExpenseListItem[]>([]);
-  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('Semua');
   const [categoryFilter, setCategoryFilter] = useState('Semua');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    getExpenseList({
+  // Already correctly server-filtered (ExpenseQueryParams.Status), just needed the react-query
+  // wrap. Not useTableFilter: expense count isn't bounded and PaginationParams clamps perPage at
+  // 100.
+  const { data, isLoading } = useQuery({
+    queryKey: [EXPENSES_QUERY_KEY, { page, perPage, statusFilter, categoryFilter, dateFrom, dateTo }],
+    queryFn: () => getExpenseList({
       page,
       perPage,
       status: statusFilter !== 'Semua' ? statusFilter : undefined,
       expenseCategoryId: categoryFilter !== 'Semua' ? categoryFilter : undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
-    })
-      .then((res) => { setItems(res.data); setTotal(res.total); })
-      .catch(() => toast.error('Gagal memuat data Expense'))
-      .finally(() => setLoading(false));
-  }, [page, perPage, statusFilter, categoryFilter, dateFrom, dateTo]);
+    }),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => { load(); }, [load, refreshKey]);
+  const { data: categories = [] } = useQuery({
+    queryKey: [EXPENSE_CATEGORIES_QUERY_KEY],
+    queryFn: () => getExpenseCategoryList(),
+  });
 
-  useEffect(() => {
-    getExpenseCategoryList().then(setCategories).catch(() => {});
-  }, []);
+  const items = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const loading = isLoading;
 
-  const reload = () => setRefreshKey((k) => k + 1);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [EXPENSES_QUERY_KEY] });
 
   const handleFilterChange = (setter: (v: string) => void) => (v: string) => {
     setter(v);
@@ -67,7 +71,7 @@ export default function ExpenseTable() {
     try {
       await submitExpense(id);
       toast.success(`${no} berhasil diajukan`);
-      reload();
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal submit Expense');
     }
@@ -77,7 +81,7 @@ export default function ExpenseTable() {
     try {
       await approveExpense(id);
       toast.success(`${no} berhasil di-approve`);
-      reload();
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal approve Expense');
     }
