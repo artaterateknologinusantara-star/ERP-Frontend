@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Download, Plus, Eye, Edit2, Trash2, AlertTriangle, RotateCcw, Sparkles } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
 import { toast } from 'sonner';
@@ -28,15 +29,17 @@ const EMPTY_FORM: CreateItemMasterDto = {
   marginType: 'percent', marginDefault: undefined, marginMinimum: undefined, isSellingPriceManual: false,
 };
 
+const ITEM_MASTERS_QUERY_KEY = 'item-masters';
+
 export default function ItemMasterTable() {
-  const [items, setItems] = useState<ItemMaster[]>([]);
-  const [total, setTotal] = useState(0);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(PER_PAGE);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
   const [belowMinMarginOnly, setBelowMinMarginOnly] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [modal, setModal] = useState<'create' | 'edit' | 'detail' | null>(null);
   const [selected, setSelected] = useState<ItemMaster | null>(null);
@@ -47,28 +50,31 @@ export default function ItemMasterTable() {
   const [bulkMarginConfirm, setBulkMarginConfirm] = useState(false);
   const [bulkMarginRunning, setBulkMarginRunning] = useState(false);
 
-  const load = useCallback(async (q: string, p: number, pp: number, st: string, belowMin: boolean) => {
-    setLoading(true);
-    try {
-      const isActive = st === 'Aktif' ? true : st === 'Tidak Aktif' ? false : undefined;
-      const res = await itemMasterService.list({ page: p, perPage: pp, search: q || undefined, isActive, belowMinimumMargin: belowMin || undefined });
-      setItems(res.data);
-      setTotal(res.total);
-    } catch {
-      toast.error('Gagal memuat data item master');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Already correctly server-filtered (ItemMasterParams.IsActive/BelowMinimumMargin) -- just the
+  // react-query wrap. Not useTableFilter: item count isn't bounded and PaginationParams clamps
+  // perPage at 100.
+  const { data, isLoading } = useQuery({
+    queryKey: [ITEM_MASTERS_QUERY_KEY, { page, perPage, search, statusFilter, belowMinMarginOnly }],
+    queryFn: () => {
+      const isActive = statusFilter === 'Aktif' ? true : statusFilter === 'Tidak Aktif' ? false : undefined;
+      return itemMasterService.list({ page, perPage, search: search || undefined, isActive, belowMinimumMargin: belowMinMarginOnly || undefined });
+    },
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    const t = setTimeout(() => load(search, page, perPage, statusFilter, belowMinMarginOnly), search ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [search, page, perPage, statusFilter, belowMinMarginOnly, load]);
+  const items = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const loading = isLoading;
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [ITEM_MASTERS_QUERY_KEY] });
 
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 
-  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
+  const handleSearch = (v: string) => {
+    setSearchInput(v);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setSearch(v); setPage(1); }, 300);
+  };
   const handleStatusFilter = (v: string) => { setStatusFilter(v); setPage(1); };
   const handlePerPageChange = (pp: number) => { setPerPage(pp); setPage(1); };
 
@@ -98,7 +104,7 @@ export default function ItemMasterTable() {
         toast.success('Item berhasil diperbarui');
       }
       closeModal();
-      load(search, page, perPage, statusFilter, belowMinMarginOnly);
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan item');
     } finally {
@@ -119,7 +125,7 @@ export default function ItemMasterTable() {
       const res = await itemMasterService.bulkApplyMargin({ search: search || undefined, isActive });
       toast.success(`${res.updated} item diperbarui, ${res.skipped} dilewati (sudah manual/menunggu harga beli).`);
       setBulkMarginConfirm(false);
-      load(search, page, perPage, statusFilter, belowMinMarginOnly);
+      invalidate();
     } catch {
       toast.error('Gagal menjalankan margin otomatis massal');
     } finally {
@@ -131,7 +137,7 @@ export default function ItemMasterTable() {
     try {
       await itemMasterService.setStatus(item.id, !item.isActive);
       toast.success(`Item ${item.isActive ? 'dinonaktifkan' : 'diaktifkan'}`);
-      load(search, page, perPage, statusFilter, belowMinMarginOnly);
+      invalidate();
     } catch {
       toast.error('Gagal mengubah status');
     }
@@ -157,7 +163,7 @@ export default function ItemMasterTable() {
       await itemMasterService.delete(deleteTarget.id);
       toast.success('Item berhasil dihapus');
       setDeleteTarget(null);
-      load(search, page, perPage, statusFilter, belowMinMarginOnly);
+      invalidate();
     } catch {
       toast.error('Gagal menghapus item');
     } finally {
@@ -278,7 +284,7 @@ export default function ItemMasterTable() {
     <>
       <div className="erp-card shadow-card">
         <TableToolbar
-          search={search}
+          search={searchInput}
           onSearch={handleSearch}
           searchPlaceholder="Cari kode, nama item, kategori, brand..."
           totalCount={total}
