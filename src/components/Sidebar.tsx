@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { companySettingsService } from '@/services/companySettings.service';
-import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database, Calculator } from 'lucide-react';
+import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database, Calculator, X } from 'lucide-react';
 
 interface NavItem {
   id: string;
@@ -146,6 +146,8 @@ const navGroups: NavGroup[] = [
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 // Some nav items share a URL prefix (e.g. Finance Reports at /finance-reports
@@ -159,10 +161,23 @@ const findActiveHref = (pathname: string): string | undefined => {
   return matches.sort((a, b) => b.length - a.length)[0];
 };
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const { data: companySettings } = useCompanySettings();
   const companyName = companySettings?.companyName || 'ERP System';
+
+  // Below lg, the sidebar renders as a full-width slide-in drawer regardless of the
+  // desktop "collapsed" preference — collapsing only makes sense once there's a
+  // permanently-visible rail to collapse into.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  const effectiveCollapsed = collapsed && !isMobile;
 
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -210,7 +225,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   }, [pathname]);
 
   const toggleGroup = (id: string) => {
-    if (collapsed) return;
+    if (effectiveCollapsed) return;
     setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
@@ -220,19 +235,27 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside
-      className="fixed left-0 top-0 h-screen z-40 flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out"
-      style={{ width: collapsed ? 'var(--sidebar-collapsed-width)' : 'var(--sidebar-width)' }}
+      className={`fixed left-0 top-0 h-screen z-50 flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out
+        w-[var(--sidebar-width)] ${collapsed ? 'lg:w-[var(--sidebar-collapsed-width)]' : 'lg:w-[var(--sidebar-width)]'}
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
     >
       {/* Logo */}
       <div className="flex items-center h-14 px-4 border-b border-border flex-shrink-0 overflow-hidden">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <AppLogo size={28} src={logoUrl ?? undefined} />
-          {!collapsed && (
+          {!effectiveCollapsed && (
             <span className="font-extrabold text-xl text-foreground tracking-tight whitespace-nowrap truncate">
               {companyName}
             </span>
           )}
         </div>
+        <button
+          onClick={onMobileClose}
+          className="lg:hidden flex-shrink-0 min-w-11 min-h-11 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors -mr-2"
+          aria-label="Tutup menu"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       {/* Nav */}
@@ -242,16 +265,17 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <div className="px-2 mb-1">
             <Link
               href="/"
+              onClick={onMobileClose}
               className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm font-500 transition-all duration-150 group relative
                 ${isActive('/')
                   ? 'bg-primary/10 text-primary font-600' :'text-secondary-foreground hover:bg-muted hover:text-foreground'
                 }`}
-              title={collapsed ? 'Dashboard' : undefined}
+              title={effectiveCollapsed ? 'Dashboard' : undefined}
             >
               <span className={`flex-shrink-0 ${isActive('/') ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>
                 <LayoutDashboard size={16} />
               </span>
-              {!collapsed && <span className="truncate text-[13px]">Dashboard</span>}
+              {!effectiveCollapsed && <span className="truncate text-[13px]">Dashboard</span>}
             </Link>
           </div>
         )}
@@ -270,12 +294,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   ${groupActive
                     ? 'text-primary bg-primary/5' :'text-secondary-foreground hover:bg-muted hover:text-foreground'
                   }`}
-                title={collapsed ? group.label : undefined}
+                title={effectiveCollapsed ? group.label : undefined}
               >
                 <span className={`flex-shrink-0 ${groupActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>
                   {group.icon}
                 </span>
-                {!collapsed && (
+                {!effectiveCollapsed && (
                   <>
                     <span className="flex-1 text-left truncate font-600">{group.label}</span>
                     <span className="flex-shrink-0 text-muted-foreground">
@@ -286,12 +310,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               </button>
 
               {/* Group items */}
-              {!collapsed && isOpen && (
+              {!effectiveCollapsed && isOpen && (
                 <ul className="mt-0.5 space-y-0.5 pl-3 border-l border-border ml-4">
                   {group.items.map((item) => (
                     <li key={item.id}>
                       <Link
                         href={item.href}
+                        onClick={onMobileClose}
                         className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-500 transition-all duration-150 group relative
                           ${isActive(item.href)
                             ? 'bg-primary/10 text-primary font-600' :'text-secondary-foreground hover:bg-muted hover:text-foreground'
@@ -313,7 +338,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               )}
 
               {/* Collapsed: show active dot */}
-              {collapsed && groupActive && (
+              {effectiveCollapsed && groupActive && (
                 <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-primary rounded-full" />
               )}
             </div>
@@ -323,7 +348,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Bottom */}
       <div className="border-t border-border p-2 flex-shrink-0">
-        {!collapsed && (
+        {!effectiveCollapsed && (
           <div className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-muted cursor-pointer transition-colors mb-1">
             <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
               <User size={14} className="text-primary" />
@@ -335,9 +360,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <Settings size={14} className="text-muted-foreground flex-shrink-0" />
           </div>
         )}
+        {/* Collapse toggle — desktop only; on mobile the drawer is closed via the X button or overlay */}
         <button
           onClick={onToggle}
-          className="w-full flex items-center justify-center gap-2 px-2.5 py-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-150 text-[13px] font-500"
+          className="hidden lg:flex w-full items-center justify-center gap-2 px-2.5 py-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-150 text-[13px] font-500"
         >
           {collapsed ? <ChevronRight size={16} /> : (
             <>

@@ -51,7 +51,7 @@ export default function ERPModal({ isOpen, onClose, title, subtitle, children, s
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 ml-4"
+            className="min-w-11 min-h-11 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 -mr-2 -mt-1 ml-2"
             aria-label="Tutup modal"
           >
             <X size={18} />
@@ -61,7 +61,7 @@ export default function ERPModal({ isOpen, onClose, title, subtitle, children, s
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-2 p-4 border-t border-border flex-shrink-0 bg-muted/30">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 p-4 border-t border-border flex-shrink-0 bg-muted/30">
             {footer}
           </div>
         )}
