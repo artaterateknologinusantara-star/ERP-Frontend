@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
@@ -36,19 +37,20 @@ const STATUS_OPTIONS = [
 ];
 
 const PER_PAGE = 10;
+const VENDORS_QUERY_KEY = 'vendors';
 
 const EMPTY_FORM: CreateSupplierDto = {
   name: '', contactPerson: '', phone: '', email: '', address: '', city: '', npwp: '', bankName: '', bankAccount: '',
 };
 
 export default function VendorTable() {
-  const [rows, setRows] = useState<SupplierRow[]>([]);
-  const [total, setTotal] = useState(0);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(PER_PAGE);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
-  const [loading, setLoading] = useState(true);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [modal, setModal] = useState<'create' | 'edit' | 'detail' | null>(null);
   const [selected, setSelected] = useState<SupplierRow | null>(null);
@@ -57,33 +59,32 @@ export default function VendorTable() {
   const [deleteTarget, setDeleteTarget] = useState<SupplierRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = useCallback(async (q: string, p: number, pp: number) => {
-    setLoading(true);
-    try {
-      const res = await supplierService.list({ page: p, perPage: pp, search: q || undefined });
-      setRows(res.data as unknown as SupplierRow[]);
-      setTotal(res.total);
-    } catch {
-      toast.error('Gagal memuat data vendor');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Now filtered server-side (SupplierParams.IsActive, added alongside this migration) instead of
+  // the old client-side "filter the already-fetched page" workaround, which gave the wrong
+  // total/page count whenever the filter narrowed results below what was on the current page.
+  const { data, isLoading } = useQuery({
+    queryKey: [VENDORS_QUERY_KEY, { page, perPage, search, statusFilter }],
+    queryFn: () => {
+      const isActive = statusFilter === 'Aktif' ? true : statusFilter === 'Tidak Aktif' ? false : undefined;
+      return supplierService.list({ page, perPage, search: search || undefined, isActive });
+    },
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    const t = setTimeout(() => load(search, page, perPage), search ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [search, page, perPage, load]);
+  const filtered = (data?.data ?? []) as unknown as SupplierRow[];
+  const total = data?.total ?? 0;
+  const loading = isLoading;
 
-  // client-side status filter (supplier API doesn't support isActive filter yet)
-  const filtered = statusFilter === 'Aktif' ? rows.filter((r) => r.isActive)
-    : statusFilter === 'Tidak Aktif' ? rows.filter((r) => !r.isActive)
-    : rows;
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [VENDORS_QUERY_KEY] });
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
-  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
-  const handleStatusFilter = (v: string) => setStatusFilter(v);
+  const handleSearch = (v: string) => {
+    setSearchInput(v);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setSearch(v); setPage(1); }, 300);
+  };
+  const handleStatusFilter = (v: string) => { setStatusFilter(v); setPage(1); };
   const handlePerPageChange = (pp: number) => { setPerPage(pp); setPage(1); };
 
   const openCreate = () => { setForm(EMPTY_FORM); setModal('create'); };
@@ -107,7 +108,7 @@ export default function VendorTable() {
         toast.success('Vendor berhasil diperbarui');
       }
       closeModal();
-      load(search, page, perPage);
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan vendor');
     } finally {
@@ -119,7 +120,7 @@ export default function VendorTable() {
     try {
       await supplierService.setStatus(row.id, !row.isActive);
       toast.success(`Vendor ${row.isActive ? 'dinonaktifkan' : 'diaktifkan'}`);
-      load(search, page, perPage);
+      invalidate();
     } catch {
       toast.error('Gagal mengubah status');
     }
@@ -145,7 +146,7 @@ export default function VendorTable() {
       await supplierService.delete(deleteTarget.id);
       toast.success('Vendor berhasil dihapus');
       setDeleteTarget(null);
-      load(search, page, perPage);
+      invalidate();
     } catch {
       toast.error('Gagal menghapus vendor');
     } finally {
@@ -169,10 +170,10 @@ export default function VendorTable() {
     <>
       <div className="erp-card">
         <TableToolbar
-          search={search}
+          search={searchInput}
           onSearch={handleSearch}
           searchPlaceholder="Cari nama, kode, kota vendor..."
-          totalCount={filtered.length}
+          totalCount={total}
           countLabel="vendor"
           statusFilter={statusFilter}
           onStatusFilter={handleStatusFilter}

@@ -5,6 +5,7 @@ export interface SupplierListParams {
   page?: number;
   perPage?: number;
   search?: string;
+  isActive?: boolean;
 }
 
 export interface CreateSupplierDto {
@@ -25,6 +26,7 @@ export const supplierService = {
       page: params?.page,
       perPage: params?.perPage,
       search: params?.search,
+      ...(params?.isActive !== undefined ? { isActive: String(params.isActive) } : {}),
     });
   },
 
