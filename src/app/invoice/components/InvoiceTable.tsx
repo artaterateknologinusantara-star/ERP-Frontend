@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
@@ -35,16 +36,17 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+const INVOICES_QUERY_KEY = 'invoices';
+
 export default function InvoiceTable() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [rows, setRows] = useState<InvoiceListItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
-  const [loading, setLoading] = useState(true);
 
   // Payment modal
   const [payModal, setPayModal] = useState(false);
@@ -63,31 +65,35 @@ export default function InvoiceTable() {
   const [deleteTarget, setDeleteTarget] = useState<InvoiceListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = useCallback(async (q: string, p: number, pp: number) => {
-    setLoading(true);
-    try {
-      const res = await getInvoices({ page: p, perPage: pp, search: q || undefined });
-      setRows(res.data);
-      setTotal(res.total);
-    } catch {
-      toast.error('Gagal memuat data invoice');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Server-side pagination + a real server-side status filter (InvoiceQueryParams.Status, added
+  // alongside this migration -- the status dropdown used to filter the already-paginated page
+  // client-side, which gave the wrong total/page count whenever it narrowed results). Not
+  // useTableFilter: invoice count isn't bounded and PaginationParams clamps perPage at 100.
+  const { data, isLoading } = useQuery({
+    queryKey: [INVOICES_QUERY_KEY, { page, perPage, search, statusFilter }],
+    queryFn: () => getInvoices({
+      page,
+      perPage,
+      search: search || undefined,
+      status: statusFilter !== 'Semua' ? statusFilter : undefined,
+    }),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    const t = setTimeout(() => load(search, page, perPage), search ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [search, page, perPage, load]);
+  const displayRows = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const loading = isLoading;
 
-  const displayRows = statusFilter === 'Semua'
-    ? rows
-    : rows.filter((r) => r.status === statusFilter);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [INVOICES_QUERY_KEY] });
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
-  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
-  const handleStatusFilter = (v: string) => { setStatusFilter(v); };
+  const searchTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const handleSearch = (v: string) => {
+    setSearchInput(v);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setSearch(v); setPage(1); }, 300);
+  };
+  const handleStatusFilter = (v: string) => { setStatusFilter(v); setPage(1); };
   const handlePerPageChange = (pp: number) => { setPerPage(pp); setPage(1); };
 
   const openPayModal = (row: InvoiceListItem) => {
@@ -118,7 +124,7 @@ export default function InvoiceTable() {
       });
       toast.success('Pembayaran berhasil dicatat');
       setPayModal(false);
-      load(search, page, perPage);
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal mencatat pembayaran');
     } finally {
@@ -138,7 +144,7 @@ export default function InvoiceTable() {
       await invoiceService.delete(deleteTarget.id);
       toast.success('Invoice berhasil dihapus');
       setDeleteModal(false);
-      load(search, page, perPage);
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menghapus invoice');
     } finally {
@@ -150,10 +156,10 @@ export default function InvoiceTable() {
     <>
       <div className="erp-card">
         <TableToolbar
-          search={search}
+          search={searchInput}
           onSearch={handleSearch}
           searchPlaceholder="Cari no. invoice, pelanggan..."
-          totalCount={statusFilter === 'Semua' ? total : displayRows.length}
+          totalCount={total}
           countLabel="invoice"
           statusFilter={statusFilter}
           onStatusFilter={handleStatusFilter}
