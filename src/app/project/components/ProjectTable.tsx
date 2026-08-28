@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Eye, Plus } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
 import { toast } from 'sonner';
@@ -28,48 +29,52 @@ const statusColors: Record<string, string> = {
 };
 
 const PER_PAGE = 10;
+const PROJECTS_QUERY_KEY = 'projects';
 
 export default function ProjectTable() {
   const router = useRouter();
-  const [items, setItems]   = useState<ProjectListItem[]>([]);
-  const [total, setTotal]   = useState(0);
-  const [page, setPage]     = useState(1);
+  const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(PER_PAGE);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
-  const [loading, setLoading] = useState(true);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const load = useCallback(async (q: string, p: number, pp: number) => {
-    setLoading(true);
-    try {
-      const res = await projectService.list({ page: p, perPage: pp, search: q || undefined });
-      setItems(res.data);
-      setTotal(res.total);
-    } catch {
-      toast.error('Gagal memuat data project');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Now filtered server-side (ProjectQueryParams.Status, added alongside this migration) instead
+  // of the old client-side "filter the already-fetched page" workaround, which gave the wrong
+  // total/page count whenever the filter narrowed results below what was on the current page.
+  const { data, isLoading } = useQuery({
+    queryKey: [PROJECTS_QUERY_KEY, { page, perPage, search, statusFilter }],
+    queryFn: () => projectService.list({
+      page,
+      perPage,
+      search: search || undefined,
+      status: statusFilter !== 'Semua' ? statusFilter : undefined,
+    }),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    const t = setTimeout(() => load(search, page, perPage), search ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [search, page, perPage, load]);
-
-  const filtered = statusFilter === 'Semua' ? items : items.filter((i) => i.status === statusFilter);
+  const filtered = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const loading = isLoading;
   const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+  const handleSearch = (v: string) => {
+    setSearchInput(v);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setSearch(v); setPage(1); }, 300);
+  };
 
   return (
     <div className="erp-card shadow-card">
       <TableToolbar
-        search={search}
-        onSearch={(v) => { setSearch(v); setPage(1); }}
+        search={searchInput}
+        onSearch={handleSearch}
         searchPlaceholder="Cari kode, nama, customer..."
-        totalCount={filtered.length}
+        totalCount={total}
         countLabel="project"
         statusFilter={statusFilter}
-        onStatusFilter={(v) => setStatusFilter(v)}
+        onStatusFilter={(v) => { setStatusFilter(v); setPage(1); }}
         statusOptions={STATUS_OPTIONS}
         actions={
           <button className="btn-primary" onClick={() => toast.info('Form buat project baru')}>

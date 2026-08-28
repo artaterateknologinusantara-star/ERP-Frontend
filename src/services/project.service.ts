@@ -90,7 +90,7 @@ export const projectService = {
     return res.data!;
   },
 
-  async list(params?: { page?: number; perPage?: number; search?: string }) {
+  async list(params?: { page?: number; perPage?: number; search?: string; status?: string }) {
     return api.getList<ProjectListItem>('/projects', params);
   },
 
