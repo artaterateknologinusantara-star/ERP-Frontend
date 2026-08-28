@@ -22,7 +22,7 @@
 | **Inventory** (Stock In, Stock Out, Warehouse) | 🚧 In Progress | ~80% | Stock In, Stock Out (Delivery Order: list/detail/create/confirm/deliver/delete), dan Warehouse (stats, low-stock alert, modal stock-in, riwayat transaksi) semua wired ke `inventory.service.ts`. **Stock Adjustment** (`/stock-adjustment`) bukan fitur nyata — halamannya hanya me-render ulang `InventorySummaryCards` + `ItemMasterTable` dari modul Item Master, tanpa transaksi adjustment khusus, meski enum `StockTransactionType.Adjustment` sudah ada di backend. |
 | **Project Management** | 🚧 In Progress | ~55% | Dashboard project, list, detail (dengan cost monitoring) — semua wired ke `project.service.ts` (API backend `ProjectController` mendukung stats/CRUD/task/cost). Gap besar: tombol "Buat Project" hanya `toast.info('Form buat project baru')` — **tidak ada form create project di UI** meski `POST /projects` sudah tersedia di backend; tiga halaman satelit (`project/engineers`, `project/tasks`, `project/timeline`) 100% data mock, tidak terhubung ke entity `Project`/`ProjectTask` yang sesungguhnya; `ProjectCharts.tsx` (pie chart status) hardcoded. |
 | **Reports** (sales/finance/inventory/purchasing) | ✅ Completed (inti) | ~80% | `ReportsModule.tsx` memuat stats/chart nyata lewat `Promise.allSettled` gabungan beberapa service. Gap: tombol Export tidak berfungsi. |
-| **Settings** | 📋 Planned (sebagian) | ~40% | Sub-tab **Users** dan **System Administration** sepenuhnya nyata dan fungsional (lihat "Active Development" di bawah). Sub-tab **Company Profile, Branch, Roles, Tax, Numbering, Preferences** — semuanya di dalam satu komponen `SettingsModule.tsx` — murni UI mockup: data array hardcoded, tombol Simpan/Tambah/Edit/Delete **tidak punya `onClick` handler sama sekali**. Backend pun tidak punya controller untuk `CompanySettings` (lihat Known Gaps). |
+| **Settings** | 🚧 In Progress | ~55% | Sub-tab **Users**, **System Administration**, **Company Profile**, dan **Branch** sepenuhnya nyata dan fungsional (lihat "Active Development" di bawah) — `CompanySettingsController` (GET/PUT + upload logo) dan `BranchController` (CRUD) keduanya wired end-to-end. Sub-tab **Roles, Tax, Numbering, Preferences** — di dalam komponen `SettingsModule.tsx` yang sama — masih murni UI mockup: data array hardcoded, tombol Simpan/Tambah/Edit/Delete **tidak punya `onClick` handler sama sekali**. |
 | **Dashboard** | ✅ Completed (inti) | ~85% | KPI cards, tabel recent, alerts — wired ke API nyata. Gap: `StatusBarChart.tsx` ("Distribusi Status") data hardcoded, tidak mencerminkan data asli. |
 
 # Active Development / Ongoing Refactoring
@@ -31,7 +31,7 @@
 - **Integrasi Item Master ↔ Purchasing** — migrasi `AddItemMasterIdToPRAndPOItems` (migrasi paling akhir) menambahkan FK `ItemMasterId` ke baris PR dan PO. Ini melengkapi rantai stok: PR/PO kini bisa terhubung balik ke Item Master untuk update stok otomatis saat receive.
 - **Modul Project Management** — modul backend penuh (migrasi `AddProjectManagement`) sudah berjalan sejak beberapa minggu lalu, tapi integrasi frontend belum tuntas: halaman create project belum ada, dan 3 halaman satelit lama (engineers/tasks/timeline) yang dibuat sebagai mockup UI belum direkonsiliasi dengan API `Project`/`ProjectTask` yang sudah tersedia. Ini modul dengan gap implementasi terbesar saat ini.
 - **AuditLog** — entity dan tabel ditambahkan (tercampur dalam migrasi pricing `ItemMasterV2_PricingSeparation`), tapi baru dipakai untuk mencatat aksi `SystemResetController` (bulk reset), belum menjadi audit trail umum lintas seluruh modul CRUD seperti field `CreatedBy`/`UpdatedBy` yang idealnya diisi di setiap mutasi.
-- **Settings module** — tampak sedang dalam migrasi dari UI statis ke fungsional: 2 dari 8 sub-tab (`Users`, `System Administration`) sudah nyata, 6 sisanya masih placeholder di komponen yang sama.
+- **Settings module** — tampak sedang dalam migrasi dari UI statis ke fungsional: 4 dari 8 sub-tab (`Users`, `System Administration`, `Company Profile`, `Branch`) sudah nyata, 4 sisanya (`Roles`, `Tax`, `Numbering`, `Preferences`) masih placeholder di komponen yang sama.
 
 # Stable vs High-Risk Modules
 
@@ -46,7 +46,7 @@
 
 # Known Gaps
 
-- **`CompanySettings` tidak punya API endpoint sama sekali** — entity dan tabelnya ada di database (di-seed saat startup, lihat `ARCHITECTURE.md`), tapi tidak ada `CompanySettingsController` atau endpoint apa pun di backend untuk membaca/mengubahnya. Halaman Settings → Company Profile di frontend karena itu tidak mungkin tersambung ke backend sampai controller ini dibuat.
+- **[STALE, DIKOREKSI] `CompanySettings` sekarang PUNYA API endpoint lengkap** — `CompanySettingsController` (GET/PUT + upload logo) sudah dibuat dan di-wire penuh ke halaman Settings → Company Profile (`SettingsModule.tsx` `handleSaveCompanyProfile`), termasuk white-label branding dinamis (Sidebar/breadcrumb/login/title, DocumentPrefix). Catatan lama di sini yang menyebut "tidak ada endpoint sama sekali" sudah tidak akurat — lihat `03_DEVELOPMENT_ROADMAP.md` Fase 0 untuk riwayat controller ini.
 - **`purchaseorder.service.ts` memanggil endpoint yang tidak ada** di backend (`/goods-receipts`, `/purchase-requests/{id}/approve`, `/purchase-requests/{id}/reject`) — file ini sudah digantikan oleh `purchase.service.ts` yang dipakai secara aktual (lewat `PATCH /purchase-requests/{id}/status` generik), tapi file lama belum dihapus.
 - **Field "Cabang" di form Quotation (`BuatPenawaranForm.tsx`/`InformasiPenawaranSection.tsx`, `BRANCH_OPTIONS` hardcode string list) tidak terhubung ke entity `Branch` baru** (Model/Controller/Service dibangun untuk Settings → Branch, lihat `ARCHITECTURE.md`) — dua sumber data terpisah yang kebetulan sama-sama soal "cabang". Idealnya field itu diganti jadi dropdown yang fetch dari `GET /api/branches`, tapi itu perubahan terpisah, belum dikerjakan.
 - **[STALE, DIKOREKSI] `SupplierInvoice` sekarang PUNYA entity/endpoint sendiri di backend** (dibuat Fase 4 — `SupplierInvoiceController`, `SupplierInvoiceService`, posting GL GRNI→Utang Usaha, sudah termasuk field `NomorFakturPajak`) — catatan lama di sini menyebut "tidak ada entity Supplier Invoice di backend" yang sudah tidak akurat sejak Fase 4. Yang MASIH benar: **frontend-nya belum pernah dibuat sama sekali** — halaman `supplier-invoice/page.tsx` cuma me-render ulang komponen AP (`APSummaryCards`/`APTable`), nol koneksi ke `POST /api/supplier-invoices`. Lihat item "Frontend Form Create SupplierInvoice" di `03_DEVELOPMENT_ROADMAP.md` bagian "Track Purchasing".
@@ -83,7 +83,7 @@
 | Inventory | 80% |
 | Project Management | 55% |
 | Reports | 80% |
-| Settings | 40% |
+| Settings | 55% |
 | Dashboard | 85% |
 
 # Next Recommended Priorities
@@ -92,11 +92,11 @@ Urutan berdasarkan dependency dan risiko, bukan sekadar mudah-ke-sulit:
 
 1. **Tutup celah otorisasi** — tambahkan `[Authorize]` ke `GET /api/auth/users`, tambahkan pembatasan role ke `SystemResetController` (endpoint hard-delete database penuh), pindahkan JWT signing key dari `appsettings.json` ke secret store/env var.
 2. **Bersihkan kode mati/patah** — hapus atau perbaiki `purchaseorder.service.ts` (memanggil 3 endpoint yang tidak ada di backend) sebelum ada yang tidak sengaja mengimpornya lagi.
-3. **Buat `CompanySettingsController`** — entity dan seed data sudah ada di database, tinggal expose CRUD-nya; ini prasyarat sebelum tab Settings → Company Profile bisa benar-benar berfungsi.
+3. ~~**Buat `CompanySettingsController`**~~ — **✅ Selesai.** Controller (GET/PUT + upload logo) sudah dibuat dan diwire penuh ke Settings → Company Profile, termasuk white-label branding dinamis.
 4. **Sambungkan create-flow Project di frontend** — backend `POST /projects` sudah siap, tombol "Buat Project" tinggal diarahkan ke form nyata; ini blocker utama modul Project Management.
 5. **Rekonsiliasi halaman satelit Project** (`engineers`, `tasks`, `timeline`) — putuskan apakah dihubungkan ke `ProjectTask`/`User` API yang sudah ada, atau dihapus jika di luar scope.
 6. **Sentralisasi tarif PPN 11%** yang saat ini hardcoded terpisah di 3 tempat (`SalesOrderService` 2×, `InvoiceService` 2×) menjadi satu sumber konfigurasi, supaya perubahan tarif pajak tidak perlu ubah banyak file.
-7. **Lengkapi Settings** — sub-tab Branch, Roles, Tax, Numbering, Preferences (butuh backend endpoint baru + wiring frontend).
+7. **Lengkapi Settings** — sub-tab Roles, Tax, Numbering, Preferences (Branch sudah selesai — lihat item 3 di atas; 4 sub-tab sisanya butuh backend endpoint baru + wiring frontend).
 8. **Implementasikan Export Excel** yang nyata (atau sembunyikan tombolnya) di seluruh modul Finance/Reports/Quotation History supaya UI tidak menjanjikan fitur yang tidak ada.
 9. **Tambahkan optimistic concurrency (`RowVersion`)** minimal untuk `NumberingConfig`, guna mencegah nomor dokumen duplikat di kondisi concurrent request.
 10. **Fitur Stock Adjustment nyata** — pisahkan dari reuse Item Master, buat transaksi adjustment yang benar-benar menulis ke `StockTransaction` dengan `Type=Adjustment`.

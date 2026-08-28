@@ -306,7 +306,7 @@ pemilik proyek):
   Opening Balance dibuat, membuktikan nol kontaminasi ke P&L.
 
 ### 3. PPN Masukan Reconciliation (Rekapitulasi PPN)
-**Prioritas: Tinggi**
+**Status: ✅ Selesai**
 
 - **Business need**: PPN Masukan sudah tercatat ke akun "2-3000 Utang Pajak Masukan" sejak Fase 4
   (`SupplierInvoice.ApproveAsync`) tapi belum ada mekanisme melacak "berapa yang sudah dikreditkan ke
@@ -317,13 +317,32 @@ pemilik proyek):
   siap dicocokkan ke SPT — bukan 2 laporan terpisah yang harus direkonsiliasi manual.
 - **Di luar scope Fase 4** (sudah dicatat sebagai limitation saat itu) — item ini yang menutup gap
   tersebut.
+- **Solusi yang diimplementasikan**: endpoint backend `GET /api/reports/ppn-reconciliation` (pola sama
+  seperti `ReportsController` Fase 6) + halaman frontend baru `/finance-reports/ppn-reconciliation`
+  (grup nav "Accounting") — filter rentang tanggal, 2 seksi (PPN Keluaran/PPN Masukan) dengan tabel
+  detail per transaksi (tanggal, no dokumen, partner, NPWP, No Faktur Pajak, jumlah), subtotal
+  masing-masing, panel Selisih, Export PDF (raw-fetch-to-blob). Field `NomorFakturPajak` ditambahkan ke
+  Invoice AR (type, DTO, input di modal "Buat Invoice") — sebelumnya field ini sudah ada di
+  `SupplierInvoice` sejak Fase 4.
+- Lihat detail implementasi di riwayat commit
+  `PPN Masukan Reconciliation: halaman Rekapitulasi PPN + input Nomor Faktur Pajak`.
 
 ### 4. Down Payment / Uang Muka dari Customer
-**Prioritas: Tinggi**
+**Status: ✅ Selesai**
 
 - **Business need**: bisnis project services (Network/CCTV/Fiber/Data Center) umumnya minta DP 30-50% sebelum pekerjaan dimulai.
 - **Business rule**: DP yang diterima **bukan** Pendapatan pada saat diterima — harus dicatat sebagai **Liabilitas** ("Uang Muka Pelanggan" / Customer Advance) sampai barang/jasa benar-benar diserahkan (invoice final terbit). Baru saat itu Uang Muka direklas jadi Pendapatan.
 - **Terkait Accounting/GL**: butuh akun baru "Uang Muka Pelanggan" di Liabilitas (COA), dan `SourceType` baru di `JournalEntry` untuk transaksi ini.
+- **Solusi yang diimplementasikan**: entity `SalesOrderPayment` + `DownPaymentApplication` (Opsi C).
+  Sales Order detail: section "Down Payment" baru — tombol "Terima DP" (modal
+  Tanggal/Jumlah/Metode/Referensi/Catatan, dibatasi sisa kapasitas DP terhadap Grand Total SO), tabel
+  daftar DP (Jumlah DP/Sudah Diterapkan/Sisa), total DP diterima. Invoice detail: banner "DP tersedia:
+  Rp X" (muncul hanya kalau ada SO terkait dengan DP bersisa dan Invoice belum lunas) + tombol
+  "Terapkan DP ke Invoice ini" — modal pilih DP dari daftar + jumlah yang mau diterapkan, dibatasi
+  `Math.min(sisa DP, sisa tagihan Invoice)`.
+- Lihat detail implementasi di riwayat commit
+  `Down Payment Customer: SalesOrderPayment + DownPaymentApplication (Opsi C)` (backend) dan
+  `Down Payment Customer: UI Terima DP di SO + Terapkan DP di Invoice` (frontend).
 
 ### 5. Retention / Termin Pembayaran Proyek
 **Prioritas: Tinggi**
