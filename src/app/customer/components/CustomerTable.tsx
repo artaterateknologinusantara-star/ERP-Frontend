@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
@@ -35,19 +36,20 @@ const STATUS_OPTIONS = [
 ];
 
 const PER_PAGE = 10;
+const CUSTOMERS_QUERY_KEY = 'customers';
 
 const EMPTY_FORM: CreateCustomerDto = {
   name: '', industry: '', contactPerson: '', phone: '', email: '', address: '', city: '', npwp: '',
 };
 
 export default function CustomerTable() {
-  const [rows, setRows] = useState<CustomerRow[]>([]);
-  const [total, setTotal] = useState(0);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(PER_PAGE);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
-  const [loading, setLoading] = useState(true);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [modal, setModal] = useState<'create' | 'edit' | 'detail' | null>(null);
   const [selected, setSelected] = useState<CustomerRow | null>(null);
@@ -56,28 +58,31 @@ export default function CustomerTable() {
   const [deleteTarget, setDeleteTarget] = useState<CustomerRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = useCallback(async (q: string, p: number, pp: number, st: string) => {
-    setLoading(true);
-    try {
-      const isActive = st === 'Aktif' ? true : st === 'Tidak Aktif' ? false : undefined;
-      const res = await customerService.list({ page: p, perPage: pp, search: q || undefined, isActive });
-      setRows(res.data as unknown as CustomerRow[]);
-      setTotal(res.total);
-    } catch {
-      toast.error('Gagal memuat data customer');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Customer count is server-filtered correctly already (CustomerParams.IsActive), just needed the
+  // react-query wrap -- not useTableFilter, customer count isn't bounded and PaginationParams
+  // clamps perPage at 100.
+  const { data, isLoading } = useQuery({
+    queryKey: [CUSTOMERS_QUERY_KEY, { page, perPage, search, statusFilter }],
+    queryFn: () => {
+      const isActive = statusFilter === 'Aktif' ? true : statusFilter === 'Tidak Aktif' ? false : undefined;
+      return customerService.list({ page, perPage, search: search || undefined, isActive });
+    },
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    const t = setTimeout(() => load(search, page, perPage, statusFilter), search ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [search, page, perPage, statusFilter, load]);
+  const rows = (data?.data ?? []) as unknown as CustomerRow[];
+  const total = data?.total ?? 0;
+  const loading = isLoading;
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [CUSTOMERS_QUERY_KEY] });
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
-  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
+  const handleSearch = (v: string) => {
+    setSearchInput(v);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setSearch(v); setPage(1); }, 300);
+  };
   const handleStatusFilter = (v: string) => { setStatusFilter(v); setPage(1); };
   const handlePerPageChange = (pp: number) => { setPerPage(pp); setPage(1); };
 
@@ -102,7 +107,7 @@ export default function CustomerTable() {
         toast.success('Customer berhasil diperbarui');
       }
       closeModal();
-      load(search, page, perPage, statusFilter);
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan customer');
     } finally {
@@ -114,7 +119,7 @@ export default function CustomerTable() {
     try {
       await customerService.setStatus(row.id, !row.isActive);
       toast.success(`Customer ${row.isActive ? 'dinonaktifkan' : 'diaktifkan'}`);
-      load(search, page, perPage, statusFilter);
+      invalidate();
     } catch {
       toast.error('Gagal mengubah status');
     }
@@ -140,7 +145,7 @@ export default function CustomerTable() {
       await customerService.delete(deleteTarget.id);
       toast.success('Customer berhasil dihapus');
       setDeleteTarget(null);
-      load(search, page, perPage, statusFilter);
+      invalidate();
     } catch {
       toast.error('Gagal menghapus customer');
     } finally {
@@ -164,7 +169,7 @@ export default function CustomerTable() {
     <>
       <div className="erp-card">
         <TableToolbar
-          search={search}
+          search={searchInput}
           onSearch={handleSearch}
           searchPlaceholder="Cari nama, kode, kota customer..."
           totalCount={total}
