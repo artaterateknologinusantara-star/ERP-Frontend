@@ -29,6 +29,7 @@ export interface CreateQuotationDto {
   discount: number;
   taxRate: number;
   paymentTerms?: string;
+  termsAndConditions?: string;
   notes?: string;
   additionalNotes?: string;
   tabs: BackendTab[];

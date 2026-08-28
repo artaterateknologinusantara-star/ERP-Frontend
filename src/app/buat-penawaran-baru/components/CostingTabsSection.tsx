@@ -28,14 +28,14 @@ export default function CostingTabsSection({ tabs, setTabs, activeTab, setActive
   return (
     <div className="erp-card shadow-card">
       {/* Tab Header + Template Buttons */}
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        {/* Tabs */}
-        <div className="flex items-center gap-0.5 bg-muted rounded-lg p-1 flex-wrap">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+        {/* Tabs — horizontal scroll on mobile instead of wrapping */}
+        <div className="flex items-center gap-0.5 bg-muted rounded-lg p-1 overflow-x-auto no-scrollbar max-w-full">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-md text-base font-600 transition-all duration-150 whitespace-nowrap
+              className={`px-4 py-2.5 sm:py-2 rounded-md text-base font-600 transition-all duration-150 whitespace-nowrap flex-shrink-0
                 ${activeTab === tab.id
                   ? 'bg-card text-primary shadow-sm border border-border'
                   : 'text-muted-foreground hover:text-foreground'
@@ -47,15 +47,15 @@ export default function CostingTabsSection({ tabs, setTabs, activeTab, setActive
         </div>
 
         {/* Template Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <button
-            className="btn-secondary text-xs"
+            className="btn-secondary text-xs justify-center min-h-11 lg:min-h-0"
             onClick={() => setTemplateModalOpen(true)}
           >
             <BookTemplate size={13} /> Gunakan Template
           </button>
           <button
-            className="btn-secondary text-xs"
+            className="btn-secondary text-xs justify-center min-h-11 lg:min-h-0"
             onClick={() => toast.success('Struktur costing disimpan sebagai template baru')}
           >
             <Save size={13} /> Simpan Sebagai Template

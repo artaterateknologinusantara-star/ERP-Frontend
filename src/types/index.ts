@@ -81,6 +81,10 @@ export interface ItemMaster {
   sellingPrice: number;
   purchasePrice?: number;
   lastPurchasePrice?: number;
+  marginType?: 'percent' | 'nominal';
+  marginDefault?: number;
+  marginMinimum?: number;
+  isSellingPriceManual: boolean;
   preferredVendorId?: string;
   preferredVendorName?: string;
   model?: string;
@@ -121,7 +125,14 @@ export interface CostingRow {
   unit: string;
   servicePrice: number;
   materialPrice: number;
+  /** Harga beli/satuan material — dipakai untuk hitung margin di form. Tidak dikirim/disimpan ke backend. */
+  costPrice: number;
   sortOrder: number;
+  /** Snapshot dari Item Master saat baris diisi — dipakai untuk warning margin di form. Tidak dikirim/disimpan ke backend. */
+  itemMasterId?: string;
+  marginType?: 'percent' | 'nominal';
+  marginMinimum?: number;
+  sellingPriceFloor?: number;
 }
 
 export interface CostingGroup {
@@ -144,11 +155,6 @@ export interface PaymentTerm {
   percentage: number;
 }
 
-export interface NoteItem {
-  id: string;
-  text: string;
-}
-
 export interface Quotation {
   id: string;
   no: string;
@@ -165,6 +171,7 @@ export interface Quotation {
   discount: number;
   taxRate: number;
   paymentTerms: string;
+  termsAndConditions: string;
   notes: string;
   additionalNotes: string;
   totalMaterial: number;

@@ -36,7 +36,7 @@ export default function GrandTotalPanel({ tabs, discount, setDiscount, taxRate, 
   const tabLabels = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 
   return (
-    <div className="erp-card shadow-card sticky top-16">
+    <div className="erp-card shadow-card lg:sticky lg:top-16">
       <h3 className="text-xl font-700 text-foreground mb-4">Ringkasan Grand Total</h3>
 
       {/* Per-tab totals */}
