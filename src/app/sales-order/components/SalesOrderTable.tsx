@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
@@ -21,46 +22,49 @@ const STATUS_OPTIONS = [
   { value: 'Cancelled', label: 'Cancelled' },
 ];
 
+const SALES_ORDERS_QUERY_KEY = 'sales-orders';
+
 export default function SalesOrderTable() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [rows, setRows] = useState<SalesOrderListItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
-  const [loading, setLoading] = useState(true);
 
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SalesOrderListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = useCallback(async (q: string, p: number, pp: number, st: string) => {
-    setLoading(true);
-    try {
-      const res = await getSalesOrders({
-        page: p,
-        perPage: pp,
-        search: q || undefined,
-        status: st !== 'Semua' ? st : undefined,
-      });
-      setRows(res.data);
-      setTotal(res.total);
-    } catch {
-      toast.error('Gagal memuat data sales order');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Server-side pagination, not useTableFilter's fetch-all-then-filter-client model: SO count isn't
+  // bounded, and the backend's PaginationParams caps perPage at 100 regardless of what's requested,
+  // so "fetch all with a big perPage" would silently drop rows past 100 SOs.
+  const { data, isLoading } = useQuery({
+    queryKey: [SALES_ORDERS_QUERY_KEY, { page, perPage, search, statusFilter }],
+    queryFn: () => getSalesOrders({
+      page,
+      perPage,
+      search: search || undefined,
+      status: statusFilter !== 'Semua' ? statusFilter : undefined,
+    }),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    const t = setTimeout(() => load(search, page, perPage, statusFilter), search ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [search, page, perPage, statusFilter, load]);
+  const rows = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const loading = isLoading;
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [SALES_ORDERS_QUERY_KEY] });
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
-  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
+  const searchTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const handleSearch = (v: string) => {
+    setSearchInput(v);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setSearch(v); setPage(1); }, 300);
+  };
   const handleStatusFilter = (v: string) => { setStatusFilter(v); setPage(1); };
   const handlePerPageChange = (pp: number) => { setPerPage(pp); setPage(1); };
 
@@ -71,7 +75,7 @@ export default function SalesOrderTable() {
       await salesOrderService.delete(deleteTarget.id);
       toast.success('Sales Order berhasil dihapus');
       setDeleteModal(false);
-      load(search, page, perPage, statusFilter);
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menghapus Sales Order');
     } finally {
@@ -83,7 +87,7 @@ export default function SalesOrderTable() {
     <>
       <div className="erp-card">
         <TableToolbar
-          search={search}
+          search={searchInput}
           onSearch={handleSearch}
           searchPlaceholder="Cari no. SO, pelanggan, proyek..."
           totalCount={total}
