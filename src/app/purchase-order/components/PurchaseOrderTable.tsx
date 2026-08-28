@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
@@ -14,7 +15,6 @@ import {
   getPOList,
   updatePOStatus,
   deletePO,
-  PurchaseOrderListItem,
 } from '@/services/purchase.service';
 import { PurchaseOrderStatus } from '@/types';
 
@@ -27,47 +27,44 @@ const STATUS_OPTIONS = [
   { value: 'Cancelled', label: 'Cancelled' },
 ];
 
+const PURCHASE_ORDERS_QUERY_KEY = 'purchase-orders';
+
 export default function PurchaseOrderTable() {
   const router = useRouter();
-  const [items, setItems] = useState<PurchaseOrderListItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [refreshKey, setRefreshKey] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; no: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    getPOList({
+  // Kept as true server-side pagination (page/perPage/search/status all sent to the API) rather
+  // than switching to useTableFilter's fetch-everything-then-filter-client-side model — PO count
+  // isn't bounded the way AR/AP/Riwayat Penawaran are, and the backend's PaginationParams caps
+  // perPage at 100 regardless of what's requested, so "fetch all with a big perPage" would silently
+  // drop rows once the table passes 100 POs. react-query still gets us the caching/invalidation win:
+  // navigating away and back to the same page/filter within the 2-minute staleTime skips the
+  // network round-trip, and mutations below just invalidate the key instead of a manual reload().
+  const { data, isLoading } = useQuery({
+    queryKey: [PURCHASE_ORDERS_QUERY_KEY, { page, perPage, search, statusFilter }],
+    queryFn: () => getPOList({
       page,
       perPage,
       search: search || undefined,
       status: statusFilter !== 'Semua' ? statusFilter : undefined,
-    })
-      .then((res) => {
-        if (!cancelled) {
-          setItems(res.data);
-          setTotal(res.total);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) toast.error('Gagal memuat data Purchase Order');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [page, perPage, search, statusFilter, refreshKey]);
+    }),
+    placeholderData: keepPreviousData,
+  });
 
-  const reload = () => setRefreshKey((k) => k + 1);
+  const items = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const loading = isLoading;
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [PURCHASE_ORDERS_QUERY_KEY] });
 
   const handleSearch = (val: string) => {
     setSearchInput(val);
@@ -87,7 +84,7 @@ export default function PurchaseOrderTable() {
     try {
       await updatePOStatus(id, 'Ordered');
       toast.success(`${no} dikonfirmasi ke Ordered`);
-      reload();
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal mengkonfirmasi order');
     }
@@ -100,7 +97,7 @@ export default function PurchaseOrderTable() {
       await deletePO(deleteTarget.id);
       toast.success(`${deleteTarget.no} berhasil dihapus`);
       setDeleteTarget(null);
-      reload();
+      invalidate();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menghapus PO');
     } finally {
