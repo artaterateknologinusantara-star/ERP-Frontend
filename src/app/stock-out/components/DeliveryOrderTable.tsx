@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Plus, Eye, CheckCircle2, Trash2, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -9,7 +10,6 @@ import {
   confirmDeliveryOrder,
   markDODelivered,
   deleteDeliveryOrder,
-  DeliveryOrderListItem,
 } from '@/services/inventory.service';
 import { formatDate } from '@/lib/format';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -27,6 +27,8 @@ const STATUS_OPTIONS = [
   { value: 'Cancelled', label: 'Cancelled' },
 ];
 
+const DELIVERY_ORDERS_QUERY_KEY = 'delivery-orders';
+
 interface Props {
   refreshKey?: number;
   onRefresh?: () => void;
@@ -34,40 +36,39 @@ interface Props {
 
 export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
   const router = useRouter();
-  const [rows, setRows] = useState<DeliveryOrderListItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
   const [page, setPage] = useState(1);
   const [perPage] = useState(PER_PAGE);
   const [actioning, setActioning] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ type: 'confirm' | 'deliver' | 'delete'; id: string; no: string } | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const load = useCallback(async (q: string, st: string, p: number, pp: number) => {
-    setLoading(true);
-    try {
-      const res = await getDeliveryOrders({
-        page: p,
-        perPage: pp,
-        search: q || undefined,
-        status: st !== 'Semua' ? st : undefined,
-      });
-      setRows(res.data);
-      setTotal(res.total);
-    } catch {
-      toast.error('Gagal memuat Delivery Order');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // refreshKey (bumped by the parent's onRefresh) is folded into the query key -- StockOutContent
+  // also refreshes StockOutSummaryCards off the same key, so this table needs to refetch in step
+  // with it rather than managing its own separate invalidation.
+  const { data, isLoading } = useQuery({
+    queryKey: [DELIVERY_ORDERS_QUERY_KEY, { page, perPage, search, statusFilter, refreshKey }],
+    queryFn: () => getDeliveryOrders({
+      page,
+      perPage,
+      search: search || undefined,
+      status: statusFilter !== 'Semua' ? statusFilter : undefined,
+    }),
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    const t = setTimeout(() => load(search, statusFilter, page, perPage), search ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [search, statusFilter, page, perPage, load, refreshKey]);
+  const rows = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const loading = isLoading;
 
-  const handleSearch = (v: string) => { setSearch(v); setPage(1); };
+  const handleSearch = (v: string) => {
+    setSearchInput(v);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setSearch(v); setPage(1); }, 300);
+  };
   const handleStatus = (v: string) => { setStatusFilter(v); setPage(1); };
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -88,7 +89,7 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
         toast.success(`DO ${no} berhasil dihapus`);
       }
       setConfirmAction(null);
-      load(search, statusFilter, page, perPage);
+      queryClient.invalidateQueries({ queryKey: [DELIVERY_ORDERS_QUERY_KEY] });
       onRefresh?.();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Operasi gagal');
@@ -107,7 +108,7 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
     <React.Fragment>
       <div className="erp-card shadow-card">
       <TableToolbar
-        search={search}
+        search={searchInput}
         onSearch={handleSearch}
         searchPlaceholder="Cari nomor DO atau customer..."
         totalCount={total}
