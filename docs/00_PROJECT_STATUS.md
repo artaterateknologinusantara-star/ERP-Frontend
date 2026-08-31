@@ -1,4 +1,4 @@
-**Last Updated:** 2026-08-28
+**Last Updated:** 2026-09-01
 
 > Dokumen ini menjelaskan **apa yang sudah ada di code sekarang** — status implementasi, progress, modul mana yang jalan/belum, dan pekerjaan aktif. Dokumen ini **tidak** menjelaskan alasan desain, business rule, atau pattern arsitektur secara mendalam — untuk itu lihat [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 >
@@ -12,7 +12,7 @@
 
 | Modul | Status | Completion | Ringkasan |
 |---|---|---|---|
-| **Authentication** | ✅ Completed | ~90% | Login nyata (`POST /auth/login`, BCrypt, JWT), token disimpan di `localStorage`, auto-redirect saat 401. Tidak ada refresh-token flow (user harus login ulang tiap kadaluarsa token) dan tidak ada halaman register/forgot-password (kemungkinan memang tidak dibutuhkan untuk ERP internal). |
+| **Authentication** | ✅ Completed | ~88% | Login nyata (`POST /auth/login`, BCrypt, JWT), token disimpan di `localStorage`, auto-redirect saat 401. Tidak ada refresh-token flow (user harus login ulang tiap kadaluarsa token). **[BARU 2026-09-01]** Reset password sekarang ada, tapi **admin-initiated, bukan self-service** — `POST /auth/forgot-password` di-gate `[Authorize(Roles = "Administrator")]` (sebelumnya sempat anonymous dan membocorkan token mentah di response, ditutup hari yang sama; lihat Known Gaps riwayatnya). Alurnya: Admin buka Settings → Users → tombol "Reset Password" (`UsersTab.tsx`), dapat link reset (masih ditampilkan langsung karena belum ada email server), lalu kirim manual ke user via chat/telepon. Halaman publik `/forgot-password` dan link "Lupa Password?" di halaman login sudah dihapus. `/reset-password` (konsumsi token) tetap publik. JWT sekarang juga membawa claim `roleId` untuk RBAC — token yang diterbitkan sebelum perubahan ini tidak punya claim tersebut, jadi sesi lama akan gagal di endpoint yang sudah di-gate `[RequirePermission]` sampai user login ulang. |
 | **Master Data — Customer/Vendor/Item Master** | ✅ Completed | ~90% | CRUD penuh dan terhubung API nyata di ketiganya (`customer.service.ts`, `supplier.service.ts`, `itemmaster.service.ts`), termasuk stats dan export CSV di Item Master. Gap kecil: `CustomerSummaryCards.tsx` dan `VendorSummaryCards.tsx` masih angka hardcoded, bukan dari API. |
 | **Quotation** (`buat-penawaran-baru`, `riwayat-penawaran`) | ✅ Completed (inti) | ~85% | Alur penuh: buat (Tab/Group/Item), send, approve/reject, revisi, PDF preview, terima Customer PO, auto-generate Sales Order — semua wired ke API nyata. Gap: `TemplateLibraryModal.tsx` 100% mock (6 template hardcoded, tombol "Gunakan Template" tidak memuat apa pun nyata); tombol Export Excel hanya `toast.info(...)`, tidak benar-benar export. |
 | **Sales** (Sales Order + Customer PO) | ✅ Completed | ~90% | List/detail/create SO, generate dari Quotation, generate PR, generate DO, generate Invoice, export PDF, panel dokumen terkait — semua wired. Tombol "Batalkan SO" ada di kode tapi sengaja dikomentari/nonaktif. |
@@ -22,8 +22,10 @@
 | **Inventory** (Stock In, Stock Out, Warehouse) | 🚧 In Progress | ~80% | Stock In, Stock Out (Delivery Order: list/detail/create/confirm/deliver/delete), dan Warehouse (stats, low-stock alert, modal stock-in, riwayat transaksi) semua wired ke `inventory.service.ts`. **Stock Adjustment** (`/stock-adjustment`) bukan fitur nyata — halamannya hanya me-render ulang `InventorySummaryCards` + `ItemMasterTable` dari modul Item Master, tanpa transaksi adjustment khusus, meski enum `StockTransactionType.Adjustment` sudah ada di backend. |
 | **Project Management** | 🚧 In Progress | ~55% | Dashboard project, list, detail (dengan cost monitoring) — semua wired ke `project.service.ts` (API backend `ProjectController` mendukung stats/CRUD/task/cost). Gap besar: tombol "Buat Project" hanya `toast.info('Form buat project baru')` — **tidak ada form create project di UI** meski `POST /projects` sudah tersedia di backend; tiga halaman satelit (`project/engineers`, `project/tasks`, `project/timeline`) 100% data mock, tidak terhubung ke entity `Project`/`ProjectTask` yang sesungguhnya; `ProjectCharts.tsx` (pie chart status) hardcoded. |
 | **Reports** (sales/finance/inventory/purchasing) | ✅ Completed (inti) | ~80% | `ReportsModule.tsx` memuat stats/chart nyata lewat `Promise.allSettled` gabungan beberapa service. Gap: tombol Export tidak berfungsi. |
-| **Settings** | 🚧 In Progress | ~55% | Sub-tab **Users**, **System Administration**, **Company Profile**, dan **Branch** sepenuhnya nyata dan fungsional (lihat "Active Development" di bawah) — `CompanySettingsController` (GET/PUT + upload logo) dan `BranchController` (CRUD) keduanya wired end-to-end. Sub-tab **Roles, Tax, Numbering, Preferences** — di dalam komponen `SettingsModule.tsx` yang sama — masih murni UI mockup: data array hardcoded, tombol Simpan/Tambah/Edit/Delete **tidak punya `onClick` handler sama sekali**. |
+| **Settings** | 🚧 In Progress | ~65% | Sub-tab **Users**, **System Administration**, **Company Profile**, **Branch**, dan **[BARU 2026-09-01] Roles** sepenuhnya nyata dan fungsional — `CompanySettingsController`, `BranchController`, dan **`RoleController`** (baru, `[Authorize(Roles = "Administrator")]`) semua wired end-to-end. Roles tab (`RolesTab.tsx`) kini CRUD role + toggle permission per modul (View/Create/Edit/Delete/Approve × 7 modul), didukung tabel `Permission` baru dan JWT claim `roleId`. Sub-tab **Tax, Numbering, Preferences** — masih di komponen `SettingsModule.tsx` yang sama — masih murni UI mockup: data array hardcoded, tombol Simpan/Tambah/Edit/Delete **tidak punya `onClick` handler sama sekali**. |
 | **Dashboard** | ✅ Completed (inti) | ~85% | KPI cards, tabel recent, alerts — wired ke API nyata. Gap: `StatusBarChart.tsx` ("Distribusi Status") data hardcoded, tidak mencerminkan data asli. |
+| **[BARU 2026-09-01] RBAC (module permission)** | 🚧 In Progress | ~35% | Backend penuh: tabel `Permission` (7 modul × 5 aksi), `ModulePermissionHandler`/`ModulePermissionRequirement` (policy-based `[RequirePermission]`), claim `roleId` di JWT, seed migration. Frontend: `RolesTab.tsx` untuk kelola permission per role. **Gap besar: enforcement baru dipasang di 3 dari ~24 controller** (Quotation, SupplierInvoice, Expense) + 1 inline check di `PurchaseRequestController` (aksi Approve). Modul lain (Inventory, Accounting/Journal, Sales Order, Invoice, CustomerPo, Branch, TaxRate, dll.) **tidak punya gate sama sekali** — admin bisa uncheck permission di UI tapi endpoint terkait tetap bisa diakses bebas. |
+| **[BARU 2026-09-01] Approval Workspace** | ✅ Completed | ~80% | `ApprovalController` (`GET /approvals/pending`) mengagregasi item "menunggu approval" lintas modul (Expense, Quotation, SupplierInvoice, PurchaseRequest), discope ke permission Approve milik role caller. Frontend: `usePendingApprovals.ts` + halaman `/pending-approval`. Terbatas pada modul yang sudah dicek approve-nya secara eksplisit di masing-masing controller. |
 
 # Active Development / Ongoing Refactoring
 
@@ -31,7 +33,8 @@
 - **Integrasi Item Master ↔ Purchasing** — migrasi `AddItemMasterIdToPRAndPOItems` (migrasi paling akhir) menambahkan FK `ItemMasterId` ke baris PR dan PO. Ini melengkapi rantai stok: PR/PO kini bisa terhubung balik ke Item Master untuk update stok otomatis saat receive.
 - **Modul Project Management** — modul backend penuh (migrasi `AddProjectManagement`) sudah berjalan sejak beberapa minggu lalu, tapi integrasi frontend belum tuntas: halaman create project belum ada, dan 3 halaman satelit lama (engineers/tasks/timeline) yang dibuat sebagai mockup UI belum direkonsiliasi dengan API `Project`/`ProjectTask` yang sudah tersedia. Ini modul dengan gap implementasi terbesar saat ini.
 - **AuditLog** — entity dan tabel ditambahkan (tercampur dalam migrasi pricing `ItemMasterV2_PricingSeparation`), tapi baru dipakai untuk mencatat aksi `SystemResetController` (bulk reset), belum menjadi audit trail umum lintas seluruh modul CRUD seperti field `CreatedBy`/`UpdatedBy` yang idealnya diisi di setiap mutasi.
-- **Settings module** — tampak sedang dalam migrasi dari UI statis ke fungsional: 4 dari 8 sub-tab (`Users`, `System Administration`, `Company Profile`, `Branch`) sudah nyata, 4 sisanya (`Roles`, `Tax`, `Numbering`, `Preferences`) masih placeholder di komponen yang sama.
+- **Settings module** — tampak sedang dalam migrasi dari UI statis ke fungsional: 5 dari 8 sub-tab (`Users`, `System Administration`, `Company Profile`, `Branch`, **[BARU 2026-09-01] `Roles`**) sudah nyata, 3 sisanya (`Tax`, `Numbering`, `Preferences`) masih placeholder di komponen yang sama.
+- **[BARU 2026-09-01] RBAC (module permission) & Approval Workspace** — dikerjakan bersamaan: tabel `Permission`, `ModulePermissionHandler`, JWT claim `roleId`, `RoleController`+`RolesTab.tsx` untuk admin kelola role/permission, dan `ApprovalController`+`/pending-approval` untuk agregasi approval lintas modul. Enforcement baru dipasang di Quotation/SupplierInvoice/Expense/PurchaseRequest(approve) — perluasan ke controller lain masih di antrian (lihat Known Gaps & Next Recommended Priorities).
 
 # Fitur Baru Sejak 2026-07-07 (belum pernah tercatat di dokumen ini)
 
@@ -59,6 +62,7 @@ Commit backend/frontend antara 2026-07-08 dan 2026-08-28 menambah beberapa fitur
 - **Finance / Invoice PDF & Export**: tombol PDF invoice dinonaktifkan padahal backend mendukung, berpotensi membingungkan user yang mengira fitur belum ada.
 - **Numbering (`NumberingConfig`)**: tidak ada locking/concurrency control saat increment nomor dokumen — berisiko duplikasi nomor dokumen di bawah beban permintaan bersamaan (concurrent request), meski belum terkonfirmasi terjadi di produksi.
 - **`src/services/purchaseorder.service.ts`** (frontend): kode mati yang memanggil endpoint tak-ada di backend — detail di Known Gaps di bawah.
+- **[BARU 2026-09-01] RBAC (module permission)**: enforcement baru di 3 dari ~24 controller — konfigurasi permission di Roles tab bisa menyesatkan admin yang mengira modul lain juga sudah terbatasi. Detail di Known Gaps.
 
 # Known Gaps
 
@@ -70,7 +74,10 @@ Commit backend/frontend antara 2026-07-08 dan 2026-08-28 menambah beberapa fitur
 - **Tidak ada `RowVersion`/optimistic concurrency** di satu pun entity, termasuk `NumberingConfig` yang rawan race condition saat generate nomor dokumen.
 - **[DITUTUP PERMANEN 2026-07-08] Insiden: migration EF Core sempat meregenerasi ulang seed `NumberingConfig` dengan nilai hardcode, mereset counter dokumen ke nomor yang sudah lama terpakai.** Saat apply migration `AddNomorFakturPajakToInvoiceAndSupplierInvoice` (task PPN Masukan Reconciliation) ke database development, 5 baris `NumberingConfig` ter-reset dari nilai aktual (70/151/52/22/36) ke nilai seed statis hardcode (64/148/48/19/34), karena `HasData()` untuk baris-baris itu memakai `Guid.NewGuid()`. Diperbaiki manual saat itu (snapshot-apply-bandingkan, `UPDATE` + verifikasi fungsional), **DAN root cause-nya sudah ditutup permanen**: `NumberingConfig` dihapus total dari `HasData()`, dipindah ke `Data/NumberingConfigSeeder.cs` (idempotent, pola `CustomerSeeder`/`ItemMasterSeeder`), migration `RemoveNumberingConfigHasData` diedit manual jadi no-op murni untuk tabel itu. Detail lengkap + hasil testing scratch DB di `03_DEVELOPMENT_ROADMAP.md` bagian "Technical Debt — NumberingConfig HasData (SELESAI DIPERBAIKI PERMANEN)". Risiko serupa (lebih sempit) untuk `CompanySettings`/`TaxRate` dicatat terpisah sebagai item prioritas rendah/menengah di dokumen yang sama.
 - Banyak tombol **Export (Excel)** tersebar di berbagai modul (Finance, Reports, AR, AP, Quotation History) yang tidak punya handler sama sekali — backend pun tidak mengimplementasikan export Excel (hanya PDF via QuestPDF untuk Quotation/SalesOrder/Invoice).
-- **`GET /api/auth/users`** tidak diproteksi `[Authorize]` — celah keamanan (detail di `ARCHITECTURE.md`).
+- **[DITUTUP, sebelum 2026-09-01] `GET /api/auth/users`** sekarang sudah diproteksi `[Authorize]` — celah keamanan yang dicatat di versi dokumen sebelumnya sudah tidak akurat.
+- **[DITUTUP 2026-09-01] `POST /auth/forgot-password`** sempat mengembalikan token reset password mentah langsung di response API tanpa autentikasi — siapa pun yang tahu email target bisa memicu endpoint dan mendapat token untuk mereset password akun itu. Ditutup hari yang sama dengan menggating endpoint ke `[Authorize(Roles = "Administrator")]` — sekarang hanya admin yang login yang bisa memicu pembuatan link reset (lewat Settings → Users → "Reset Password"), lalu mengirimkannya manual ke user. Halaman publik `/forgot-password` dihapus. Belum ditutup permanen: token masih ditampilkan sebagai teks di UI admin (bukan dikirim email) — cukup aman selama akses admin dijaga, tapi idealnya diganti kirim email begitu SMTP tersedia.
+- **[BARU 2026-09-01] RBAC baru ditegakkan di 3 dari ~24 controller**: model `Permission`, JWT claim `roleId`, dan UI `RolesTab` sudah lengkap untuk 7 modul, tapi `[RequirePermission]`/policy check baru dipasang di `QuotationController`, `SupplierInvoiceController`, `ExpenseController`, dan satu inline check approve di `PurchaseRequestController`. Modul lain (Inventory, Accounting, Sales Order, Invoice, CustomerPo, Branch, TaxRate, dll.) tidak benar-benar dibatasi oleh permission yang dikonfigurasi admin di Roles tab.
+- **[BARU 2026-09-01] JWT lama tidak punya claim `roleId`**: sesi yang login sebelum perubahan ini akan mendapat 403 diam-diam di endpoint yang sudah di-gate `[RequirePermission]`, sampai user logout/login ulang untuk mendapat token dengan claim baru.
 - **Saldo Utang Usaha di General Ledger bisa tidak akurat untuk PO yang mengandung item tanpa `ItemMasterId`** (item nama bebas) — sisi Kredit (Stock In) tidak mencakup item tersebut, sementara sisi Debit (PO Payment) mencakup total pembayaran penuh. Perbaikan permanen butuh mewajibkan `ItemMasterId` di semua baris PO — di luar scope Fase 3.
 - **`PurchaseRequestService.UpdateStatusAsync` tidak memvalidasi status yang tidak terdaftar di dictionary transisi** (termasuk `Ordered` dan `PartiallyOrdered`) — user bisa PATCH manual ke status apapun tanpa validasi. Ini gap pra-existing (bukan regresi dari PO Split), sejenis dengan gap otorisasi granular yang sudah tercatat sebelumnya. Perlu diperbaiki bersamaan kalau ada inisiatif hardening validasi status di masa depan.
 - **`ApiBehaviorOptions.SuppressModelStateInvalidFilter` di-set `true`** (`Program.cs`, ditambahkan untuk `CompanySettingsController`) — controller baru manapun yang menambah data annotation ([Required] dkk) WAJIB tambah `ModelState.IsValid` check manual sendiri (lihat pola di `CompanySettingsController`), tidak lagi otomatis dapat 400 dari `[ApiController]`.
@@ -86,7 +93,7 @@ Commit backend/frontend antara 2026-07-08 dan 2026-08-28 menambah beberapa fitur
 
 # Overall Completion
 
-**Estimasi keseluruhan: ~75%** — modul transaksi inti (Quotation→SalesOrder→Purchasing→Inventory→Invoice, siklus utama bisnis) sudah lengkap dan wired end-to-end ke backend nyata. Yang menahan angka ini lebih tinggi: Settings (60% masih mock), Project Management frontend (banyak bagian belum terhubung), dan fitur Export yang konsisten belum berfungsi di seluruh sistem.
+**Estimasi keseluruhan: ~75%** — modul transaksi inti (Quotation→SalesOrder→Purchasing→Inventory→Invoice, siklus utama bisnis) sudah lengkap dan wired end-to-end ke backend nyata. Yang menahan angka ini lebih tinggi: Settings (3 dari 8 sub-tab masih mock), Project Management frontend (banyak bagian belum terhubung), fitur Export yang konsisten belum berfungsi di seluruh sistem, dan RBAC (module permission) yang baru ~35% — plumbing-nya lengkap tapi enforcement baru menyentuh 3 dari ~24 controller.
 
 | Modul | Completion |
 |---|---|
@@ -99,23 +106,26 @@ Commit backend/frontend antara 2026-07-08 dan 2026-08-28 menambah beberapa fitur
 | Inventory | 80% |
 | Project Management | 55% |
 | Reports | 80% |
-| Settings | 55% |
+| Settings | 65% |
 | Dashboard | 85% |
+| RBAC (module permission) | 35% |
+| Approval Workspace | 80% |
 
 # Next Recommended Priorities
 
 Urutan berdasarkan dependency dan risiko, bukan sekadar mudah-ke-sulit:
 
-1. **Tutup celah otorisasi** — tambahkan `[Authorize]` ke `GET /api/auth/users`, tambahkan pembatasan role ke `SystemResetController` (endpoint hard-delete database penuh), pindahkan JWT signing key dari `appsettings.json` ke secret store/env var.
+1. **Tutup celah otorisasi/keamanan sisa** — tambahkan pembatasan role ke `SystemResetController` (endpoint hard-delete database penuh, masih hanya butuh login), pindahkan JWT signing key dari `appsettings.json` ke secret store/env var. (`GET /api/auth/users` dan `POST /auth/forgot-password` sudah diperbaiki 2026-09-01, dicoret dari daftar ini.)
 2. **Bersihkan kode mati/patah** — hapus atau perbaiki `purchaseorder.service.ts` (memanggil 3 endpoint yang tidak ada di backend) sebelum ada yang tidak sengaja mengimpornya lagi.
 3. ~~**Buat `CompanySettingsController`**~~ — **✅ Selesai.** Controller (GET/PUT + upload logo) sudah dibuat dan diwire penuh ke Settings → Company Profile, termasuk white-label branding dinamis.
 4. **Sambungkan create-flow Project di frontend** — backend `POST /projects` sudah siap, tombol "Buat Project" tinggal diarahkan ke form nyata; ini blocker utama modul Project Management.
 5. **Rekonsiliasi halaman satelit Project** (`engineers`, `tasks`, `timeline`) — putuskan apakah dihubungkan ke `ProjectTask`/`User` API yang sudah ada, atau dihapus jika di luar scope.
 6. **Sentralisasi tarif PPN 11%** yang saat ini hardcoded terpisah di 3 tempat (`SalesOrderService` 2×, `InvoiceService` 2×) menjadi satu sumber konfigurasi, supaya perubahan tarif pajak tidak perlu ubah banyak file.
-7. **Lengkapi Settings** — sub-tab Roles, Tax, Numbering, Preferences (Branch sudah selesai — lihat item 3 di atas; 4 sub-tab sisanya butuh backend endpoint baru + wiring frontend).
+7. **Lengkapi Settings** — sub-tab Tax, Numbering, Preferences (Branch dan Roles sudah selesai — lihat item 3 di atas dan baris RBAC; 3 sub-tab sisanya butuh backend endpoint baru + wiring frontend).
 8. **Implementasikan Export Excel** yang nyata (atau sembunyikan tombolnya) di seluruh modul Finance/Reports/Quotation History supaya UI tidak menjanjikan fitur yang tidak ada.
 9. **Tambahkan optimistic concurrency (`RowVersion`)** minimal untuk `NumberingConfig`, guna mencegah nomor dokumen duplikat di kondisi concurrent request.
 10. **Fitur Stock Adjustment nyata** — pisahkan dari reuse Item Master, buat transaksi adjustment yang benar-benar menulis ke `StockTransaction` dengan `Type=Adjustment`.
+11. **[BARU 2026-09-01] Perluas enforcement RBAC ke seluruh controller** — pasang `[RequirePermission]`/policy check ke Inventory, Accounting/Journal, Sales Order, Invoice, CustomerPo, Branch, TaxRate, dan controller lain yang belum digate, supaya konfigurasi Roles tab benar-benar berefek di seluruh sistem, bukan cuma 3 modul.
 
 ---
 Lihat [`ARCHITECTURE.md`](./ARCHITECTURE.md) untuk detail aturan bisnis/desain di balik setiap modul.
