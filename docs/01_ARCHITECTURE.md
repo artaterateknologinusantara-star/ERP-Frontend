@@ -7,9 +7,9 @@
 Syntera ERP adalah dua aplikasi terpisah yang berkomunikasi lewat REST API:
 
 - **Backend**: satu project ASP.NET Core 8 Web API (`SynteraERP.Api`), pola **layered architecture** klasik: `Controller → Service → EF Core DbContext → SQL Server`. Ini **bukan** Clean Architecture/CQRS — tidak ada pemisahan Domain/Application/Infrastructure sebagai project terpisah, tidak ada MediatR, AutoMapper, atau FluentValidation di `.csproj` (dikonfirmasi: hanya 6 package reference — `BCrypt.Net-Next`, `JwtBearer`, `EntityFrameworkCore.SqlServer`, `EntityFrameworkCore.Tools`, `QuestPDF`, `Swashbuckle.AspNetCore`).
-- **Frontend**: Next.js 15 App Router, `page.tsx → component → service (fetch wrapper) → backend API`. Tidak ada global state library yang benar-benar dipakai (folder `src/stores` tidak ada di codebase, meski sempat direncanakan).
+- **Frontend**: Next.js 15 App Router, `page.tsx → component → service (fetch wrapper) → backend API`. Tidak ada global state library klasik yang dipakai (`zustand` ada di `package.json` tapi nol import di `src/`; folder `src/stores` tidak ada). **[DIPERBARUI 2026-08-28]** React Query (`lib/queryClient.ts`) sekarang jauh lebih dari sekadar util kecil — 10+ commit "migrate X to React Query" memindahkan 11 dari 18 komponen tabel besar (`SalesOrderTable`, `PurchaseOrderTable`, `InvoiceTable`, `CustomerTable`, `VendorTable`, `ItemMasterTable`, `DeliveryOrderTable`, `PurchaseRequestTable`, `ExpenseTable`, `ProjectTable`, `SettingsModule`) dari fetch manual ke `useQuery`/`useMutation`. React Query secara efektif sudah jadi data-layer/caching architecture utama di frontend, bukan lagi sekadar util format.
 
-Pola ini diterapkan **cukup konsisten tapi tidak 100%** — dua controller (`FinanceController`, `ProjectController`) melewati Service layer dan langsung meng-inject `AppDbContext`, sementara controller lain (`QuotationController`, `SalesOrderController`, `PurchaseController`, dll.) benar mengikuti pola Controller→Service.
+Pola ini diterapkan **cukup konsisten tapi tidak 100%** — **[DIPERBARUI 2026-08-28]** empat controller melewati (sebagian atau seluruhnya) Service layer: `FinanceController` dan `ProjectController` (full-bypass, langsung inject `AppDbContext`, termasuk endpoint agregasi stats baru `GetARStats`/`GetAPStats` yang ditambahkan di commit perf 2026-08-28 — masih di pattern yang sama, tidak direfactor ke service), `UserController` (full-bypass juga — tidak ada `UserService` sama sekali), serta `AuthController`/`PurchaseOrderController` (hybrid: pakai service resmi `IAuthService`/`IPurchaseOrderService` untuk sebagian besar endpoint, tapi punya field `AppDbContext` tambahan untuk beberapa query read-only, mis. `GET /api/auth/users`). Controller lain (`QuotationController`, `SalesOrderController`, dll.) benar mengikuti pola Controller→Service.
 
 # Layers & Folder Responsibilities
 
@@ -112,6 +112,8 @@ erDiagram
 
 Tidak ada relasi many-to-many (N-N) sejati di seluruh model — semua relasi adalah 1-N atau 1-1 opsional (`CustomerPO` ↔ `Quotation`).
 
+**[DIPERBARUI 2026-08-28] ER diagram di atas belum mencantumkan 4 entity baru** yang ditambahkan setelah diagram ini ditulis: `Branch` (Settings → Branch, belum terhubung ke field "Cabang" di Quotation — lihat Known Gaps di `00_PROJECT_STATUS.md`), `CompanySettings` (sudah disebut di teks di atas tapi belum di diagram), `SalesOrderPayment` dan `DownPaymentApplication` (Down Payment Customer, `SalesOrder ||--o{ SalesOrderPayment`, `SalesOrderPayment ||--o{ DownPaymentApplication`, `DownPaymentApplication }o--|| Invoice`). Total model class di `Models/` sekarang 35 (bukan lagi "~27" seperti disebut di bagian Audit fields di atas).
+
 **Audit fields**: pattern `CreatedAt/UpdatedAt/CreatedBy/UpdatedBy/IsDeleted` dari `BaseEntity` diterapkan hanya pada entity level-atas/parent (16 dari ~27 model class): `Role, User, Customer, Supplier, ItemMaster, Quotation, CustomerPO, SalesOrder, SalesOrderItem, PurchaseRequest, PurchaseOrder, Invoice, Project, ProjectTask, StockTransaction, DeliveryOrder`. Entity anak/line-item (`QuotationTab/Group/Item`, `PurchaseRequestItem`, `PurchaseOrderItem`, `POPayment`, `InvoiceItem`, `DeliveryOrderItem`) dan entity standalone (`NumberingConfig`, `CompanySettings`, `AuditLog`) **tidak** punya field audit lengkap — mereka bergantung pada cascade-delete dari parent, bukan soft-delete individual.
 
 Global soft-delete query filter (`AppDbContext.cs:60-72`, `452`, `470`) aktif untuk: `User, Customer, Supplier, ItemMaster, Quotation, CustomerPO, SalesOrder, Invoice, PurchaseRequest, PurchaseOrder, StockTransaction, DeliveryOrder, Project, ProjectTask`. `Role` dan `SalesOrderItem` punya kolom `IsDeleted` tapi **tidak** difilter otomatis.
@@ -146,7 +148,7 @@ flowchart TD
 Catatan alur:
 - **Approval workflow** hanya ada untuk Quotation (`ApproveAsync`/`RejectAsync`, hanya valid dari status `Terkirim`) dan Purchase Request (state-machine transisi formal di `PurchaseRequestService.cs:103-112`). Modul lain (SalesOrder, PurchaseOrder, DeliveryOrder) tidak punya validasi transisi status — endpoint PATCH status generik menerima transisi status apa pun.
 - Tidak ada entity `Approval`/`ApprovalHistory` terpisah — riwayat approval hanya berupa satu field `ApprovedAt`/`ApprovedBy` (atau `ApprovedByUserId`) di baris parent, sehingga tidak merepresentasikan approval berjenjang/multi-step.
-- Stock bertambah di 3 tempat kode berbeda (`InventoryService.RecordStockInAsync` untuk stock-in manual, `PurchaseOrderService.ReceiveGoodsAsync` untuk penerimaan PO) yang melakukan pekerjaan hampir identik. Stock berkurang hanya lewat `InventoryService.ConfirmDeliveryOrderAsync` — satu-satunya tempat di codebase yang memakai explicit DB transaction (`Database.BeginTransactionAsync`).
+- Stock bertambah di 3 tempat kode berbeda (`InventoryService.RecordStockInAsync` untuk stock-in manual, `PurchaseOrderService.ReceiveGoodsAsync` untuk penerimaan PO) yang melakukan pekerjaan hampir identik. Stock berkurang hanya lewat `InventoryService.ConfirmDeliveryOrderAsync`. **[DIPERBARUI 2026-08-28]** Explicit DB transaction (`Database.BeginTransactionAsync`) **tidak lagi cuma satu tempat** — sekarang dipakai di 12 lokasi, ditambahkan bertahap sejak Fase 2-4 Accounting/GL: `InventoryService.ConfirmDeliveryOrderAsync` (1, yang tertua), `InvoiceService.CreateAsync`+`RecordPaymentAsync` (2), `PurchaseOrderService.RecordPaymentAsync`+`ReceiveGoodsAsync`+create-split-vendor (3), `SupplierInvoiceService` (2), `SalesOrderPaymentService` (2), `ExpenseService` (1). Lihat juga koreksi di bagian [Cross-Cutting Concerns](#cross-cutting-concerns).
 
 # Business Rules (extracted from code)
 
@@ -222,7 +224,7 @@ Aturan ini berlaku untuk seluruh sistem — termasuk saat modul Expense Manageme
 - **Export**: PDF saja, via package `QuestPDF` — `QuotationPdfService`, `SalesOrderPdfService`, `InvoicePdfService`, masing-masing lewat endpoint `GET .../{id}/pdf`. Tidak ada export Excel di sisi backend.
 - **Logging**: `ILogger<T>` default ASP.NET Core saja — tidak ada Serilog atau structured logging library.
 - **Caching**: tidak ditemukan (`IMemoryCache`/`IDistributedCache`/response caching tidak dipakai).
-- **Concurrency**: tidak ada `RowVersion`/optimistic concurrency di model manapun; satu-satunya explicit DB transaction di seluruh backend ada di `InventoryService.ConfirmDeliveryOrderAsync`.
+- **Concurrency**: tidak ada `RowVersion`/optimistic concurrency di model manapun. **[DIPERBARUI 2026-08-28]** Explicit DB transaction (`Database.BeginTransactionAsync`) sekarang ada di 12 tempat di backend (bukan cuma `InventoryService.ConfirmDeliveryOrderAsync`) — daftar lengkap ada di bagian [Business Workflow](#business-workflow) di atas.
 
 # External Integrations
 

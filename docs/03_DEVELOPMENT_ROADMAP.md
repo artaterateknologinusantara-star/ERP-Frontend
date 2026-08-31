@@ -399,6 +399,7 @@ pemilik proyek):
 - **Business need**: Fase 6 (selesai) hanya mencakup Trial Balance/Laba Rugi/Neraca/Buku Besar — Laporan Arus Kas (Cash Flow Statement, format Operating/Investing/Financing) dan penggantian data hardcoded di `bank/page.tsx` (lihat `00_PROJECT_STATUS.md` Known Gaps) dengan saldo nyata dari GL **belum dikerjakan**, sengaja dipisah dari Fase 6 supaya scope Fase 6 tetap fokus ke laporan inti yang wajib (Trial Balance/Laba Rugi/Neraca).
 - **Terkait erat dengan endpoint yang sudah ada**: `GetGeneralLedgerAsync` (Fase 6) sudah punya semua data mentah (mutasi per akun + saldo berjalan) yang dibutuhkan Cash Flow Statement — kemungkinan besar tidak perlu query baru dari nol, cukup agregasi ulang dari akun Kas/Bank per kategori aktivitas (Operating/Investing/Financing).
 - **Terkait erat dengan item #8 (Rekonsiliasi Bank)**: lihat catatan silang di item #8.
+- **[DIPERBARUI 2026-08-28] Catatan disambiguasi**: sudah ada widget ringan "Cash In/Cash Out" bulan berjalan di Finance dashboard (`FinanceController.GetSummary` → `FinanceSummaryCards.tsx`/`FinanceCharts.tsx`), sekadar total pembayaran customer vs PO tanpa kategori Operating/Investing/Financing — ini **bukan** Cash Flow Statement formal yang dimaksud item ini, jangan dianggap item ini sudah selesai sebagian karena widget itu.
 
 ### 13. Period Closing / Lock Tanggal Buku
 **Prioritas: Terakhir (penutup track Accounting/GL)**
