@@ -6,7 +6,9 @@ import { usePathname } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { companySettingsService } from '@/services/companySettings.service';
-import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database, Calculator, X } from 'lucide-react';
+import { hasModuleAccess, hasAnyApprovePermission } from '@/lib/permissions';
+import { usePendingApprovals } from '@/hooks/usePendingApprovals';
+import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database, Calculator, X, ClipboardCheck } from 'lucide-react';
 
 interface NavItem {
   id: string;
@@ -14,6 +16,9 @@ interface NavItem {
   icon: React.ReactNode;
   href: string;
   badge?: number;
+  // Only set on items whose group spans multiple modules (Reports) — filtered individually.
+  // Items without this inherit visibility from their group's `module`.
+  module?: string;
 }
 
 interface NavGroup {
@@ -22,6 +27,8 @@ interface NavGroup {
   icon: React.ReactNode;
   items: NavItem[];
   defaultOpen?: boolean;
+  // Permission module this group maps to. Undefined (Dashboard) means always visible.
+  module?: string;
 }
 
 const navGroups: NavGroup[] = [
@@ -38,6 +45,7 @@ const navGroups: NavGroup[] = [
     id: 'sales',
     label: 'Sales',
     icon: <ShoppingCart size={16} />,
+    module: 'Sales',
     defaultOpen: true,
     items: [
       { id: 'nav-penawaran', label: 'Penawaran', icon: <FileText size={15} />, href: '/riwayat-penawaran' },
@@ -51,6 +59,7 @@ const navGroups: NavGroup[] = [
     id: 'purchasing',
     label: 'Purchasing',
     icon: <ShoppingBag size={16} />,
+    module: 'Purchasing',
     defaultOpen: false,
     items: [
       { id: 'nav-purchase-request', label: 'Purchase Request', icon: <ClipboardList size={15} />, href: '/purchase-request' },
@@ -63,6 +72,7 @@ const navGroups: NavGroup[] = [
     id: 'finance',
     label: 'Finance',
     icon: <Wallet size={16} />,
+    module: 'Finance',
     defaultOpen: false,
     items: [
       { id: 'nav-ar', label: 'Accounts Receivable', icon: <TrendingUp size={15} />, href: '/accounts-receivable' },
@@ -79,6 +89,7 @@ const navGroups: NavGroup[] = [
     id: 'accounting',
     label: 'Accounting',
     icon: <Calculator size={16} />,
+    module: 'Accounting',
     defaultOpen: false,
     items: [
       { id: 'nav-opening-balance', label: 'Opening Balance', icon: <Calculator size={15} />, href: '/opening-balance' },
@@ -92,6 +103,7 @@ const navGroups: NavGroup[] = [
     id: 'inventory',
     label: 'Inventory',
     icon: <Package size={16} />,
+    module: 'Inventory',
     defaultOpen: false,
     items: [
       { id: 'nav-item-master', label: 'Item Master', icon: <Layers size={15} />, href: '/item-master' },
@@ -105,6 +117,7 @@ const navGroups: NavGroup[] = [
     id: 'project',
     label: 'Project',
     icon: <FolderKanban size={16} />,
+    module: 'Project',
     defaultOpen: false,
     items: [
       { id: 'nav-project-dashboard', label: 'Project Dashboard', icon: <FolderKanban size={15} />, href: '/project' },
@@ -119,16 +132,17 @@ const navGroups: NavGroup[] = [
     icon: <BarChart2 size={16} />,
     defaultOpen: false,
     items: [
-      { id: 'nav-sales-report', label: 'Sales Report', icon: <TrendingUp size={15} />, href: '/reports/sales' },
-      { id: 'nav-finance-report', label: 'Finance Report', icon: <DollarSign size={15} />, href: '/reports/finance' },
-      { id: 'nav-purchasing-report', label: 'Purchasing Report', icon: <ShoppingBag size={15} />, href: '/reports/purchasing' },
-      { id: 'nav-inventory-report', label: 'Inventory Report', icon: <Package size={15} />, href: '/reports/inventory' },
+      { id: 'nav-sales-report', label: 'Sales Report', icon: <TrendingUp size={15} />, href: '/reports/sales', module: 'Sales' },
+      { id: 'nav-finance-report', label: 'Finance Report', icon: <DollarSign size={15} />, href: '/reports/finance', module: 'Finance' },
+      { id: 'nav-purchasing-report', label: 'Purchasing Report', icon: <ShoppingBag size={15} />, href: '/reports/purchasing', module: 'Purchasing' },
+      { id: 'nav-inventory-report', label: 'Inventory Report', icon: <Package size={15} />, href: '/reports/inventory', module: 'Inventory' },
     ],
   },
   {
     id: 'settings',
     label: 'Settings',
     icon: <Settings size={16} />,
+    module: 'Settings',
     defaultOpen: false,
     items: [
       { id: 'nav-company', label: 'Company Profile', icon: <Globe size={15} />, href: '/settings/company' },
@@ -201,6 +215,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
     } catch {}
   }, []);
 
+  const showPendingApproval = hasAnyApprovePermission();
+  const { data: pendingApprovals } = usePendingApprovals();
+  const pendingCount = pendingApprovals?.length ?? 0;
+
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     navGroups.forEach((g) => { init[g.id] = g.defaultOpen ?? false; });
@@ -231,7 +249,17 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
 
   // Dashboard group renders as a single direct link
   const dashboardGroup = navGroups.find((g) => g.id === 'main');
-  const otherGroups = navGroups.filter((g) => g.id !== 'main');
+
+  // Each account only sees the modules its role has access to (an admin grants more via Role
+  // Management). Groups with no `module` (Dashboard) are always visible. Reports has no
+  // group-level module since it spans several — each item is filtered by its own `module` instead,
+  // and the whole group is hidden if that leaves it empty.
+  const otherGroups = navGroups
+    .filter((g) => g.id !== 'main')
+    .map((g) => (g.id === 'reports'
+      ? { ...g, items: g.items.filter((item) => !item.module || hasModuleAccess(item.module)) }
+      : g))
+    .filter((g) => (g.id === 'reports' ? g.items.length > 0 : !g.module || hasModuleAccess(g.module)));
 
   return (
     <aside
@@ -276,6 +304,31 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
                 <LayoutDashboard size={16} />
               </span>
               {!effectiveCollapsed && <span className="truncate text-[13px]">Dashboard</span>}
+            </Link>
+          </div>
+        )}
+
+        {/* Pending Approval direct link — only for accounts with Approve permission somewhere */}
+        {showPendingApproval && (
+          <div className="px-2 mb-1">
+            <Link
+              href="/pending-approval"
+              onClick={onMobileClose}
+              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm font-500 transition-all duration-150 group relative
+                ${pathname === '/pending-approval'
+                  ? 'bg-primary/10 text-primary font-600' : 'text-secondary-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              title={effectiveCollapsed ? 'Pending Approval' : undefined}
+            >
+              <span className={`flex-shrink-0 ${pathname === '/pending-approval' ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                <ClipboardCheck size={16} />
+              </span>
+              {!effectiveCollapsed && <span className="flex-1 truncate text-[13px]">Pending Approval</span>}
+              {pendingCount > 0 && (
+                <span className={`flex-shrink-0 bg-red-500 text-white text-[10px] font-700 rounded-full px-1.5 py-0.5 min-w-[18px] text-center ${effectiveCollapsed ? 'absolute top-0.5 right-0.5' : ''}`}>
+                  {pendingCount}
+                </span>
+              )}
             </Link>
           </div>
         )}

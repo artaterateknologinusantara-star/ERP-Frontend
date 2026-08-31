@@ -10,6 +10,7 @@ import TablePagination from '@/components/ui/TablePagination';
 import RowActionMenu, { ActionItem } from '@/components/ui/RowActionMenu';
 import { useTableFilter } from '@/hooks/useTableFilter';
 import { formatRp } from '@/lib/format';
+import { canApprove } from '@/lib/permissions';
 import { toast } from 'sonner';
 import {
   Send, Edit2, GitBranch, Trash2, Plus,
@@ -306,7 +307,7 @@ Thank you for your time and consideration. We look forward to your feedback and 
       );
     }
 
-    if (row.status === S.TERKIRIM) {
+    if (row.status === S.TERKIRIM && canApprove('Sales')) {
       items.push(
         { icon: <CheckCircle size={13} />, label: 'Setujui',  onClick: () => setApprovalModal({ action: 'approve', row }) },
         { icon: <XCircle size={13} />,     label: 'Tolak',    onClick: () => setApprovalModal({ action: 'reject', row }), danger: true },

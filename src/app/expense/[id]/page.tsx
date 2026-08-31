@@ -8,6 +8,7 @@ import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ERPModal from '@/components/ui/ERPModal';
 import { formatRp, formatDate } from '@/lib/format';
+import { canApprove } from '@/lib/permissions';
 import { Download, Loader2, AlertTriangle, CheckCircle2, FileX } from 'lucide-react';
 import {
   getExpenseDetail,
@@ -175,7 +176,7 @@ export default function ExpenseDetailPage() {
                   {saving ? 'Memproses...' : 'Submit'}
                 </button>
               )}
-              {expense.status === 'Submitted' && (
+              {expense.status === 'Submitted' && canApprove('Finance') && (
                 <>
                   <button
                     className="btn-primary flex items-center gap-1.5 bg-green-600 hover:bg-green-700 border-green-600"

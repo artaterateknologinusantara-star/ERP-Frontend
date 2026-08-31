@@ -9,6 +9,7 @@ import RowActionMenu from '@/components/ui/RowActionMenu';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TablePagination from '@/components/ui/TablePagination';
 import { formatRp, formatDate } from '@/lib/format';
+import { canApprove } from '@/lib/permissions';
 import { getExpenseList, submitExpense, approveExpense } from '@/services/expense.service';
 import { getExpenseCategoryList } from '@/services/expenseCategory.service';
 import { ExpenseStatus } from '@/types';
@@ -179,7 +180,7 @@ export default function ExpenseTable() {
                       ...(row.status === 'Draft' ? [
                         { icon: <Send size={13} />, label: 'Submit', onClick: () => handleSubmit(row.id, row.expenseNo), separator: true },
                       ] : []),
-                      ...(row.status === 'Submitted' ? [
+                      ...(row.status === 'Submitted' && canApprove('Finance') ? [
                         { icon: <CheckCircle size={13} />, label: 'Approve', onClick: () => handleApprove(row.id, row.expenseNo), separator: true },
                         { icon: <XCircle size={13} />, label: 'Reject', onClick: () => router.push(`/expense/${row.id}`), danger: true },
                       ] : []),

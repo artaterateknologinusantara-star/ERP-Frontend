@@ -2,11 +2,12 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, KeyRound, Copy } from 'lucide-react';
 import ERPModal from '@/components/ui/ERPModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { userService, UserListItem, CreateUserDto, UpdateUserDto, RoleOption } from '@/services/user.service';
+import { authService } from '@/services/auth.service';
 import { formatDate } from '@/lib/format';
 import type { ActiveStatus } from '@/types';
 
@@ -22,6 +23,9 @@ export default function UsersTab() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [resetTarget, setResetTarget] = useState<UserListItem | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetLink, setResetLink] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,6 +97,36 @@ export default function UsersTab() {
     }
   };
 
+  const openReset = (u: UserListItem) => {
+    setResetTarget(u);
+    setResetLink(null);
+  };
+
+  const closeReset = () => { setResetTarget(null); setResetLink(null); };
+
+  const handleReset = async () => {
+    if (!resetTarget) return;
+    setResetting(true);
+    try {
+      const res = await authService.forgotPassword(resetTarget.email);
+      if (res.resetToken) {
+        setResetLink(`${window.location.origin}/reset-password?token=${res.resetToken}`);
+      } else {
+        toast.error('Token reset tidak diterima dari server');
+      }
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal membuat link reset password');
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const handleCopyResetLink = async () => {
+    if (!resetLink) return;
+    await navigator.clipboard.writeText(resetLink);
+    toast.success('Link disalin');
+  };
+
   const f = (label: string, key: keyof typeof form, type = 'text', required = false) => (
     <div>
       <label className="erp-form-label">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
@@ -148,6 +182,7 @@ export default function UsersTab() {
                   <td className="erp-table-cell" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600" onClick={() => openEdit(u)}><Edit2 size={13} /></button>
+                      <button className="p-1.5 rounded hover:bg-amber-50 text-muted-foreground hover:text-amber-600" title="Reset Password" onClick={() => openReset(u)}><KeyRound size={13} /></button>
                       <button className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500" onClick={() => setDeleteTarget(u)}><Trash2 size={13} /></button>
                     </div>
                   </td>
@@ -222,6 +257,43 @@ export default function UsersTab() {
         confirmLabel="Hapus"
         loading={deleting}
       />
+
+      <ERPModal
+        isOpen={!!resetTarget}
+        onClose={closeReset}
+        title={`Reset Password — ${resetTarget?.name ?? ''}`}
+        size="md"
+        footer={
+          resetLink ? (
+            <button className="btn-secondary" onClick={closeReset}>Selesai</button>
+          ) : (
+            <>
+              <button className="btn-secondary" onClick={closeReset} disabled={resetting}>Batal</button>
+              <button className="btn-primary" onClick={handleReset} disabled={resetting}>
+                {resetting ? 'Membuat link...' : 'Buat Link Reset'}
+              </button>
+            </>
+          )
+        }
+      >
+        {!resetLink ? (
+          <p className="text-sm text-muted-foreground">
+            Sistem belum terhubung ke server email, jadi link reset perlu dikirim manual ke user
+            (chat/telepon) setelah dibuat di sini.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <label className="erp-form-label">Link Reset Password</label>
+            <div className="flex items-center gap-2">
+              <input readOnly value={resetLink} className="erp-input text-xs" />
+              <button type="button" className="btn-secondary shrink-0 px-2.5" onClick={handleCopyResetLink} title="Salin link">
+                <Copy size={14} />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">Link berlaku selama 30 menit. Kirim ke user ini secara manual.</p>
+          </div>
+        )}
+      </ERPModal>
     </>
   );
 }

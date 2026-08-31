@@ -9,6 +9,7 @@ import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { formatRp, formatDate } from '@/lib/format';
+import { canApprove } from '@/lib/permissions';
 import { Eye, Plus, Send, CheckCircle, XCircle, ShoppingBag, RotateCcw, Trash2 } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
 import {
@@ -170,7 +171,7 @@ export default function PurchaseRequestTable() {
                         { icon: <Send size={13} />,    label: 'Submit PR',  onClick: () => handleStatusAction(row.id, 'Submitted', 'PR berhasil diajukan'), separator: true },
                         { icon: <Trash2 size={13} />,  label: 'Hapus PR',   onClick: () => setDeleteTarget({ id: row.id, no: row.no }) },
                       ] : []),
-                      ...(row.status === 'Submitted' ? [
+                      ...(row.status === 'Submitted' && canApprove('Purchasing') ? [
                         { icon: <CheckCircle size={13} />, label: 'Approve PR', onClick: () => handleStatusAction(row.id, 'Approved', 'PR disetujui'), separator: true },
                         { icon: <XCircle size={13} />,    label: 'Reject PR',  onClick: () => handleStatusAction(row.id, 'Rejected', 'PR ditolak'), danger: true },
                       ] : []),

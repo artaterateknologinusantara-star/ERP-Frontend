@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
 import { usePublicCompanySettings } from '@/hooks/useCompanySettings';
+import type { ModulePermission } from '@/services/role.service';
 
 interface LoginResponse {
   token: string;
@@ -13,6 +14,7 @@ interface LoginResponse {
   email: string;
   role: string;
   expiresAt: string;
+  permissions: ModulePermission[];
 }
 
 export default function LoginPage() {
@@ -37,7 +39,12 @@ export default function LoginPage() {
     try {
       const res = await api.post<LoginResponse>('/auth/login', { email, password });
       localStorage.setItem('syntera_token', res.data.token);
-      localStorage.setItem('syntera_user', JSON.stringify({ name: res.data.name, email: res.data.email, role: res.data.role }));
+      localStorage.setItem('syntera_user', JSON.stringify({
+        name: res.data.name,
+        email: res.data.email,
+        role: res.data.role,
+        permissions: res.data.permissions,
+      }));
       toast.success(`Selamat datang, ${res.data.name}`);
       router.replace('/');
     } catch {

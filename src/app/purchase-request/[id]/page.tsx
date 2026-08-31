@@ -9,6 +9,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import ERPModal from '@/components/ui/ERPModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { formatRp, formatDate } from '@/lib/format';
+import { canApprove } from '@/lib/permissions';
 import { ChevronDown, X, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import {
   getPRDetail,
@@ -327,7 +328,7 @@ export default function PurchaseRequestDetailPage() {
                   </button>
                 </>
               )}
-              {pr.status === 'Submitted' && (
+              {pr.status === 'Submitted' && canApprove('Purchasing') && (
                 <>
                   <button
                     className="btn-primary flex items-center gap-1.5 bg-green-600 hover:bg-green-700 border-green-600"

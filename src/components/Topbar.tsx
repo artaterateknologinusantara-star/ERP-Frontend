@@ -1,8 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, Search, HelpCircle, LogOut, Menu } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { Bell, Search, HelpCircle, LogOut, Menu, CheckCircle, ClipboardCheck } from 'lucide-react';
+import { usePendingApprovals } from '@/hooks/usePendingApprovals';
+import { approvalService } from '@/services/approval.service';
+import { formatRp } from '@/lib/format';
 
 interface TopbarProps {
   sidebarCollapsed: boolean;
@@ -11,10 +17,19 @@ interface TopbarProps {
   onMenuClick?: () => void;
 }
 
+const MAX_PREVIEW = 6;
+
 export default function Topbar({ sidebarCollapsed, title, breadcrumbs, onMenuClick }: TopbarProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [userName, setUserName] = useState('');
   const [initials, setInitials] = useState('?');
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const { data: pendingApprovals } = usePendingApprovals();
+  const pendingCount = pendingApprovals?.length ?? 0;
+  const preview = pendingApprovals?.slice(0, MAX_PREVIEW) ?? [];
 
   useEffect(() => {
     const raw = localStorage.getItem('syntera_user');
@@ -27,10 +42,28 @@ export default function Topbar({ sidebarCollapsed, title, breadcrumbs, onMenuCli
     }
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+    };
+    if (notifOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notifOpen]);
+
   const handleLogout = () => {
     localStorage.removeItem('syntera_token');
     localStorage.removeItem('syntera_user');
     router.replace('/login');
+  };
+
+  const handleQuickApprove = async (item: NonNullable<typeof pendingApprovals>[number]) => {
+    try {
+      await approvalService.approve(item);
+      toast.success(`${item.no} berhasil disetujui`);
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal menyetujui');
+    }
   };
 
   return (
@@ -83,10 +116,62 @@ export default function Topbar({ sidebarCollapsed, title, breadcrumbs, onMenuCli
         </button>
 
         {/* Notifications */}
-        <button className="relative min-w-11 min-h-11 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-          <Bell size={17} />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full" />
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => setNotifOpen((v) => !v)}
+            className="relative min-w-11 min-h-11 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Bell size={17} />
+            {pendingCount > 0 && (
+              <span className="absolute top-2 right-2 min-w-[16px] h-4 px-1 flex items-center justify-center bg-red-500 text-white text-[9px] font-700 rounded-full">
+                {pendingCount > 9 ? '9+' : pendingCount}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+              <div className="px-3.5 py-2.5 border-b border-border flex items-center justify-between">
+                <span className="text-[13px] font-700 text-foreground">Menunggu Persetujuan</span>
+                {pendingCount > 0 && <span className="text-xs text-muted-foreground">{pendingCount} item</span>}
+              </div>
+
+              <div className="max-h-80 overflow-y-auto">
+                {preview.length === 0 ? (
+                  <div className="px-3.5 py-6 text-center text-xs text-muted-foreground">
+                    <ClipboardCheck size={20} className="mx-auto mb-1.5 opacity-40" />
+                    Tidak ada item menunggu persetujuan.
+                  </div>
+                ) : preview.map((item) => (
+                  <div key={`${item.type}-${item.id}`} className="px-3.5 py-2.5 border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-600 text-foreground truncate">{item.typeLabel} · {item.no}</p>
+                        <p className="text-xs text-muted-foreground truncate">{item.title}</p>
+                        <p className="text-xs font-600 text-foreground mt-0.5">{formatRp(item.amount)}</p>
+                      </div>
+                      <button
+                        onClick={() => handleQuickApprove(item)}
+                        className="flex-shrink-0 p-1.5 rounded hover:bg-green-50 text-muted-foreground hover:text-green-600 transition-colors"
+                        title="Setujui langsung"
+                      >
+                        <CheckCircle size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <Link
+                href="/pending-approval"
+                onClick={() => setNotifOpen(false)}
+                className="block px-3.5 py-2.5 text-center text-xs font-600 text-primary hover:bg-primary/5 transition-colors"
+              >
+                Lihat Semua Pending Approval
+              </Link>
+            </div>
+          )}
+        </div>
 
         {/* User */}
         <div className="flex items-center gap-1.5 px-1.5 sm:px-2.5 py-1.5 rounded-md">

@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Save, Plus, Edit2, Trash2, Loader2, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import UsersTab from './UsersTab';
+import RolesTab from './RolesTab';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import ERPModal from '@/components/ui/ERPModal';
 import { companySettingsService } from '@/services/companySettings.service';
@@ -20,15 +21,6 @@ interface SettingsModuleProps {
 }
 
 const EMPTY_BRANCH_FORM: CreateBranchDto = { name: '', address: '', phone: '', manager: '' };
-
-const roles = [
-  { id: 'rol-001', name: 'Super Admin', description: 'Akses penuh ke semua modul', users: 1, permissions: 'All' },
-  { id: 'rol-002', name: 'Sales Manager', description: 'Kelola penawaran, SO, invoice', users: 2, permissions: 'Sales, Reports' },
-  { id: 'rol-003', name: 'Sales Executive', description: 'Buat dan kirim penawaran', users: 3, permissions: 'Sales' },
-  { id: 'rol-004', name: 'Finance Manager', description: 'Kelola AR, AP, Finance', users: 2, permissions: 'Finance, Reports' },
-  { id: 'rol-005', name: 'Procurement', description: 'Kelola PR, PO, Vendor', users: 2, permissions: 'Purchasing' },
-  { id: 'rol-006', name: 'Engineer', description: 'Lihat proyek dan task', users: 5, permissions: 'Project (Read)' },
-];
 
 const taxSettings = [
   { id: 'tax-001', name: 'PPN 11%', rate: 11, type: 'Percentage', status: 'Aktif', default: true },
@@ -645,41 +637,7 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
   }
 
   if (activeTab === 'roles') {
-    return (
-      <div className="erp-card shadow-card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[13px] font-700 text-foreground">Manajemen Role</h3>
-          <button className="btn-primary"><Plus size={14} /> Tambah Role</button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse">
-            <thead>
-              <tr className="border-b-2 border-border bg-muted/40">
-                {['Nama Role', 'Deskripsi', 'Jumlah User', 'Akses Modul', 'Aksi'].map((h) => (
-                  <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {roles.map((row) => (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
-                  <td className="erp-table-cell font-600">{row.name}</td>
-                  <td className="erp-table-cell text-muted-foreground">{row.description}</td>
-                  <td className="erp-table-cell text-center font-600">{row.users}</td>
-                  <td className="erp-table-cell text-muted-foreground">{row.permissions}</td>
-                  <td className="erp-table-cell">
-                    <div className="flex items-center gap-1">
-                      <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"><Edit2 size={13} /></button>
-                      <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-red-500 transition-colors"><Trash2 size={13} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+    return <RolesTab />;
   }
 
   if (activeTab === 'tax') {
