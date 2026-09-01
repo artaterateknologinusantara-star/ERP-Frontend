@@ -219,6 +219,17 @@ export interface CustomerPO {
   updatedAt: string;
 }
 
+export interface CustomerPoHistory {
+  id: string;
+  customerPoId: string;
+  oldPoNo: string;
+  newPoNo: string;
+  changedBy?: string;
+  changedByName?: string;
+  changedAt: string;
+  reason?: string;
+}
+
 // ─── Sales Order ─────────────────────────────────────────────────────────────
 
 export interface SalesOrder {

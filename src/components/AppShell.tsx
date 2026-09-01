@@ -8,7 +8,7 @@ import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { PageHeaderProvider, useCurrentPageHeader } from '@/hooks/usePageHeader';
 
 // Routes that render outside the authenticated shell (no Sidebar/Topbar, no auth check).
-const PUBLIC_PATHS = new Set(['/login', '/reset-password']);
+const PUBLIC_PATHS = new Set(['/login', '/reset-password', '/demo']);
 
 function ShellSkeleton() {
   return (

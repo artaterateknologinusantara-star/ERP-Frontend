@@ -32,15 +32,20 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
 
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
+  const refetchExisting = () => {
     setFetching(true);
-    setExisting(null);
     customerPoService
       .getByQuotationId(quotation.id)
       .then((res) => { if (res.success && res.data) setExisting(res.data); else setExisting(null); })
       .catch(() => setExisting(null))
       .finally(() => setFetching(false));
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setExisting(null);
+    refetchExisting();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, quotation.id]);
 
   // Auto-fill Nilai PO with the approved quotation total; user can still edit it,
@@ -166,9 +171,9 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
                 </button>
               )}
               <div className="flex justify-end">
-                <button className="btn-secondary text-[13px]" onClick={() => setEditOpen(true)}>Edit Nomor PO</button>
+                <button className="btn-secondary text-[13px]" onClick={() => setEditOpen(true)}>Edit Nomor / Lampiran PO</button>
               </div>
-              <EditPoNoModal isOpen={editOpen} onClose={() => setEditOpen(false)} customerPo={existing} onUpdated={() => { onSuccess(); }} />
+              <EditPoNoModal isOpen={editOpen} onClose={() => setEditOpen(false)} customerPo={existing} onUpdated={() => { refetchExisting(); onSuccess(); }} />
             </div>
           ) : (
             /* ── Create mode ───────────────────────────────────────────── */

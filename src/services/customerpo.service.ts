@@ -1,4 +1,4 @@
-import { ApiResponse, CustomerPO, PaginatedResponse } from '@/types';
+import { ApiResponse, CustomerPO, CustomerPoHistory, PaginatedResponse } from '@/types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api';
 
@@ -115,12 +115,30 @@ export const customerPoService = {
     return res.json() as Promise<ApiResponse<CustomerPO>>;
   },
 
-  async history(id: string): Promise<ApiResponse<CustomerPO[]>> {
+  async uploadAttachment(id: string, file: File): Promise<ApiResponse<CustomerPO>> {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('attachment', file);
+
+    const res = await fetch(`${BASE_URL}/customer-pos/${id}/attachment`, {
+      method: 'PATCH',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(err.message ?? 'Gagal mengunggah lampiran PO');
+    }
+    return res.json() as Promise<ApiResponse<CustomerPO>>;
+  },
+
+  async history(id: string): Promise<ApiResponse<CustomerPoHistory[]>> {
     const token = getToken();
     const res = await fetch(`${BASE_URL}/customer-pos/${id}/history`, {
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
     if (!res.ok) throw new Error('Gagal memuat riwayat');
-    return res.json() as Promise<ApiResponse<CustomerPO[]>>;
+    return res.json() as Promise<ApiResponse<CustomerPoHistory[]>>;
   },
 };

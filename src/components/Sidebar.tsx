@@ -149,6 +149,7 @@ const navGroups: NavGroup[] = [
       { id: 'nav-branch', label: 'Branch', icon: <GitBranch size={15} />, href: '/settings/branch' },
       { id: 'nav-users', label: 'User Management', icon: <Users size={15} />, href: '/settings/users' },
       { id: 'nav-roles', label: 'Role Management', icon: <Shield size={15} />, href: '/settings/roles' },
+      { id: 'nav-demo-leads', label: 'Demo Leads', icon: <ClipboardCheck size={15} />, href: '/settings/demo-leads' },
       { id: 'nav-tax', label: 'Tax Settings', icon: <PieChart size={15} />, href: '/settings/tax' },
       { id: 'nav-numbering', label: 'Numbering Format', icon: <Hash size={15} />, href: '/settings/numbering' },
       { id: 'nav-preferences', label: 'ERP Preferences', icon: <Sliders size={15} />, href: '/settings/preferences' },

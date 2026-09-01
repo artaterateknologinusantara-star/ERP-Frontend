@@ -6,6 +6,7 @@ import { Save, Plus, Edit2, Trash2, Loader2, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import UsersTab from './UsersTab';
 import RolesTab from './RolesTab';
+import DemoLeadsTab from './DemoLeadsTab';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import ERPModal from '@/components/ui/ERPModal';
 import { companySettingsService } from '@/services/companySettings.service';
@@ -14,7 +15,7 @@ import type { CompanySettings } from '@/types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type SettingsTab = 'company' | 'branch' | 'users' | 'roles' | 'tax' | 'numbering' | 'preferences';
+type SettingsTab = 'company' | 'branch' | 'users' | 'roles' | 'demo-leads' | 'tax' | 'numbering' | 'preferences';
 
 interface SettingsModuleProps {
   activeTab: SettingsTab;
@@ -638,6 +639,10 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
 
   if (activeTab === 'roles') {
     return <RolesTab />;
+  }
+
+  if (activeTab === 'demo-leads') {
+    return <DemoLeadsTab />;
   }
 
   if (activeTab === 'tax') {

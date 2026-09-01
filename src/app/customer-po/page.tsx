@@ -7,8 +7,9 @@ import { customerPoService } from '@/services/customerpo.service';
 import { createSOFromQuotation } from '@/services/salesorder.service';
 import { formatRp } from '@/lib/format';
 import { toast } from 'sonner';
-import { FileCheck, Download, Loader2, Search, ShoppingBag } from 'lucide-react';
+import { FileCheck, Download, Loader2, Search, ShoppingBag, History } from 'lucide-react';
 import type { CustomerPO } from '@/types';
+import PoHistoryModal from './components/PoHistoryModal';
 
 export default function CustomerPoPage() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function CustomerPoPage() {
   const [search,   setSearch]   = useState('');
   const [dlId,     setDlId]     = useState<string | null>(null);
   const [soLoadingId, setSoLoadingId] = useState<string | null>(null);
+  const [historyCpo, setHistoryCpo] = useState<CustomerPO | null>(null);
 
   const load = (q?: string) => {
     setLoading(true);
@@ -173,22 +175,32 @@ export default function CustomerPoPage() {
                         )}
                       </td>
                       <td className="erp-table-cell">
-                        <button
-                          className={`inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border transition-colors disabled:opacity-50 whitespace-nowrap ${
-                            cpo.salesOrderId
-                              ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
-                              : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-                          }`}
-                          title={cpo.salesOrderId ? `SO ${cpo.salesOrderNo}` : 'Buat Sales Order dari Quotation ini'}
-                          disabled={soLoadingId === cpo.id}
-                          onClick={() => handleBuatSO(cpo)}
-                        >
-                          {soLoadingId === cpo.id
-                            ? <Loader2 size={11} className="animate-spin" />
-                            : <ShoppingBag size={11} />
-                          }
-                          {cpo.salesOrderId ? 'Lihat SO' : 'Buat SO'}
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            className={`inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border transition-colors disabled:opacity-50 whitespace-nowrap ${
+                              cpo.salesOrderId
+                                ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
+                                : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                            }`}
+                            title={cpo.salesOrderId ? `SO ${cpo.salesOrderNo}` : 'Buat Sales Order dari Quotation ini'}
+                            disabled={soLoadingId === cpo.id}
+                            onClick={() => handleBuatSO(cpo)}
+                          >
+                            {soLoadingId === cpo.id
+                              ? <Loader2 size={11} className="animate-spin" />
+                              : <ShoppingBag size={11} />
+                            }
+                            {cpo.salesOrderId ? 'Lihat SO' : 'Buat SO'}
+                          </button>
+                          <button
+                            className="inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"
+                            title="Lihat riwayat perubahan No. PO"
+                            onClick={() => setHistoryCpo(cpo)}
+                          >
+                            <History size={11} />
+                            Riwayat
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -198,6 +210,14 @@ export default function CustomerPoPage() {
           </div>
         </div>
       </div>
+
+      {historyCpo && (
+        <PoHistoryModal
+          isOpen={!!historyCpo}
+          onClose={() => setHistoryCpo(null)}
+          customerPo={historyCpo}
+        />
+      )}
     </AppLayout>
   );
 }
