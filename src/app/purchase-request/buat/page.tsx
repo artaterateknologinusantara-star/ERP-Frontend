@@ -241,6 +241,7 @@ export default function BuatPurchaseRequestPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
                 <label className="erp-form-label">Tanggal</label>
+                {/* Display only — not wired to form state. Actual Date is set server-side (DateTime.UtcNow) on create. */}
                 <input
                   type="text"
                   value={today}
