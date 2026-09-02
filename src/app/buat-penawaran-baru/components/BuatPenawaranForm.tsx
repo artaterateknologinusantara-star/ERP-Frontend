@@ -15,7 +15,7 @@ import CatatanTambahanSection from './CatatanTambahanSection';
 import type { CostingTab, CostingRow, PaymentTerm, QuotationStatus } from '@/types';
 import { quotationService, mapTabsToBackend } from '@/services/quotation.service';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
-import { formatRp } from '@/lib/format';
+import { formatRp, formatDate } from '@/lib/format';
 import { getMarginTier, marginTierClasses } from '@/lib/margin';
 
 const makeEmptyRow = (groupId: string, no: string, sortOrder: number): CostingRow => ({
@@ -158,6 +158,8 @@ export default function BuatPenawaranForm() {
   const [createdId, setCreatedId] = useState<string | null>(null);
   const targetId = editId ?? createdId;
   const [currentStatus, setCurrentStatus] = useState<QuotationStatus>('Draft');
+  const [approvedAt, setApprovedAt] = useState<string | undefined>(undefined);
+  const [approvedByName, setApprovedByName] = useState<string | undefined>(undefined);
   const [saveLabel, setSaveLabel] = useState<string>('Belum disimpan');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -203,6 +205,8 @@ export default function BuatPenawaranForm() {
         setDiscount(q.discount);
         setTaxRate(q.taxRate);
         setCurrentStatus(q.status);
+        setApprovedAt(q.approvedAt);
+        setApprovedByName(q.approvedByName);
         setSaveLabel(q.revision > 0 ? `Draft · R.${String(q.revision).padStart(2, '0')}` : 'Draft');
         const { terms, netPayment: net } = parsePaymentTermsString(q.paymentTerms ?? '');
         setPaymentTerms(terms);
@@ -459,6 +463,25 @@ export default function BuatPenawaranForm() {
           </button>
         </div>
       </div>
+
+      {/* Status Approval — hanya tampil untuk penawaran yang sudah Disetujui/Ditolak */}
+      {(currentStatus === 'Disetujui' || currentStatus === 'Ditolak') && (
+        <div className="erp-card">
+          <h3 className="text-xs font-600 text-muted-foreground uppercase tracking-wider mb-3">
+            Status Approval
+          </h3>
+          <dl className="space-y-2 text-sm">
+            <div className="flex gap-2">
+              <dt className="w-36 text-muted-foreground flex-shrink-0">Disetujui Tgl</dt>
+              <dd className="font-500 text-foreground">{approvedAt ? formatDate(approvedAt) : '—'}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-36 text-muted-foreground flex-shrink-0">Disetujui Oleh</dt>
+              <dd className="font-500 text-foreground">{approvedByName || '—'}</dd>
+            </div>
+          </dl>
+        </div>
+      )}
 
       {/* Autosave restore banner */}
       {pendingDraft && (

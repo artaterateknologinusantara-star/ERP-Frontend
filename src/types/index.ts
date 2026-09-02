@@ -179,6 +179,8 @@ export interface Quotation {
   totalBeforeTax: number;
   taxAmount: number;
   grandTotal: number;
+  approvedAt?: string;
+  approvedByName?: string;
   createdAt: string;
   updatedAt: string;
 }
