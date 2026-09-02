@@ -65,6 +65,10 @@ const statusMap: Record<string, BadgeConfig> = {
   // Active status
   Aktif:        { className: 'status-disetujui',  label: 'Aktif' },
   'Tidak Aktif': { className: 'status-draft',     label: 'Tidak Aktif' },
+
+  // Journal Entry
+  Posted:       { className: 'status-disetujui',   label: 'Posted' },
+  Reversed:     { className: 'status-superseded',  label: 'Reversed' },
 };
 
 interface StatusBadgeProps {

@@ -31,6 +31,10 @@ export function canApprove(module: string): boolean {
   return hasPermission(module, 'canApprove');
 }
 
+export function canCreate(module: string): boolean {
+  return hasPermission(module, 'canCreate');
+}
+
 // Whether the role has any access at all to a module (any of the 5 action flags) — used to decide
 // sidebar visibility. Deliberately not just canView: an admin who granted Create/Edit/Approve but
 // forgot to tick View shouldn't have the module silently disappear from navigation.

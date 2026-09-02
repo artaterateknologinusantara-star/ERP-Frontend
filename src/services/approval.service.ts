@@ -2,8 +2,9 @@ import { api } from '@/lib/api';
 import { quotationService } from './quotation.service';
 import { approveExpense, rejectExpense } from './expense.service';
 import { updatePRStatus } from './purchase.service';
+import { postJournalEntry } from './journalEntry.service';
 
-export type PendingApprovalType = 'Quotation' | 'Expense' | 'PurchaseRequest' | 'SupplierInvoice';
+export type PendingApprovalType = 'Quotation' | 'Expense' | 'PurchaseRequest' | 'SupplierInvoice' | 'JournalEntry';
 
 export interface PendingApproval {
   id: string;
@@ -19,8 +20,9 @@ export interface PendingApproval {
 }
 
 // SupplierInvoice has no reject flow on the backend (SupplierInvoiceController only exposes
-// /approve) — Draft invoices are corrected by editing them, not rejected.
-export const canReject = (type: PendingApprovalType) => type !== 'SupplierInvoice';
+// /approve) — Draft invoices are corrected by editing them, not rejected. JournalEntry is the
+// same: a Draft manual JE can only be Posted or left as Draft, there's no "reject" concept.
+export const canReject = (type: PendingApprovalType) => type !== 'SupplierInvoice' && type !== 'JournalEntry';
 
 export const approvalService = {
   async getPending(): Promise<PendingApproval[]> {
@@ -34,6 +36,7 @@ export const approvalService = {
       case 'Expense': return approveExpense(item.id);
       case 'PurchaseRequest': return updatePRStatus(item.id, 'Approved');
       case 'SupplierInvoice': return api.post(`/supplier-invoices/${item.id}/approve`, {});
+      case 'JournalEntry': return postJournalEntry(item.id);
     }
   },
 
@@ -43,6 +46,7 @@ export const approvalService = {
       case 'Expense': return rejectExpense(item.id);
       case 'PurchaseRequest': return updatePRStatus(item.id, 'Rejected');
       case 'SupplierInvoice': throw new Error('Supplier Invoice tidak memiliki alur tolak.');
+      case 'JournalEntry': throw new Error('Journal Entry tidak memiliki alur tolak.');
     }
   },
 };

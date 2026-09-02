@@ -92,6 +92,7 @@ const navGroups: NavGroup[] = [
     module: 'Accounting',
     defaultOpen: false,
     items: [
+      { id: 'nav-journal-entry', label: 'Journal Entry', icon: <BookOpen size={15} />, href: '/journal-entry' },
       { id: 'nav-opening-balance', label: 'Opening Balance', icon: <Calculator size={15} />, href: '/opening-balance' },
       { id: 'nav-trial-balance', label: 'Trial Balance', icon: <Layers size={15} />, href: '/finance-reports/trial-balance' },
       { id: 'nav-laba-rugi', label: 'Laba Rugi', icon: <TrendingUp size={15} />, href: '/finance-reports/laba-rugi' },

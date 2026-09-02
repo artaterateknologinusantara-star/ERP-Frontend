@@ -6,17 +6,12 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
-import ConfirmModal from '@/components/ui/ConfirmModal';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import BalanceSummary from '@/components/ui/BalanceSummary';
 import { getFlatAccounts, type Account } from '@/services/account.service';
-import {
-  createOpeningBalance,
-  getExistingPostedOpeningBalances,
-  type JournalEntryListItem,
-} from '@/services/journalEntry.service';
+import { createJournalEntry } from '@/services/journalEntry.service';
 
 // ── Schema ──────────────────────────────────────────────────────────────────
 
@@ -28,7 +23,7 @@ const lineSchema = z.object({
 });
 
 const schema = z.object({
-  date: z.string().min(1, 'Tanggal cut-off wajib diisi'),
+  date: z.string().optional(),
   description: z.string().min(1, 'Deskripsi wajib diisi'),
   lines: z.array(lineSchema).min(2, 'Minimal 2 baris (1 Debit, 1 Kredit)'),
 });
@@ -41,12 +36,9 @@ const defaultLine = { accountId: '', debit: 0 as unknown as number, credit: 0 as
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 
-export default function OpeningBalancePage() {
+export default function BuatJournalEntryPage() {
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [existing, setExisting] = useState<JournalEntryListItem[]>([]);
-  const [loadingExisting, setLoadingExisting] = useState(true);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -60,7 +52,7 @@ export default function OpeningBalancePage() {
     resolver: zodResolver(schema) as any,
     defaultValues: {
       date: today,
-      description: 'Opening Balance - Saldo Awal',
+      description: '',
       lines: [{ ...defaultLine }, { ...defaultLine }],
     },
   });
@@ -69,22 +61,18 @@ export default function OpeningBalancePage() {
 
   useEffect(() => {
     getFlatAccounts().then(setAccounts).catch(() => toast.error('Gagal memuat daftar akun'));
-    getExistingPostedOpeningBalances()
-      .then(setExisting)
-      .catch(() => toast.error('Gagal memeriksa Opening Balance sebelumnya'))
-      .finally(() => setLoadingExisting(false));
   }, []);
 
   const addLine = () => append({ ...defaultLine });
   const removeLine = (index: number) => remove(index);
 
-  const submitOpeningBalance = async (data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     setSubmitError('');
     setSubmitting(true);
     try {
-      const result = await createOpeningBalance({
-        date: `${data.date}T00:00:00Z`,
+      const result = await createJournalEntry({
         description: data.description,
+        date: data.date ? `${data.date}T00:00:00Z` : undefined,
         lines: data.lines
           .filter((l) => Number(l.debit) > 0 || Number(l.credit) > 0)
           .map((l) => ({
@@ -94,57 +82,36 @@ export default function OpeningBalancePage() {
             memo: l.memo || undefined,
           })),
       });
-      toast.success(`Opening Balance ${result.entryNumber} berhasil dibuat`);
-      router.push('/finance-reports/trial-balance');
+      toast.success(`Journal entry ${result.entryNumber} berhasil dibuat (Draft)`);
+      router.push(`/journal-entry/${result.id}`);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Gagal membuat Opening Balance';
+      const msg = e instanceof Error ? e.message : 'Gagal membuat journal entry';
       setSubmitError(msg);
       toast.error(msg);
     } finally {
       setSubmitting(false);
-      setShowConfirm(false);
     }
-  };
-
-  const onSubmit = (data: FormValues) => {
-    if (existing.length > 0) {
-      setShowConfirm(true);
-      return;
-    }
-    submitOpeningBalance(data);
   };
 
   return (
     <AppLayout
-      title="Opening Balance"
+      title="Buat Jurnal Manual"
       breadcrumbs={[
         { label: 'Accounting' },
-        { label: 'Opening Balance' },
+        { label: 'Journal Entry', href: '/journal-entry' },
+        { label: 'Buat Jurnal Manual' },
       ]}
     >
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="space-y-5">
 
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Opening Balance (Saldo Awal)</h1>
+            <h1 className="text-2xl font-bold text-foreground">Buat Jurnal Manual</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Journal Entry pembuka untuk memasukkan saldo Kas/Piutang/Persediaan/Utang/Modal dari
-              pembukuan lama ke General Ledger, per tanggal cut-off go-live. Hanya berlaku untuk akun
-              Asset/Liability/Equity — akun Pendapatan/Beban akan ditolak sistem.
+              Journal entry dibuat sebagai Draft — perlu di-post terpisah oleh user yang berwenang
+              sebelum masuk ke laporan keuangan (Segregation of Duties).
             </p>
           </div>
-
-          {!loadingExisting && existing.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-lg flex items-start gap-2">
-              <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
-              <span>
-                Opening Balance sudah pernah dibuat sebelumnya: <strong>{existing[0].entryNumber}</strong>{' '}
-                pada {new Date(existing[0].date).toLocaleDateString('id-ID')}
-                {existing.length > 1 ? ` (dan ${existing.length - 1} entry lainnya)` : ''}. Anda tetap bisa
-                melanjutkan, tapi akan diminta konfirmasi ulang sebelum submit.
-              </span>
-            </div>
-          )}
 
           {/* Informasi */}
           <div className="erp-card">
@@ -153,7 +120,7 @@ export default function OpeningBalancePage() {
             </h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <label className="erp-form-label">Tanggal Cut-off *</label>
+                <label className="erp-form-label">Tanggal</label>
                 <input
                   type="date"
                   {...register('date')}
@@ -167,7 +134,7 @@ export default function OpeningBalancePage() {
                   type="text"
                   {...register('description')}
                   className="erp-input"
-                  placeholder="Opening Balance - Saldo Awal"
+                  placeholder="Contoh: Koreksi pencatatan biaya listrik bulan Agustus"
                 />
                 {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description.message}</p>}
               </div>
@@ -303,25 +270,12 @@ export default function OpeningBalancePage() {
                   <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                   Menyimpan...
                 </>
-              ) : 'Simpan Opening Balance'}
+              ) : 'Simpan (Draft)'}
             </button>
           </div>
 
         </div>
       </form>
-
-      <ConfirmModal
-        isOpen={showConfirm}
-        onClose={() => setShowConfirm(false)}
-        onConfirm={handleSubmit(submitOpeningBalance)}
-        title="Opening Balance Sudah Pernah Dibuat"
-        description={`Opening Balance sudah pernah dibuat sebelumnya (${existing[0]?.entryNumber ?? '-'} pada ${
-          existing[0] ? new Date(existing[0].date).toLocaleDateString('id-ID') : '-'
-        }). Apakah Anda yakin ingin membuat set Opening Balance baru?`}
-        confirmLabel="Ya, Lanjutkan"
-        loading={submitting}
-        variant="danger"
-      />
     </AppLayout>
   );
 }
