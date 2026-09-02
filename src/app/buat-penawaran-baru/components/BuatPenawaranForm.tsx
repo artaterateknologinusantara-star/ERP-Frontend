@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { FileText, Download, Save, ArrowLeft, ChevronUp, ChevronDown } from 'lucide-react';
@@ -109,6 +109,35 @@ function parsePaymentTermsString(str: string): { terms: PaymentTerm[]; netPaymen
   return { terms, netPayment };
 }
 
+// ── Autosave draft (localStorage, client-only — never sent to backend) ────────
+const DRAFT_TTL_MS = 48 * 60 * 60 * 1000;
+const AUTOSAVE_DEBOUNCE_MS = 2500;
+
+function draftKeyFor(editId: string | null): string {
+  return editId ? `syntera_draft_quotation_${editId}` : 'syntera_draft_quotation_new';
+}
+
+interface QuotationDraft {
+  infoValues: InfoFormValues;
+  tabs: CostingTab[];
+  activeTab: string;
+  discount: number;
+  taxRate: number;
+  paymentTerms: PaymentTerm[];
+  netPayment: number;
+  termsAndConditions: string;
+  additionalNotes: string;
+  savedAt: string;
+}
+
+function formatSavedAtTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '—';
+  }
+}
+
 export default function BuatPenawaranForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -131,6 +160,26 @@ export default function BuatPenawaranForm() {
   const [currentStatus, setCurrentStatus] = useState<QuotationStatus>('Draft');
   const [saveLabel, setSaveLabel] = useState<string>('Belum disimpan');
   const [isSaving, setIsSaving] = useState(false);
+
+  // ── Autosave draft state ─────────────────────────────────────────────────
+  const draftKey = draftKeyFor(editId);
+  // hydrated flips true once the form's starting point is settled — immediately for a
+  // new quotation, or after the backend load resolves for edit/revision — so we never
+  // treat "data just loaded from the server" as a user edit worth autosaving.
+  const [hydrated, setHydrated] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<QuotationDraft | null>(null);
+  const [lastAutosaveAt, setLastAutosaveAt] = useState<string | null>(null);
+  const baselineRef = useRef<string | null>(null);
+  const isDirtyRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Kept fresh every render so the beforeunload listener (registered once) can still
+  // flush the latest values without needing to re-subscribe on every keystroke.
+  const latestDraftStateRef = useRef<Omit<QuotationDraft, 'savedAt'>>({
+    infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+  });
+  latestDraftStateRef.current = {
+    infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+  };
 
   // Load existing quotation for edit mode
   useEffect(() => {
@@ -160,7 +209,14 @@ export default function BuatPenawaranForm() {
         setNetPayment(net);
         setTermsAndConditions(q.termsAndConditions ?? '');
       })
-      .catch(() => toast.error('Gagal memuat data penawaran'));
+      .catch(() => toast.error('Gagal memuat data penawaran'))
+      .finally(() => setHydrated(true));
+  }, [editId]);
+
+  // New quotation: no backend data to wait for — the empty form itself is the baseline.
+  useEffect(() => {
+    if (editId) return;
+    setHydrated(true);
   }, [editId]);
 
   // New quotation: prefill Syarat & Ketentuan from Company Settings once, unless the user already typed something
@@ -169,6 +225,113 @@ export default function BuatPenawaranForm() {
     if (termsAndConditions) return;
     if (companySettings?.footerText) setTermsAndConditions(companySettings.footerText);
   }, [editId, companySettings, termsAndConditions]);
+
+  // Look for a leftover draft for this exact context (new form, or this specific
+  // quotation id) once the starting state has settled. Stale drafts (past the TTL)
+  // are dropped silently instead of being offered for restore.
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed: QuotationDraft = JSON.parse(raw);
+      const age = Date.now() - new Date(parsed.savedAt).getTime();
+      if (age > DRAFT_TTL_MS) {
+        localStorage.removeItem(draftKey);
+      } else {
+        setPendingDraft(parsed);
+      }
+    } catch {
+      localStorage.removeItem(draftKey);
+    }
+  }, [hydrated, draftKey]);
+
+  // Debounced autosave: only once the baseline (empty form, or loaded backend data)
+  // has been captured, and only when the form actually differs from that baseline —
+  // this is what keeps an untouched form from ever writing a draft (req. #8).
+  useEffect(() => {
+    if (!hydrated) return;
+    const snapshot = JSON.stringify({
+      infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+    });
+    if (baselineRef.current === null) {
+      baselineRef.current = snapshot;
+      return;
+    }
+    if (snapshot === baselineRef.current) return;
+    isDirtyRef.current = true;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const savedAt = new Date().toISOString();
+      const payload: QuotationDraft = {
+        infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes, savedAt,
+      };
+      try {
+        localStorage.setItem(draftKey, JSON.stringify(payload));
+      } catch {
+        // localStorage unavailable (private mode/quota) — autosave is best-effort
+      }
+      isDirtyRef.current = false;
+      setLastAutosaveAt(savedAt);
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [hydrated, draftKey, infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes]);
+
+  // Last-resort flush: if the tab closes mid-debounce, save whatever is pending immediately.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      if (!isDirtyRef.current) return;
+      const savedAt = new Date().toISOString();
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({ ...latestDraftStateRef.current, savedAt }));
+      } catch {
+        // best-effort
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [draftKey]);
+
+  const handleRestoreDraft = () => {
+    if (!pendingDraft) return;
+    setInfoValues(pendingDraft.infoValues);
+    setTabs(pendingDraft.tabs);
+    setActiveTab(pendingDraft.activeTab);
+    setDiscount(pendingDraft.discount);
+    setTaxRate(pendingDraft.taxRate);
+    setPaymentTerms(pendingDraft.paymentTerms);
+    setNetPayment(pendingDraft.netPayment);
+    setTermsAndConditions(pendingDraft.termsAndConditions);
+    setAdditionalNotes(pendingDraft.additionalNotes);
+    setLastAutosaveAt(pendingDraft.savedAt);
+    setPendingDraft(null);
+  };
+
+  const handleDiscardDraft = () => {
+    try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
+    setPendingDraft(null);
+  };
+
+  // Called after a successful backend save — the official copy now exists server-side,
+  // so the local draft (and any pending debounce) is cleared to avoid resurrecting stale data.
+  const clearDraftState = () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
+    isDirtyRef.current = false;
+    baselineRef.current = JSON.stringify({
+      infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+    });
+    setLastAutosaveAt(null);
+  };
 
   const buildDto = () => {
     const ptStr = [
@@ -207,12 +370,14 @@ export default function BuatPenawaranForm() {
             ? `Tersimpan · R.${String(infoValues.revision).padStart(2, '0')}`
             : 'Tersimpan'
         );
+        clearDraftState();
       } else {
         // CREATE new quotation — redirect to history so user sees it
         const res = await quotationService.create(dto);
         setCreatedId(res.data.id);
         setInfoValues((v) => ({ ...v, quotationNo: res.data.no, revision: res.data.revision }));
         toast.success('Draft penawaran berhasil disimpan');
+        clearDraftState();
         router.push('/riwayat-penawaran');
       }
     } catch (err) {
@@ -274,6 +439,11 @@ export default function BuatPenawaranForm() {
           <button className="btn-secondary min-h-11 flex-shrink-0" onClick={handleExportPdf}>
             <Download size={14} /> Export PDF
           </button>
+          {lastAutosaveAt && (
+            <span className="text-xs text-muted-foreground flex-shrink-0 hidden sm:inline">
+              Tersimpan otomatis pukul {formatSavedAtTime(lastAutosaveAt)}
+            </span>
+          )}
           <button className="btn-secondary min-h-11 flex-shrink-0" onClick={handleSaveDraft} disabled={isSaving}>
             {isSaving ? (
               <span className="flex items-center gap-1.5 w-28 justify-center">
@@ -289,6 +459,23 @@ export default function BuatPenawaranForm() {
           </button>
         </div>
       </div>
+
+      {/* Autosave restore banner */}
+      {pendingDraft && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 animate-slide-up">
+          <p className="text-sm text-foreground">
+            Ada draft tersimpan otomatis (terakhir {formatSavedAtTime(pendingDraft.savedAt)}). Lanjutkan draft ini atau mulai dari data terbaru?
+          </p>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button className="btn-secondary text-xs" onClick={handleDiscardDraft}>
+              {editId ? 'Pakai Data Terbaru' : 'Buang'}
+            </button>
+            <button className="btn-primary text-xs" onClick={handleRestoreDraft}>
+              Lanjutkan Draft
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Section 1: Informasi Penawaran */}
       <InformasiPenawaranSection
