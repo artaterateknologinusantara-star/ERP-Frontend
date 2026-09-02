@@ -7,9 +7,10 @@ import { customerPoService } from '@/services/customerpo.service';
 import { createSOFromQuotation } from '@/services/salesorder.service';
 import { formatRp } from '@/lib/format';
 import { toast } from 'sonner';
-import { FileCheck, Download, Loader2, Search, ShoppingBag, History } from 'lucide-react';
+import { FileCheck, Download, Loader2, Search, ShoppingBag, History, Pencil } from 'lucide-react';
 import type { CustomerPO } from '@/types';
 import PoHistoryModal from './components/PoHistoryModal';
+import EditPoNoModal from '../riwayat-penawaran/components/EditPoNoModal';
 
 export default function CustomerPoPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function CustomerPoPage() {
   const [dlId,     setDlId]     = useState<string | null>(null);
   const [soLoadingId, setSoLoadingId] = useState<string | null>(null);
   const [historyCpo, setHistoryCpo] = useState<CustomerPO | null>(null);
+  const [editCpo, setEditCpo] = useState<CustomerPO | null>(null);
 
   const load = (q?: string) => {
     setLoading(true);
@@ -194,12 +196,22 @@ export default function CustomerPoPage() {
                           </button>
                           <button
                             className="inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"
-                            title="Lihat riwayat perubahan No. PO"
-                            onClick={() => setHistoryCpo(cpo)}
+                            title="Edit Nomor / Lampiran PO"
+                            onClick={() => setEditCpo(cpo)}
                           >
-                            <History size={11} />
-                            Riwayat
+                            <Pencil size={11} />
+                            Edit No. PO
                           </button>
+                          {cpo.hasHistory && (
+                            <button
+                              className="inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"
+                              title="Lihat riwayat perubahan No. PO"
+                              onClick={() => setHistoryCpo(cpo)}
+                            >
+                              <History size={11} />
+                              Riwayat
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -216,6 +228,15 @@ export default function CustomerPoPage() {
           isOpen={!!historyCpo}
           onClose={() => setHistoryCpo(null)}
           customerPo={historyCpo}
+        />
+      )}
+
+      {editCpo && (
+        <EditPoNoModal
+          isOpen={!!editCpo}
+          onClose={() => setEditCpo(null)}
+          customerPo={editCpo}
+          onUpdated={() => load(search || undefined)}
         />
       )}
     </AppLayout>

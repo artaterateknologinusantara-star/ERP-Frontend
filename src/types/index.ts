@@ -213,6 +213,7 @@ export interface CustomerPO {
   hasAttachment: boolean;
   salesOrderId?: string;
   salesOrderNo?: string;
+  hasHistory: boolean;
   notes?: string;
   attachmentName?: string;
   createdAt: string;
