@@ -159,6 +159,7 @@ export default function PurchaseOrderDetailPage() {
 
   const canReceive   = po?.status === 'Ordered' || po?.status === 'Partial Receive';
   const canInvoice   = po?.status === 'Partial Receive' || po?.status === 'Completed';
+  const hasInvoicableItems = (po?.items ?? []).some((item) => item.receivedQty - item.invoicedQty > 0);
   const pendingItems = (po?.items ?? []).filter((item) => item.qty - item.receivedQty > 0);
   const balance      = po?.balance ?? po?.total ?? 0;
   const canPay       = po && po.status !== 'Draft' && po.status !== 'Cancelled' && balance > 0;
@@ -208,6 +209,8 @@ export default function PurchaseOrderDetailPage() {
                 <button
                   className="btn-secondary flex items-center gap-1.5"
                   onClick={() => setSiModal(true)}
+                  disabled={!hasInvoicableItems}
+                  title={!hasInvoicableItems ? 'Semua item PO ini sudah selesai di-invoice' : undefined}
                 >
                   <FileCheck size={14} /> Buat Supplier Invoice
                 </button>
