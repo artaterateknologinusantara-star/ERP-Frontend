@@ -27,6 +27,7 @@ export type InvoiceStatus = 'Draft' | 'Sent' | 'Partial Paid' | 'Paid' | 'Overdu
 export type PurchaseRequestStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Ordered' | 'PartiallyOrdered';
 export type PurchaseOrderStatus = 'Draft' | 'Ordered' | 'Partial Receive' | 'Completed' | 'Cancelled';
 export type ExpenseStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Paid';
+export type SupplierInvoiceStatus = 'Draft' | 'Approved' | 'PartiallyPaid' | 'Paid' | 'Cancelled';
 export type ActiveStatus = 'Aktif' | 'Tidak Aktif';
 
 // ─── Master Data ─────────────────────────────────────────────────────────────

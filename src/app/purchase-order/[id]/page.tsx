@@ -8,8 +8,9 @@ import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ERPModal from '@/components/ui/ERPModal';
 import CurrencyInput from '@/components/ui/CurrencyInput';
+import CreateSupplierInvoiceModal from '../components/CreateSupplierInvoiceModal';
 import { formatRp, formatDate } from '@/lib/format';
-import { CheckCircle2, CreditCard } from 'lucide-react';
+import { CheckCircle2, CreditCard, FileCheck } from 'lucide-react';
 import {
   getPODetail,
   updatePOStatus,
@@ -43,6 +44,9 @@ export default function PurchaseOrderDetailPage() {
   const [receiveQtys, setReceiveQtys]     = useState<Record<string, number>>({});
   const [receiveNotes, setReceiveNotes]   = useState('');
   const [receiving, setReceiving]         = useState(false);
+
+  // Create Supplier Invoice modal
+  const [siModal, setSiModal]           = useState(false);
 
   // Payment modal
   const [payModal, setPayModal]         = useState(false);
@@ -154,6 +158,7 @@ export default function PurchaseOrderDetailPage() {
   };
 
   const canReceive   = po?.status === 'Ordered' || po?.status === 'Partial Receive';
+  const canInvoice   = po?.status === 'Partial Receive' || po?.status === 'Completed';
   const pendingItems = (po?.items ?? []).filter((item) => item.qty - item.receivedQty > 0);
   const balance      = po?.balance ?? po?.total ?? 0;
   const canPay       = po && po.status !== 'Draft' && po.status !== 'Cancelled' && balance > 0;
@@ -197,6 +202,14 @@ export default function PurchaseOrderDetailPage() {
               {canReceive && (
                 <button className="btn-primary flex items-center gap-1.5" onClick={openReceiveModal} disabled={pendingItems.length === 0}>
                   {po.status === 'Partial Receive' ? 'Terima Barang Lanjutan' : 'Terima Barang'}
+                </button>
+              )}
+              {canInvoice && (
+                <button
+                  className="btn-secondary flex items-center gap-1.5"
+                  onClick={() => setSiModal(true)}
+                >
+                  <FileCheck size={14} /> Buat Supplier Invoice
                 </button>
               )}
               {canPay && (
@@ -406,6 +419,14 @@ export default function PurchaseOrderDetailPage() {
           </div>
         </div>
       </ERPModal>
+
+      {/* ── Modal Buat Supplier Invoice ── */}
+      <CreateSupplierInvoiceModal
+        isOpen={siModal}
+        onClose={() => setSiModal(false)}
+        po={po}
+        onCreated={load}
+      />
 
       {/* ── Modal Catat Pembayaran ── */}
       <ERPModal isOpen={payModal} onClose={() => setPayModal(false)} title="Catat Pembayaran PO" subtitle={po.no} size="sm"

@@ -1,7 +1,6 @@
 import React from 'react';
 import AppLayout from '@/components/AppLayout';
-import APSummaryCards from '../accounts-payable/components/APSummaryCards';
-import APTable from '../accounts-payable/components/APTable';
+import SupplierInvoiceTable from './components/SupplierInvoiceTable';
 
 export default function SupplierInvoicePage() {
   return (
@@ -10,8 +9,7 @@ export default function SupplierInvoicePage() {
       breadcrumbs={[{ label: 'Purchasing' }, { label: 'Supplier Invoice' }]}
     >
       <div className="space-y-5">
-        <APSummaryCards />
-        <APTable />
+        <SupplierInvoiceTable />
       </div>
     </AppLayout>
   );

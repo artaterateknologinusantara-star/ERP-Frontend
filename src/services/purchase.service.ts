@@ -72,6 +72,7 @@ export interface POItem {
   unit: string;
   price: number;
   receivedQty: number;
+  invoicedQty: number;
   total: number;
   itemMasterId?: string;
 }

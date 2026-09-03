@@ -7,6 +7,7 @@ import {
   PurchaseOrderStatus,
   ExpenseStatus,
   ActiveStatus,
+  SupplierInvoiceStatus,
 } from '@/types';
 
 type AnyStatus =
@@ -16,7 +17,8 @@ type AnyStatus =
   | PurchaseRequestStatus
   | PurchaseOrderStatus
   | ExpenseStatus
-  | ActiveStatus;
+  | ActiveStatus
+  | SupplierInvoiceStatus;
 
 interface BadgeConfig {
   className: string;
@@ -69,6 +71,9 @@ const statusMap: Record<string, BadgeConfig> = {
   // Journal Entry
   Posted:       { className: 'status-disetujui',   label: 'Posted' },
   Reversed:     { className: 'status-superseded',  label: 'Reversed' },
+
+  // Supplier Invoice
+  PartiallyPaid: { className: 'bg-amber-100 text-amber-700', label: 'Partially Paid' },
 };
 
 interface StatusBadgeProps {
