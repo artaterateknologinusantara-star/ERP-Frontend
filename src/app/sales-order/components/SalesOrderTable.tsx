@@ -9,10 +9,59 @@ import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { formatRp, formatDate } from '@/lib/format';
-import { Eye, Trash2 } from 'lucide-react';
+import { Eye, Trash2, FileText, FileDown, X } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
 import { getSalesOrders, SalesOrderListItem, salesOrderService } from '@/services/salesorder.service';
 import { SalesOrderStatus } from '@/types';
+
+// ── PDF Preview Modal ──────────────────────────────────────────────────────────
+function PdfPreviewModal({ row, url, onClose }: {
+  row: SalesOrderListItem;
+  url: string;
+  onClose: () => void;
+}) {
+  const handleDownload = () => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SO_${row.no.replace(/\//g, '-')}.pdf`;
+    a.click();
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="bg-card rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ width: '90vw', maxWidth: 900, height: '92vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/30 flex-shrink-0">
+          <div className="min-w-0">
+            <p className="text-[10px] font-600 text-muted-foreground uppercase tracking-widest">Preview Sales Order</p>
+            <p className="font-700 text-[15px] text-foreground leading-tight truncate">{row.no}</p>
+            <p className="text-[12px] text-muted-foreground truncate">{row.customerName} · {row.projectName}</p>
+          </div>
+          <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+            <button
+              className="inline-flex items-center gap-1.5 text-[12px] font-600 px-3.5 py-2 rounded-lg bg-sky-600 text-white hover:bg-sky-700 transition-colors shadow-sm"
+              onClick={handleDownload}
+            >
+              <FileDown size={13} /> Download PDF
+            </button>
+            <button
+              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              onClick={onClose}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 bg-slate-200 overflow-hidden">
+          <iframe src={url} className="w-full h-full" title={`Sales Order ${row.no}`} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const STATUS_OPTIONS = [
   { value: 'Semua', label: 'Semua Status' },
@@ -22,7 +71,10 @@ const STATUS_OPTIONS = [
   { value: 'Cancelled', label: 'Cancelled' },
 ];
 
-const SALES_ORDERS_QUERY_KEY = 'sales-orders';
+// Exported so pages whose actions change an SO's workflow phase (generate PR, approve PR, receive
+// goods, confirm DO, create invoice) can invalidate this list's cache after a successful mutation —
+// otherwise the Phase badge here only updates on a manual refresh (stale up to `staleTime`).
+export const SALES_ORDERS_QUERY_KEY = 'sales-orders';
 
 export default function SalesOrderTable() {
   const router = useRouter();
@@ -37,6 +89,9 @@ export default function SalesOrderTable() {
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SalesOrderListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [pdfPreview, setPdfPreview] = useState<{ row: SalesOrderListItem; url: string } | null>(null);
+  const [pdfPreviewLoading, setPdfPreviewLoading] = useState<string | null>(null);
 
   // Server-side pagination, not useTableFilter's fetch-all-then-filter-client model: SO count isn't
   // bounded, and the backend's PaginationParams caps perPage at 100 regardless of what's requested,
@@ -67,6 +122,23 @@ export default function SalesOrderTable() {
   };
   const handleStatusFilter = (v: string) => { setStatusFilter(v); setPage(1); };
   const handlePerPageChange = (pp: number) => { setPerPage(pp); setPage(1); };
+
+  const handleOpenPdfPreview = async (row: SalesOrderListItem) => {
+    setPdfPreviewLoading(row.id);
+    try {
+      const blob = await salesOrderService.exportPdf(row.id);
+      setPdfPreview({ row, url: URL.createObjectURL(blob) });
+    } catch {
+      toast.error('Gagal memuat PDF');
+    } finally {
+      setPdfPreviewLoading(null);
+    }
+  };
+
+  const handleClosePdfPreview = () => {
+    if (pdfPreview?.url) URL.revokeObjectURL(pdfPreview.url);
+    setPdfPreview(null);
+  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -124,13 +196,21 @@ export default function SalesOrderTable() {
                   <td className="erp-table-cell text-muted-foreground">{formatDate(row.date)}</td>
                   <td className="erp-table-cell text-muted-foreground">{row.expectedDate ? formatDate(row.expectedDate) : '—'}</td>
                   <td className="erp-table-cell">
-                    <StatusBadge status={row.status as SalesOrderStatus} size="sm" />
+                    <StatusBadge status={row.phase || (row.status as SalesOrderStatus)} size="sm" />
                   </td>
                   <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(row.grandTotal)}</td>
                   <td className="erp-table-cell text-muted-foreground text-xs">{row.refQuotation || '—'}</td>
                   <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />,   label: 'Lihat Detail', onClick: () => router.push(`/sales-order/${row.id}`) },
+                      {
+                        icon: pdfPreviewLoading === row.id
+                          ? <div className="w-[13px] h-[13px] border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          : <FileText size={13} />,
+                        label: 'Lihat PDF',
+                        onClick: () => handleOpenPdfPreview(row),
+                        disabled: pdfPreviewLoading === row.id,
+                      },
                       { icon: <Trash2 size={13} />, label: 'Hapus SO',    onClick: () => { setDeleteTarget(row); setDeleteModal(true); }, danger: true, separator: true },
                     ]} />
                   </td>
@@ -159,6 +239,14 @@ export default function SalesOrderTable() {
         confirmLabel="Hapus"
         loading={deleting}
       />
+
+      {pdfPreview && (
+        <PdfPreviewModal
+          row={pdfPreview.row}
+          url={pdfPreview.url}
+          onClose={handleClosePdfPreview}
+        />
+      )}
     </>
   );
 }

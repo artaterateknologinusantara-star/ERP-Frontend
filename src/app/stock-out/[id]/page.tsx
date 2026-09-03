@@ -4,10 +4,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { AlertTriangle, CheckCircle2, Trash2, Truck } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, CheckCircle2, Receipt, Trash2, Truck } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import WorkflowStepper from '@/components/ui/WorkflowStepper';
+import WorkflowBanner from '@/components/ui/WorkflowBanner';
 import { formatDate } from '@/lib/format';
 import {
   getDeliveryOrderDetail,
@@ -16,11 +19,28 @@ import {
   deleteDeliveryOrder,
   DeliveryOrderDetail,
 } from '@/services/inventory.service';
+import { SALES_ORDERS_QUERY_KEY } from '@/app/sales-order/components/SalesOrderTable';
+
+// ── Stepper ───────────────────────────────────────────────────────────────────
+
+const DO_STEPS = [
+  { label: 'Draft' },
+  { label: 'Konfirmasi' },
+  { label: 'Terkirim' },
+];
+
+const DO_STEP_INDEX: Record<string, number> = {
+  Draft: 0,
+  Confirmed: 1,
+  Delivered: 2,
+  Returned: 2,
+};
 
 export default function DeliveryOrderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const queryClient = useQueryClient();
 
   const [do_, setDO] = useState<DeliveryOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,6 +69,7 @@ export default function DeliveryOrderDetailPage() {
         await confirmDeliveryOrder(id);
         toast.success('DO berhasil dikonfirmasi');
         setConfirmAction(null);
+        queryClient.invalidateQueries({ queryKey: [SALES_ORDERS_QUERY_KEY] });
         load();
       } else if (confirmAction === 'deliver') {
         await markDODelivered(id);
@@ -115,6 +136,26 @@ export default function DeliveryOrderDetailPage() {
       ]}
     >
       <div className="space-y-6">
+
+        {/* ── Workflow Progress ── */}
+        <WorkflowStepper
+          title="Progress DO"
+          steps={DO_STEPS}
+          currentStep={DO_STEP_INDEX[do_.status] ?? 0}
+          cancelled={do_.status === 'Cancelled'}
+          cancelledLabel="Delivery Order dibatalkan"
+        />
+
+        {/* ── Contextual Banner ── */}
+        {do_.status === 'Delivered' && do_.salesOrderId && (
+          <WorkflowBanner
+            tone="purple"
+            icon={<Receipt size={15} />}
+            message="DO sudah terkirim. Buat Invoice untuk penagihan ke customer dari halaman Sales Order."
+            linkHref={`/sales-order/${do_.salesOrderId}`}
+            linkLabel="Lihat Sales Order →"
+          />
+        )}
 
         {/* ── Header ── */}
         <div className="erp-card">

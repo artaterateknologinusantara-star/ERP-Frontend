@@ -42,6 +42,15 @@ const statusMap: Record<string, BadgeConfig> = {
   Completed:    { className: 'status-disetujui',  label: 'Completed' },
   Cancelled:    { className: 'status-ditolak',    label: 'Cancelled' },
 
+  // Sales Order — workflow phase (matches the "Progress SO" stepper on the detail page)
+  'pr-needed':     { className: 'status-draft',                    label: 'Perlu PR' },
+  'pr-processing': { className: 'bg-violet-100 text-violet-700',   label: 'Proses PR' },
+  'gr-pending':    { className: 'bg-amber-100 text-amber-700',     label: 'Menunggu GR' },
+  'do-ready':      { className: 'bg-blue-100 text-blue-700',       label: 'Siap Kirim' },
+  'invoice-ready': { className: 'bg-teal-100 text-teal-700',       label: 'Siap Invoice' },
+  cancelled:       { className: 'status-ditolak',                  label: 'Cancelled' },
+  completed:       { className: 'status-disetujui',                label: 'Completed' },
+
   // Invoice
   Sent:           { className: 'status-terkirim',             label: 'Sent' },
   'Partial Paid': { className: 'bg-amber-100 text-amber-700', label: 'Partial Paid' },

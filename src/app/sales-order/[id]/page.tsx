@@ -4,9 +4,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import WorkflowStepper from '@/components/ui/WorkflowStepper';
+import WorkflowBanner, { BannerTone } from '@/components/ui/WorkflowBanner';
 import { formatRp, formatDate } from '@/lib/format';
 import {
   ShoppingCart, Truck, CheckCircle2, XCircle, FileText,
@@ -22,6 +25,7 @@ import { invoiceService } from '@/services/invoice.service';
 import { api } from '@/lib/api';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import { SalesOrderStatus } from '@/types';
+import { SALES_ORDERS_QUERY_KEY } from '../components/SalesOrderTable';
 
 const DP_METHODS = ['Transfer', 'Tunai', 'Giro', 'Cek'];
 
@@ -55,36 +59,16 @@ type WorkflowPhase =
   | 'completed'
   | 'cancelled';
 
-function computePhase(
-  soStatus: string,
-  relatedPRs: RelatedPR[],
-  allLinkedPOsCompleted: boolean,
-  hasLinkedPOs: boolean,
-): WorkflowPhase {
-  if (soStatus === 'Cancelled') return 'cancelled';
-  if (soStatus === 'Completed') return 'completed';
-  if (soStatus === 'Delivered') return 'invoice-ready';
-  if (soStatus === 'Open') {
-    if (relatedPRs.length === 0) return 'pr-needed';
-    const pr = relatedPRs[0];
-    const prHasItems = (pr.itemCount ?? 1) > 0;
-    const prFullyDone = ['Selesai', 'Completed'].includes(pr.status)
-      || (pr.status === 'Ordered' && allLinkedPOsCompleted);
-    if (prHasItems && !prFullyDone) {
-      // PR is Ordered and PO(s) exist but GR not yet completed
-      if (pr.status === 'Ordered' && hasLinkedPOs) return 'gr-pending';
-      return 'pr-processing';
-    }
-    return 'do-ready';
-  }
-  return 'do-ready';
-}
+// Phase itself is computed server-side (SalesOrderService.ComputeOpenPhase/ComputeStaticPhase) and
+// comes back on `so.phase` — this page no longer recomputes it from relatedPRs/relatedPOs, so it
+// can't drift from the phase shown in the Sales Order list.
 
 // ── Stepper ───────────────────────────────────────────────────────────────────
 
 const STEPS = [
   { label: 'SO Open' },
   { label: 'Generate PR' },
+  { label: 'Approval PR' },
   { label: 'Proses GR' },
   { label: 'Delivery' },
   { label: 'Invoice' },
@@ -94,123 +78,62 @@ const STEPS = [
 const PHASE_STEP: Record<WorkflowPhase, number> = {
   'pr-needed':     1,
   'pr-processing': 2,
-  'gr-pending':    2,
-  'do-ready':      3,
-  'invoice-ready': 4,
-  'completed':     6,
+  'gr-pending':    3,
+  'do-ready':      4,
+  'invoice-ready': 5,
+  'completed':     STEPS.length - 1,
   'cancelled':    -1,
 };
 
-function WorkflowStepper({ phase }: { phase: WorkflowPhase }) {
-  if (phase === 'cancelled') {
-    return (
-      <div className="erp-card flex items-center gap-2 text-sm text-red-600 border border-red-200 bg-red-50">
-        <XCircle size={15} />
-        <span className="font-600">Sales Order telah dibatalkan</span>
-      </div>
-    );
+// ── Contextual banner config ──────────────────────────────────────────────────
+// Maps the workflow phase to a <WorkflowBanner> config (shared component — see
+// src/components/ui/WorkflowBanner.tsx). Returns null for phases with nothing to say
+// (invoice-ready has its own dedicated banner further down, completed/cancelled need none).
+
+function getSOBannerConfig(
+  phase: WorkflowPhase, prHasItems: boolean, firstLinkedPOId: string | undefined,
+): { tone: BannerTone; icon: React.ReactNode; message: React.ReactNode; linkHref?: string; linkLabel?: string } | null {
+  switch (phase) {
+    case 'pr-needed':
+      return {
+        tone: 'blue',
+        icon: <AlertCircle size={15} />,
+        message: 'Langkah wajib: Generate Purchase Request terlebih dahulu sebelum bisa membuat Delivery Order.',
+      };
+    case 'pr-processing':
+      return {
+        tone: 'amber',
+        icon: <Clock size={15} />,
+        message: 'PR sedang diproses. Selesaikan alur PR → Approval → PO Purchasing (pembelian ke supplier) terlebih dahulu sebelum bisa membuat DO.',
+      };
+    case 'gr-pending':
+      return {
+        tone: 'orange',
+        icon: <Clock size={15} />,
+        // "PO" here is deliberately spelled out as "PO Purchasing" (PO ke supplier) — this
+        // banner sits on the Sales Order page, where "Customer PO" is the other PO users
+        // already know, so a bare "PO" reads as ambiguous rather than obviously Purchasing.
+        message: 'PO Purchasing (pembelian ke supplier) sudah dibuat. Selesaikan proses penerimaan barang (Goods Receipt) di halaman PO Purchasing sebelum melanjutkan ke Delivery.',
+        linkHref: firstLinkedPOId ? `/purchase-order/${firstLinkedPOId}` : undefined,
+        linkLabel: 'Lihat PO Purchasing →',
+      };
+    case 'do-ready':
+      return {
+        tone: 'green',
+        icon: <Info size={15} />,
+        message: prHasItems
+          ? 'GR selesai — material siap. Buat Delivery Order untuk pengiriman ke customer.'
+          : 'Material tersedia di stok. Buat Delivery Order (jika ada pengiriman fisik) atau langsung Buat Invoice (jika proyek jasa murni).',
+      };
+    case 'invoice-ready':
+      return {
+        tone: 'purple',
+        icon: <Receipt size={15} />,
+        message: 'SO sudah dikirim. Buat Invoice untuk penagihan ke customer.',
+      };
+    default:
+      return null;
   }
-
-  const currentStep = PHASE_STEP[phase];
-
-  return (
-    <div className="erp-card">
-      <p className="text-[10px] font-600 text-muted-foreground uppercase tracking-wider mb-3">Progress SO</p>
-      <div className="flex items-center">
-        {STEPS.map((step, idx) => {
-          const done    = idx < currentStep;
-          const active  = idx === currentStep;
-          return (
-            <React.Fragment key={step.label}>
-              <div className="flex flex-col items-center shrink-0">
-                <div className={[
-                  'w-7 h-7 rounded-full flex items-center justify-center text-xs font-700 transition-all',
-                  done   ? 'bg-green-500 text-white' :
-                  active ? 'bg-primary text-white ring-2 ring-primary/30 ring-offset-1' :
-                           'bg-muted text-muted-foreground',
-                ].join(' ')}>
-                  {done ? '✓' : idx + 1}
-                </div>
-                <span className={[
-                  'text-[10px] mt-1 text-center leading-tight whitespace-nowrap',
-                  done   ? 'text-green-600 font-500' :
-                  active ? 'text-primary font-600' :
-                           'text-muted-foreground',
-                ].join(' ')}>
-                  {step.label}
-                </span>
-              </div>
-              {idx < STEPS.length - 1 && (
-                <div className={[
-                  'flex-1 h-0.5 mx-1 mb-4',
-                  idx < currentStep ? 'bg-green-400' : 'bg-muted',
-                ].join(' ')} />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── Contextual banner ─────────────────────────────────────────────────────────
-
-function WorkflowBanner({
-  phase, prHasItems, firstLinkedPOId,
-}: {
-  phase: WorkflowPhase;
-  prHasItems: boolean;
-  firstLinkedPOId?: string;
-}) {
-  type BannerCfg = { icon: React.ReactNode; cls: string; msg: string; poLink?: string };
-  const cfgs: Partial<Record<WorkflowPhase, BannerCfg>> = {
-    'pr-needed': {
-      icon: <AlertCircle size={15} className="shrink-0 mt-0.5" />,
-      cls:  'bg-blue-50 border-blue-200 text-blue-800',
-      msg:  'Langkah wajib: Generate Purchase Request terlebih dahulu sebelum bisa membuat Delivery Order.',
-    },
-    'pr-processing': {
-      icon: <Clock size={15} className="shrink-0 mt-0.5" />,
-      cls:  'bg-amber-50 border-amber-200 text-amber-800',
-      msg:  'PR sedang diproses. Selesaikan alur PR → Approval → PO terlebih dahulu sebelum bisa membuat DO.',
-    },
-    'gr-pending': {
-      icon: <Clock size={15} className="shrink-0 mt-0.5" />,
-      cls:  'bg-orange-50 border-orange-200 text-orange-800',
-      msg:  'PO sudah dibuat. Selesaikan proses penerimaan barang (Goods Receipt) di halaman PO sebelum melanjutkan ke Delivery.',
-      poLink: firstLinkedPOId,
-    },
-    'do-ready': {
-      icon: <Info size={15} className="shrink-0 mt-0.5" />,
-      cls:  'bg-green-50 border-green-200 text-green-800',
-      msg:  prHasItems
-        ? 'GR selesai — material siap. Buat Delivery Order untuk pengiriman ke customer.'
-        : 'Material tersedia di stok. Buat Delivery Order (jika ada pengiriman fisik) atau langsung Buat Invoice (jika proyek jasa murni).',
-    },
-    'invoice-ready': {
-      icon: <Receipt size={15} className="shrink-0 mt-0.5" />,
-      cls:  'bg-purple-50 border-purple-200 text-purple-800',
-      msg:  'SO sudah dikirim. Buat Invoice untuk penagihan ke customer.',
-    },
-  };
-
-  const cfg = cfgs[phase];
-  if (!cfg) return null;
-
-  return (
-    <div className={`flex items-start gap-2.5 text-sm px-4 py-3 border rounded-lg ${cfg.cls}`}>
-      {cfg.icon}
-      <span>
-        {cfg.msg}
-        {cfg.poLink && (
-          <Link href={`/purchase-order/${cfg.poLink}`} className="ml-2 font-600 underline hover:no-underline whitespace-nowrap">
-            Lihat PO →
-          </Link>
-        )}
-      </span>
-    </div>
-  );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -235,6 +158,7 @@ export default function SalesOrderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id     = params.id as string;
+  const queryClient = useQueryClient();
 
   const [so, setSo]                         = useState<SalesOrderDetail | null>(null);
   const [loading, setLoading]               = useState(true);
@@ -258,14 +182,14 @@ export default function SalesOrderDetailPage() {
 
   // PDF export
   const [exportingPdf, setExportingPdf]         = useState(false);
-  const [showPreview, setShowPreview]           = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl]       = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading]     = useState(false);
 
   // Related docs
   const [relatedDOs,      setRelatedDOs]      = useState<DeliveryOrderListItem[]>([]);
   const [relatedInvoices, setRelatedInvoices] = useState<RelatedInvoice[]>([]);
   const [relatedPRs,      setRelatedPRs]      = useState<RelatedPR[]>([]);
   const [relatedPOs,      setRelatedPOs]      = useState<PurchaseOrderListItem[]>([]);
-  const [linkedPOsDone,   setLinkedPOsDone]   = useState(false);
   const [loadingRelated,  setLoadingRelated]  = useState(false);
 
   // Down Payment
@@ -384,12 +308,11 @@ export default function SalesOrderDetailPage() {
         linkedPRIds = filtered.map((pr) => pr.id);
       }
 
-      // Check linked POs (across all vendors) and whether all GR are done
+      // Check linked POs (across all vendors) — used for the GR-pending banner's PO link, not for
+      // phase (phase itself comes from so.phase, computed server-side).
       if (linkedPRIds.length > 0) {
         const posRes = await getPOList({ perPage: 100, purchaseRequestIds: linkedPRIds.join(',') });
         setRelatedPOs(posRes.data);
-        const allDone = posRes.data.length > 0 && posRes.data.every((po) => po.status === 'Completed');
-        setLinkedPOsDone(allDone);
       }
     } catch {
       // silent
@@ -428,6 +351,7 @@ export default function SalesOrderDetailPage() {
     try {
       const pr = await generatePRFromSO(so.id);
       toast.success(`Purchase Request ${pr.no} berhasil dibuat`);
+      queryClient.invalidateQueries({ queryKey: [SALES_ORDERS_QUERY_KEY] });
       router.push(`/purchase-request/${pr.id}`);
     } catch (e: unknown) {
       const httpStatus = (e as { status?: number }).status;
@@ -475,6 +399,7 @@ export default function SalesOrderDetailPage() {
         nomorFakturPajak: invoiceNomorFakturPajak.trim() || undefined,
       });
       toast.success(`Invoice ${res.data?.no} berhasil dibuat`);
+      queryClient.invalidateQueries({ queryKey: [SALES_ORDERS_QUERY_KEY] });
       router.push(`/invoice/${res.data?.id}`);
     } catch (e: unknown) {
       toast.error((e as { message?: string })?.message ?? 'Gagal membuat invoice');
@@ -482,6 +407,24 @@ export default function SalesOrderDetailPage() {
       setCreatingInvoice(false);
     }
   };
+
+  async function handleOpenPreview() {
+    if (!so) return;
+    setPreviewLoading(true);
+    try {
+      const blob = await salesOrderService.exportPdf(so.id);
+      setPreviewPdfUrl(window.URL.createObjectURL(blob));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Gagal memuat preview PDF');
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  function handleClosePreview() {
+    if (previewPdfUrl) window.URL.revokeObjectURL(previewPdfUrl);
+    setPreviewPdfUrl(null);
+  }
 
   async function handleExportPdf() {
     if (!so) return;
@@ -511,7 +454,7 @@ export default function SalesOrderDetailPage() {
 
   // ── Derived state ──
 
-  const phase       = computePhase(so?.status ?? '', relatedPRs, linkedPOsDone, relatedPOs.length > 0);
+  const phase       = (so?.phase ?? 'pr-needed') as WorkflowPhase;
   const firstPR     = relatedPRs[0];
   const prHasItems  = firstPR ? (firstPR.itemCount ?? 1) > 0 : false;
   const prZeroItems = firstPR ? firstPR.itemCount === 0 : false;
@@ -556,12 +499,27 @@ export default function SalesOrderDetailPage() {
       <div className="space-y-6">
 
         {/* ── Workflow Progress ── */}
-        <WorkflowStepper phase={phase} />
+        {/* A Draft SO hasn't entered the workflow yet (no PR/PO/GR step has a meaningful phase to
+            show), same reasoning as the banner's Open/Delivered guard below. */}
+        {so.status !== 'Draft' && (
+          <WorkflowStepper
+            title="Progress SO"
+            steps={STEPS}
+            currentStep={PHASE_STEP[phase]}
+            cancelled={phase === 'cancelled'}
+            cancelledLabel="Sales Order telah dibatalkan"
+          />
+        )}
 
         {/* ── Contextual Banner ── */}
-        {(so.status === 'Open' || so.status === 'Delivered') && (
-          <WorkflowBanner phase={phase} prHasItems={prHasItems} firstLinkedPOId={relatedPOs[0]?.id} />
-        )}
+        {(so.status === 'Open' || so.status === 'Delivered') && (() => {
+          // Link to a PO that still needs GR, not just the first one returned — a PR can split
+          // across multiple supplier POs, and an already-Completed one gives the user nowhere
+          // to go to actually finish the pending Goods Receipt.
+          const firstLinkedPOId = (relatedPOs.find((po) => po.status !== 'Completed') ?? relatedPOs[0])?.id;
+          const cfg = getSOBannerConfig(phase, prHasItems, firstLinkedPOId);
+          return cfg && <WorkflowBanner {...cfg} />;
+        })()}
 
         {/* ── Header Card ── */}
         <div className="erp-card">
@@ -659,10 +617,11 @@ export default function SalesOrderDetailPage() {
               )} */}
 
               <button
-                onClick={() => setShowPreview(true)}
-                className="btn-secondary flex items-center gap-1.5"
+                onClick={handleOpenPreview}
+                disabled={previewLoading}
+                className="btn-secondary flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Eye size={14} /> Preview
+                <Eye size={14} /> {previewLoading ? 'Memuat...' : 'Preview'}
               </button>
 
               <button
@@ -955,111 +914,41 @@ export default function SalesOrderDetailPage() {
         variant={confirmAction?.variant}
       />
 
-      {/* ── Preview Modal ── */}
-      {showPreview && (
+      {/* ── Preview Modal (PDF) ── */}
+      {previewPdfUrl && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setShowPreview(false)}
+          onClick={handleClosePreview}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col"
+            className="bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden"
+            style={{ width: '90vw', maxWidth: 900, height: '92vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header */}
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border flex-shrink-0">
               <div className="flex items-center gap-3">
                 <h3 className="text-base font-700 text-foreground">{so.no}</h3>
                 <StatusBadge status={so.status as SalesOrderStatus} />
               </div>
-              <button onClick={() => setShowPreview(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <XCircle size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportPdf}
+                  disabled={exportingPdf}
+                  className="btn-secondary flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <FileText size={14} />
+                  {exportingPdf ? 'Mengunduh...' : 'Download PDF'}
+                </button>
+                <button onClick={handleClosePreview} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <XCircle size={18} />
+                </button>
+              </div>
             </div>
 
             {/* Modal body */}
-            <div className="overflow-y-auto px-6 py-4 space-y-5 flex-1">
-              {/* 2-col info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs font-600 text-muted-foreground uppercase tracking-wider mb-2">Kepada</p>
-                  <p className="font-semibold text-foreground">{so.customerName}</p>
-                  {so.customerAddress && <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{so.customerAddress}</p>}
-                  {so.customerNpwp && <p className="text-sm text-muted-foreground mt-1">NPWP: {so.customerNpwp}</p>}
-                  {so.customerContactPerson && <p className="text-sm text-muted-foreground">Contact: {so.customerContactPerson}</p>}
-                </div>
-                <div>
-                  <p className="text-xs font-600 text-muted-foreground uppercase tracking-wider mb-2">Detail Dokumen</p>
-                  <dl className="space-y-1 text-sm">
-                    {([
-                      ['Tanggal', formatDate(so.date)],
-                      ['Expected', so.expectedDate ? formatDate(so.expectedDate) : '—'],
-                      ['Terms', so.terms || '—'],
-                      ['Project', so.projectName],
-                      ['Ref Quotation', so.refQuotation || '—'],
-                    ] as [string, string][]).map(([label, value]) => (
-                      <div key={label} className="flex gap-2">
-                        <dt className="w-28 text-muted-foreground flex-shrink-0">{label}</dt>
-                        <dd className="font-500 text-foreground">{value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              </div>
-
-              {/* Items table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-[13px] border-collapse border border-border">
-                  <thead>
-                    <tr className="bg-muted/40">
-                      {['#', 'Deskripsi', 'Qty', 'UoM', 'Harga Satuan', 'Amount'].map((h) => (
-                        <th key={h} className="border border-border px-3 py-2 text-left text-xs font-600 text-muted-foreground">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {so.items.map((item, i) => (
-                      <tr key={item.id} className="border-b border-border">
-                        <td className="border border-border px-3 py-2 text-muted-foreground">{i + 1}</td>
-                        <td className="border border-border px-3 py-2">
-                          <p className="font-medium">{item.description}</p>
-                          {item.sku && <p className="text-xs text-gray-400">{item.sku}</p>}
-                        </td>
-                        <td className="border border-border px-3 py-2 font-tabular">{formatDecimal(item.qty)}</td>
-                        <td className="border border-border px-3 py-2 text-muted-foreground">{item.uom}</td>
-                        <td className="border border-border px-3 py-2 font-tabular text-right">{formatRp(item.unitPrice)}</td>
-                        <td className="border border-border px-3 py-2 font-tabular text-right font-700">{formatRp(item.amount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td colSpan={5} className="border border-border px-3 py-2 text-right text-muted-foreground font-500">Sub Total</td>
-                      <td className="border border-border px-3 py-2 text-right font-tabular font-600">{formatRp(so.subTotal)}</td>
-                    </tr>
-                    <tr>
-                      <td colSpan={5} className="border border-border px-3 py-2 text-right text-muted-foreground font-500">PPN (11%)</td>
-                      <td className="border border-border px-3 py-2 text-right font-tabular font-600">{formatRp(so.taxAmount)}</td>
-                    </tr>
-                    <tr className="font-700 bg-muted/20">
-                      <td colSpan={5} className="border border-border px-3 py-2 text-right">Grand Total</td>
-                      <td className="border border-border px-3 py-2 text-right font-tabular text-primary">{formatRp(so.grandTotal)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-
-            {/* Modal footer */}
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-border">
-              <button onClick={() => setShowPreview(false)} className="btn-secondary">Tutup</button>
-              <button
-                onClick={handleExportPdf}
-                disabled={exportingPdf}
-                className="btn-secondary flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <FileText size={14} />
-                {exportingPdf ? 'Mengunduh...' : 'Export PDF'}
-              </button>
+            <div className="flex-1 bg-slate-200 overflow-hidden">
+              <iframe src={previewPdfUrl} className="w-full h-full" title={`Sales Order ${so.no}`} />
             </div>
           </div>
         </div>

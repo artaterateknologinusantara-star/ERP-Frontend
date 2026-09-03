@@ -4,10 +4,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ERPModal from '@/components/ui/ERPModal';
 import CurrencyInput from '@/components/ui/CurrencyInput';
+import WorkflowStepper from '@/components/ui/WorkflowStepper';
 import CreateSupplierInvoiceModal from '../components/CreateSupplierInvoiceModal';
 import { formatRp, formatDate } from '@/lib/format';
 import { CheckCircle2, CreditCard, FileCheck } from 'lucide-react';
@@ -21,6 +23,7 @@ import {
   RecordPOPaymentRequest,
 } from '@/services/purchase.service';
 import { PurchaseOrderStatus } from '@/types';
+import { SALES_ORDERS_QUERY_KEY } from '@/app/sales-order/components/SalesOrderTable';
 
 const PAYMENT_METHODS = ['Transfer', 'Tunai', 'Giro', 'Cek'];
 
@@ -31,9 +34,27 @@ const methodBadge: Record<string, string> = {
   Cek:      'bg-gray-100 text-gray-600',
 };
 
+// ── Stepper ───────────────────────────────────────────────────────────────────
+
+const PO_STEPS = [
+  { label: 'Draft' },
+  { label: 'Ordered' },
+  { label: 'Terima Barang' },
+  { label: 'Selesai' },
+];
+
+const PO_STEP_INDEX: Record<string, number> = {
+  Draft: 0,
+  Ordered: 1,
+  'Partial Receive': 2,
+  PartialReceive: 2,
+  Completed: 3,
+};
+
 export default function PurchaseOrderDetailPage() {
   const params = useParams();
   const id     = params.id as string;
+  const queryClient = useQueryClient();
 
   const [po, setPo]           = useState<PurchaseOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,6 +133,7 @@ export default function PurchaseOrderDetailPage() {
       await receiveGoods(po.id, { items, notes: receiveNotes || undefined });
       toast.success('Penerimaan barang berhasil dicatat');
       setReceiveModal(false);
+      queryClient.invalidateQueries({ queryKey: [SALES_ORDERS_QUERY_KEY] });
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal mencatat penerimaan barang');
@@ -186,6 +208,15 @@ export default function PurchaseOrderDetailPage() {
       breadcrumbs={[{ label: 'Purchasing' }, { label: 'Purchase Order', href: '/purchase-order' }, { label: po.no }]}
     >
       <div className="space-y-6">
+
+        {/* ── Workflow Progress ── */}
+        <WorkflowStepper
+          title="Progress PO"
+          steps={PO_STEPS}
+          currentStep={PO_STEP_INDEX[po.status] ?? 0}
+          cancelled={po.status === 'Cancelled'}
+          cancelledLabel="Purchase Order dibatalkan"
+        />
 
         {/* ── Header ── */}
         <div className="erp-card">

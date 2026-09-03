@@ -4,10 +4,13 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ERPModal from '@/components/ui/ERPModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import WorkflowStepper from '@/components/ui/WorkflowStepper';
+import WorkflowBanner, { BannerTone } from '@/components/ui/WorkflowBanner';
 import { formatRp, formatDate } from '@/lib/format';
 import { canApprove } from '@/lib/permissions';
 import { ChevronDown, X, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
@@ -23,11 +26,83 @@ import {
 import { supplierService } from '@/services/supplier.service';
 import { PurchaseRequestStatus, PurchaseOrderStatus } from '@/types';
 import type { Supplier } from '@/types';
+import { SALES_ORDERS_QUERY_KEY } from '@/app/sales-order/components/SalesOrderTable';
+
+// ── Stepper ───────────────────────────────────────────────────────────────────
+
+const PR_STEPS = [
+  { label: 'Draft' },
+  { label: 'Submit' },
+  { label: 'Approve' },
+  { label: 'PO Dibuat' },
+  { label: 'GR Selesai' },
+];
+
+function prStepIndex(status: string, relatedPOs: PurchaseOrderListItem[]): number {
+  switch (status) {
+    case 'Draft': return 0;
+    case 'Submitted': return 1;
+    case 'Approved': return 2;
+    case 'Ordered':
+    case 'PartiallyOrdered':
+      return relatedPOs.length > 0 && relatedPOs.every((po) => po.status === 'Completed') ? 4 : 3;
+    default: return 0;
+  }
+}
+
+// ── Contextual banner config ──────────────────────────────────────────────────
+
+function getPRBannerConfig(
+  pr: PurchaseRequestDetail, relatedPOs: PurchaseOrderListItem[], loadingPOs: boolean,
+): { tone: BannerTone; icon: React.ReactNode; message: React.ReactNode; linkHref?: string; linkLabel?: string } | null {
+  if (pr.status === 'Ordered' && !loadingPOs) {
+    if (relatedPOs.length > 0 && relatedPOs.every((po) => po.status === 'Completed')) {
+      return {
+        tone: 'green',
+        icon: <CheckCircle2 size={15} />,
+        message: 'Semua barang sudah diterima (Goods Receipt selesai). SO dapat melanjutkan ke tahap Delivery Order.',
+      };
+    }
+    if (relatedPOs.length > 0) {
+      // Link to a PO that still needs GR — a PR can split across multiple supplier POs, and
+      // an already-Completed one gives the user nowhere to go to finish the pending GR.
+      const pendingPO = relatedPOs.find((po) => po.status !== 'Completed') ?? relatedPOs[0];
+      return {
+        tone: 'amber',
+        icon: <Clock size={15} />,
+        message: 'PO Purchasing (pembelian ke supplier) sudah dibuat. Menunggu proses Goods Receipt selesai sebelum SO bisa melanjutkan ke tahap Delivery Order.',
+        linkHref: `/purchase-order/${pendingPO.id}`,
+        linkLabel: 'Lihat PO Purchasing →',
+      };
+    }
+    return {
+      tone: 'gray',
+      icon: <AlertTriangle size={15} />,
+      message: 'PR berstatus Ordered namun belum ada PO Purchasing terkait.',
+    };
+  }
+  if (pr.status === 'Submitted') {
+    return {
+      tone: 'amber',
+      icon: <AlertTriangle size={15} />,
+      message: 'PR menunggu persetujuan. Approve untuk bisa membuat Purchase Order.',
+    };
+  }
+  if (pr.status === 'PartiallyOrdered') {
+    return {
+      tone: 'amber',
+      icon: <AlertTriangle size={15} />,
+      message: 'Sebagian item sudah dialokasikan ke Purchase Order (lihat tabel di bawah). Klik "Buat PO dari PR ini" untuk membuat PO tambahan bagi item yang masih tersisa — bisa ke vendor yang sama atau vendor berbeda.',
+    };
+  }
+  return null;
+}
 
 export default function PurchaseRequestDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const queryClient = useQueryClient();
 
   const [pr, setPr] = useState<PurchaseRequestDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,6 +171,7 @@ export default function PurchaseRequestDetailPage() {
     try {
       await updatePRStatus(pr.id, newStatus);
       toast.success(msg);
+      queryClient.invalidateQueries({ queryKey: [SALES_ORDERS_QUERY_KEY] });
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Operasi gagal');
@@ -255,52 +331,20 @@ export default function PurchaseRequestDetailPage() {
     >
       <div className="space-y-6">
 
-        {/* ── Status banners ── */}
-        {pr.status === 'Ordered' && !loadingPOs && (
-          relatedPOs.length > 0 && relatedPOs.every((po) => po.status === 'Completed')
-            ? (
-              <div className="flex items-start gap-2.5 text-sm px-4 py-3 border border-green-200 bg-green-50 text-green-800 rounded-lg">
-                <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
-                <span>Semua barang sudah diterima (Goods Receipt selesai). SO dapat melanjutkan ke tahap Delivery Order.</span>
-              </div>
-            )
-            : relatedPOs.length > 0
-              ? (
-                <div className="flex items-start gap-2.5 text-sm px-4 py-3 border border-amber-200 bg-amber-50 text-amber-800 rounded-lg">
-                  <Clock size={15} className="shrink-0 mt-0.5" />
-                  <span>
-                    PO sudah dibuat. Menunggu proses Goods Receipt selesai sebelum SO bisa melanjutkan ke tahap Delivery Order.
-                    {relatedPOs[0] && (
-                      <Link href={`/purchase-order/${relatedPOs[0].id}`} className="ml-2 font-600 underline hover:no-underline whitespace-nowrap">
-                        Lihat PO →
-                      </Link>
-                    )}
-                  </span>
-                </div>
-              )
-              : (
-                <div className="flex items-start gap-2.5 text-sm px-4 py-3 border border-gray-200 bg-gray-50 text-gray-600 rounded-lg">
-                  <AlertTriangle size={15} className="shrink-0 mt-0.5" />
-                  <span>PR berstatus Ordered namun belum ada PO terkait.</span>
-                </div>
-              )
-        )}
-        {pr.status === 'Submitted' && (
-          <div className="flex items-start gap-2.5 text-sm px-4 py-3 border border-amber-200 bg-amber-50 text-amber-800 rounded-lg">
-            <AlertTriangle size={15} className="shrink-0 mt-0.5" />
-            <span>PR menunggu persetujuan. Approve untuk bisa membuat Purchase Order.</span>
-          </div>
-        )}
-        {pr.status === 'PartiallyOrdered' && (
-          <div className="flex items-start gap-2.5 text-sm px-4 py-3 border border-amber-200 bg-amber-50 text-amber-800 rounded-lg">
-            <AlertTriangle size={15} className="shrink-0 mt-0.5" />
-            <span>
-              Sebagian item sudah dialokasikan ke Purchase Order (lihat tabel di bawah). Klik
-              &quot;Buat PO dari PR ini&quot; untuk membuat PO tambahan bagi item yang masih tersisa —
-              bisa ke vendor yang sama atau vendor berbeda.
-            </span>
-          </div>
-        )}
+        {/* ── Workflow Progress ── */}
+        <WorkflowStepper
+          title="Progress PR"
+          steps={PR_STEPS}
+          currentStep={prStepIndex(pr.status, relatedPOs)}
+          cancelled={pr.status === 'Rejected'}
+          cancelledLabel="Purchase Request ditolak"
+        />
+
+        {/* ── Contextual Banner ── */}
+        {(() => {
+          const cfg = getPRBannerConfig(pr, relatedPOs, loadingPOs);
+          return cfg && <WorkflowBanner {...cfg} />;
+        })()}
 
         {/* ── Header ── */}
         <div className="erp-card">

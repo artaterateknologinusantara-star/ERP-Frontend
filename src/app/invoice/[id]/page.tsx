@@ -7,6 +7,7 @@ import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ERPModal from '@/components/ui/ERPModal';
 import CurrencyInput from '@/components/ui/CurrencyInput';
+import WorkflowStepper from '@/components/ui/WorkflowStepper';
 import { formatRp, formatDate } from '@/lib/format';
 import { AlertTriangle, CreditCard, DollarSign } from 'lucide-react';
 import {
@@ -31,6 +32,24 @@ const methodBadge: Record<string, string> = {
   Giro:     'bg-gray-100 text-gray-600',
   Cek:      'bg-gray-100 text-gray-600',
 };
+
+// ── Stepper ───────────────────────────────────────────────────────────────────
+
+const INVOICE_STEPS = [
+  { label: 'Draft' },
+  { label: 'Terkirim' },
+  { label: 'Dibayar Sebagian' },
+  { label: 'Lunas' },
+];
+
+// A background job flips status straight to "Overdue" once past due date, overwriting whether it
+// was Sent or Partial Paid before — so Overdue can't be mapped to a fixed step. Use `paid` instead
+// to tell those two apart; the aging alert already surfaces the lateness itself.
+function invoiceStepIndex(status: string, paid: number): number {
+  if (status === 'Draft') return 0;
+  if (status === 'Paid') return 3;
+  return paid > 0 ? 2 : 1;
+}
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -202,6 +221,13 @@ export default function InvoiceDetailPage() {
       ]}
     >
       <div className="space-y-6">
+
+        {/* ── Workflow Progress ── */}
+        <WorkflowStepper
+          title="Progress Invoice"
+          steps={INVOICE_STEPS}
+          currentStep={invoiceStepIndex(inv.status, inv.paid)}
+        />
 
         {/* ── Header ── */}
         <div className="erp-card">

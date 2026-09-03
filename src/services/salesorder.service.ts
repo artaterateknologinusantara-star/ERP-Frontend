@@ -56,6 +56,15 @@ export const salesOrderService = {
   delete(id: string) {
     return api.delete(`/sales-orders/${id}`);
   },
+
+  exportPdf(id: string): Promise<Blob> {
+    return fetch(`${process.env.NEXT_PUBLIC_API_URL}/sales-orders/${id}/pdf`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
+    }).then((r) => {
+      if (!r.ok) throw new Error(`PDF export failed: ${r.status}`);
+      return r.blob();
+    });
+  },
 };
 
 // ── New Types ──────────────────────────────────────────────────────────────────
@@ -94,6 +103,8 @@ export interface SalesOrderDetail {
   refQuotation?: string;
   notes?: string;
   status: string;
+  /** Same workflow phase as SalesOrderListItem.phase — computed server-side, not derived client-side. */
+  phase: string;
   subTotal: number;
   taxAmount: number;
   grandTotal: number;
@@ -109,6 +120,8 @@ export interface SalesOrderListItem {
   date: string;
   expectedDate?: string;
   status: string;
+  /** Same workflow phase as the "Progress SO" stepper on the detail page. */
+  phase: string;
   grandTotal: number;
   refQuotation?: string;
 }
