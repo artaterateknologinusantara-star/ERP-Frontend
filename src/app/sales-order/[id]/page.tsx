@@ -664,6 +664,7 @@ export default function SalesOrderDetailPage() {
                 ['Salesperson',   so.salesName],
                 ['Project',       so.projectName],
                 ['Ref Quotation', so.refQuotation || '—'],
+                ['Retensi', so.retentionPercentage > 0 ? `${so.retentionPercentage}%` : '—'],
               ] as [string, string][]).map(([label, value]) => (
                 <div key={label} className="flex gap-2">
                   <dt className="w-32 text-muted-foreground flex-shrink-0">{label}</dt>

@@ -85,6 +85,8 @@ export interface InvoiceListItem {
   amount: number;
   paid: number;
   balance: number;
+  retentionAmount: number;
+  retentionReleasedAmount: number;
   status: string;
   salesOrderNo?: string;
   agingDays: number;
@@ -134,6 +136,8 @@ export interface InvoiceDetail {
   taxAmount: number;
   paid: number;
   balance: number;
+  retentionAmount: number;
+  retentionReleasedAmount: number;
   status: string;
   notes?: string;
   agingDays: number;
@@ -210,5 +214,21 @@ export async function applyDownPaymentToInvoice(
   data: ApplyDownPaymentRequest
 ): Promise<InvoiceDetail> {
   const res = await api.post<InvoiceDetail>(`/invoices/${invoiceId}/apply-down-payment`, data);
+  return res.data;
+}
+
+// ── Retention ─────────────────────────────────────────────────────────────────
+
+export interface ReleaseRetentionRequest {
+  releaseDate: string;
+  amount: number;
+  notes?: string;
+}
+
+export async function releaseRetention(
+  invoiceId: string,
+  data: ReleaseRetentionRequest
+): Promise<InvoiceDetail> {
+  const res = await api.post<InvoiceDetail>(`/invoices/${invoiceId}/retention-release`, data);
   return res.data;
 }

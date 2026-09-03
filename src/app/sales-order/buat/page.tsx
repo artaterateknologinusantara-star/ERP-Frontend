@@ -44,6 +44,7 @@ const schema = z.object({
   terms: z.string().optional(),
   refQuotation: z.string().optional(),
   notes: z.string().optional(),
+  retentionPercentage: z.coerce.number().min(0, 'Minimal 0%').max(100, 'Maksimal 100%').default(0),
   items: z.array(itemSchema).min(1, 'Minimal 1 item'),
 });
 
@@ -153,6 +154,7 @@ export default function BuatSalesOrderPage() {
       terms: '',
       refQuotation: '',
       notes: '',
+      retentionPercentage: 0 as unknown as number,
       items: [defaultItem],
     },
   });
@@ -312,6 +314,7 @@ export default function BuatSalesOrderPage() {
         terms: data.terms || undefined,
         refQuotation: data.refQuotation || undefined,
         notes: data.notes || undefined,
+        retentionPercentage: data.retentionPercentage ?? 0,
         items: data.items.map((item, i) => ({
           itemMasterId: item.itemMasterId || undefined,
           description: item.description,
@@ -488,6 +491,27 @@ export default function BuatSalesOrderPage() {
                     placeholder="contoh: Q.SYN-26.0149 R1"
                     className="erp-input"
                   />
+                </div>
+
+                {/* Retention Percentage */}
+                <div>
+                  <label className="erp-form-label">Retensi (%)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      {...register('retentionPercentage', { valueAsNumber: true })}
+                      min={0}
+                      max={100}
+                      step="any"
+                      placeholder="0"
+                      className={`erp-input pr-8 font-tabular ${errors.retentionPercentage ? 'border-red-400' : ''}`}
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none">%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Opsional. Persentase nilai invoice yang ditahan sampai retensi dilepas manual.
+                  </p>
+                  {errors.retentionPercentage && <p className="text-red-500 text-xs mt-1">{errors.retentionPercentage.message}</p>}
                 </div>
               </div>
             </div>

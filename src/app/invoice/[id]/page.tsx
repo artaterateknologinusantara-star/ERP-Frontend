@@ -14,6 +14,7 @@ import {
   getInvoiceDetail,
   recordPayment,
   applyDownPaymentToInvoice,
+  releaseRetention,
   InvoiceDetail,
   RecordPaymentRequest,
 } from '@/services/invoice.service';
@@ -83,6 +84,15 @@ export default function InvoiceDetailPage() {
   });
   const [applyingDp, setApplyingDp]       = useState(false);
 
+  // Retention
+  const [releaseModal, setReleaseModal] = useState(false);
+  const [releaseForm, setReleaseForm] = useState<{ releaseDate: string; amount: string; notes: string }>({
+    releaseDate: new Date().toISOString().slice(0, 10),
+    amount: '',
+    notes: '',
+  });
+  const [releasing, setReleasing] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -142,6 +152,34 @@ export default function InvoiceDetailPage() {
       toast.error(e instanceof Error ? e.message : 'Gagal menerapkan Down Payment');
     } finally {
       setApplyingDp(false);
+    }
+  };
+
+  const retensiBelumDilepas = inv ? inv.retentionAmount - inv.retentionReleasedAmount : 0;
+
+  const handleReleaseRetention = async () => {
+    if (!inv) return;
+    const amount = Number(releaseForm.amount) || 0;
+    if (amount <= 0) { toast.error('Jumlah harus lebih dari 0'); return; }
+    if (amount > retensiBelumDilepas) {
+      toast.error(`Jumlah melebihi sisa retensi yang bisa dilepas (${formatRp(retensiBelumDilepas)})`);
+      return;
+    }
+    setReleasing(true);
+    try {
+      await releaseRetention(inv.id, {
+        releaseDate: releaseForm.releaseDate,
+        amount,
+        notes: releaseForm.notes || undefined,
+      });
+      toast.success('Retensi berhasil dilepas');
+      setReleaseModal(false);
+      setReleaseForm({ releaseDate: new Date().toISOString().slice(0, 10), amount: '', notes: '' });
+      await load();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal melepas retensi');
+    } finally {
+      setReleasing(false);
     }
   };
 
@@ -374,6 +412,21 @@ export default function InvoiceDetailPage() {
           </div>
         )}
 
+        {/* ── Retensi belum dilepas ── */}
+        {inv && retensiBelumDilepas > 0 && (
+          <div className="flex items-center justify-between gap-3 flex-wrap bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-lg">
+            <span>
+              Retensi belum dilepas: <strong>{formatRp(retensiBelumDilepas)}</strong>
+            </span>
+            <button
+              onClick={() => setReleaseModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-amber-400 bg-white text-amber-700 rounded-md hover:bg-amber-100 transition-colors font-600"
+            >
+              Lepas Retensi
+            </button>
+          </div>
+        )}
+
         {/* ── Payment Summary ── */}
         <div className="erp-card">
           <h3 className="text-xs font-600 text-muted-foreground uppercase tracking-wider mb-4">Ringkasan Pembayaran</h3>
@@ -390,6 +443,18 @@ export default function InvoiceDetailPage() {
               <span className="font-700">Grand Total</span>
               <span className="font-700 font-tabular">{formatRp(inv.amount)}</span>
             </div>
+            {inv.retentionAmount > 0 && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Ditahan (Retensi)</span>
+                  <span className="font-tabular text-amber-600">{formatRp(inv.retentionAmount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Retensi Sudah Dilepas</span>
+                  <span className="font-tabular text-emerald-600">{formatRp(inv.retentionReleasedAmount)}</span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Terbayar</span>
               <span className="font-tabular text-emerald-600">{formatRp(inv.paid)}</span>
@@ -402,6 +467,12 @@ export default function InvoiceDetailPage() {
                 <span className="font-700 font-tabular text-base text-green-600">Lunas ✓</span>
               )}
             </div>
+            {inv.retentionAmount > 0 && (
+              <div className="flex justify-between text-xs pt-1">
+                <span className="text-muted-foreground">Bisa ditagih sekarang (setelah retensi)</span>
+                <span className="font-tabular">{formatRp(Math.max(0, inv.amount - inv.retentionAmount + inv.retentionReleasedAmount - inv.paid))}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -582,6 +653,57 @@ export default function InvoiceDetailPage() {
                 </p>
               );
             })()}
+          </div>
+        </div>
+      </ERPModal>
+
+      {/* ── Lepas Retensi Modal ── */}
+      <ERPModal
+        isOpen={releaseModal}
+        onClose={() => setReleaseModal(false)}
+        title="Lepas Retensi"
+        subtitle={inv?.no}
+        size="sm"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={() => setReleaseModal(false)} disabled={releasing}>Batal</button>
+            <button className="btn-primary" onClick={handleReleaseRetention} disabled={releasing}>
+              {releasing ? 'Memproses...' : 'Lepas Retensi'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="bg-muted/40 rounded-lg p-3 text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Sisa Retensi Bisa Dilepas</span>
+              <span className="font-700 text-amber-600">{formatRp(retensiBelumDilepas)}</span>
+            </div>
+          </div>
+          <div>
+            <label className="erp-form-label">Tanggal Pelepasan<span className="text-red-500 ml-0.5">*</span></label>
+            <input
+              type="date"
+              className="erp-input"
+              value={releaseForm.releaseDate}
+              onChange={(e) => setReleaseForm((f) => ({ ...f, releaseDate: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="erp-form-label">Jumlah yang Dilepas<span className="text-red-500 ml-0.5">*</span></label>
+            <CurrencyInput
+              value={Number(releaseForm.amount) || 0}
+              onChange={(v) => setReleaseForm((f) => ({ ...f, amount: v ? String(v) : '' }))}
+            />
+          </div>
+          <div>
+            <label className="erp-form-label">Catatan</label>
+            <textarea
+              className="erp-input resize-none"
+              rows={2}
+              value={releaseForm.notes}
+              onChange={(e) => setReleaseForm((f) => ({ ...f, notes: e.target.value }))}
+            />
           </div>
         </div>
       </ERPModal>

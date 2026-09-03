@@ -196,7 +196,12 @@ export default function InvoiceTable() {
                   <td className="erp-table-cell">
                     <StatusBadge status={row.status as InvoiceStatus} size="sm" />
                   </td>
-                  <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(row.amount)}</td>
+                  <td className="erp-table-cell font-700 font-tabular text-right">
+                    {formatRp(row.amount)}
+                    {row.retentionAmount > row.retentionReleasedAmount && (
+                      <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-600">Retensi</span>
+                    )}
+                  </td>
                   <td className="erp-table-cell font-tabular text-right text-emerald-600">
                     {row.paid > 0 ? formatRp(row.paid) : '—'}
                   </td>

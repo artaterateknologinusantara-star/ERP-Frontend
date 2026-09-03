@@ -108,6 +108,7 @@ export interface SalesOrderDetail {
   subTotal: number;
   taxAmount: number;
   grandTotal: number;
+  retentionPercentage: number;
   items: SalesOrderItem[];
   createdAt: string;
 }
@@ -156,6 +157,7 @@ export interface CreateSalesOrderRequest {
   terms?: string;
   refQuotation?: string;
   notes?: string;
+  retentionPercentage: number;
   items: CreateSalesOrderItemRequest[];
 }
 
