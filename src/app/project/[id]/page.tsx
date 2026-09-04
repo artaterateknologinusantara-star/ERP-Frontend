@@ -1,15 +1,21 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Building2, Calendar, DollarSign, TrendingUp,
   TrendingDown, AlertCircle, CheckCircle2, Clock, CircleDot,
-  User, Link as LinkIcon,
+  User, Link as LinkIcon, Settings2, PlusCircle,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
-import { projectService, ProjectDetail, ProjectCostSummary } from '@/services/project.service';
-import { formatRp } from '@/lib/format';
+import ERPModal from '@/components/ui/ERPModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import CurrencyInput from '@/components/ui/CurrencyInput';
+import {
+  projectService, ProjectDetail, ProjectCostSummary, ProjectRevenueRecognitionEntry,
+  RevenueRecognitionMethod, UpdateProjectDto,
+} from '@/services/project.service';
+import { formatRp, formatDate, formatPercent } from '@/lib/format';
 import { toast } from 'sonner';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -35,6 +41,25 @@ const PRIORITY_COLOR: Record<string, string> = {
   High:   'bg-red-100 text-red-600',
 };
 
+// Full-object PUT — endpoint tidak mendukung partial update, field yang tidak dipetakan
+// eksplisit di sini akan ke-overwrite jadi default di backend kalau sampai tidak disertakan.
+function toUpdateDto(d: ProjectDetail): UpdateProjectDto {
+  return {
+    name: d.name,
+    customerId: d.customerId,
+    salesOrderId: d.salesOrderId,
+    projectManagerId: d.projectManagerId,
+    startDate: d.startDate,
+    endDate: d.endDate,
+    budget: d.budget,
+    notes: d.notes,
+    progress: d.progress,
+    status: d.status,
+    revenueRecognitionMethod: d.revenueRecognitionMethod,
+    estimatedTotalCost: d.estimatedTotalCost,
+  };
+}
+
 function CostCard({
   label, value, sub, color, icon,
 }: { label: string; value: string; sub?: string; color: string; icon: React.ReactNode }) {
@@ -56,21 +81,117 @@ export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router  = useRouter();
 
-  const [detail, setDetail] = useState<ProjectDetail | null>(null);
-  const [cost,   setCost]   = useState<ProjectCostSummary | null>(null);
+  const [detail, setDetail]   = useState<ProjectDetail | null>(null);
+  const [cost,   setCost]     = useState<ProjectCostSummary | null>(null);
+  const [history, setHistory] = useState<ProjectRevenueRecognitionEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const [rrModalOpen, setRrModalOpen] = useState(false);
+  const [rrMethod, setRrMethod]       = useState<RevenueRecognitionMethod>('Immediate');
+  const [rrEstCost, setRrEstCost]     = useState(0);
+  const [savingRR, setSavingRR]       = useState(false);
+
+  const [completing, setCompleting] = useState(false);
+  const [trueUpConfirm, setTrueUpConfirm] = useState<{ message: string } | null>(null);
+  const [confirmingTrueUp, setConfirmingTrueUp] = useState(false);
+
+  const [recordingProgress, setRecordingProgress] = useState(false);
+
+  const loadAll = useCallback((showSpinner: boolean) => {
     if (!id) return;
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     Promise.all([
       projectService.getById(id),
       projectService.getCostSummary(id),
+      projectService.getRevenueRecognitionHistory(id),
     ])
-      .then(([d, c]) => { setDetail(d); setCost(c); })
+      .then(([d, c, h]) => { setDetail(d); setCost(c); setHistory(h); })
       .catch(() => toast.error('Gagal memuat detail project'))
-      .finally(() => setLoading(false));
+      .finally(() => { if (showSpinner) setLoading(false); });
   }, [id]);
+
+  useEffect(() => { loadAll(true); }, [loadAll]);
+
+  const openRrModal = () => {
+    if (!detail) return;
+    setRrMethod(detail.revenueRecognitionMethod);
+    setRrEstCost(detail.estimatedTotalCost ?? 0);
+    setRrModalOpen(true);
+  };
+
+  const handleSaveRR = async () => {
+    if (!detail) return;
+    if (rrMethod === 'PercentageOfCompletion' && rrEstCost <= 0) {
+      toast.error('Estimated Total Cost wajib diisi untuk metode Percentage of Completion.');
+      return;
+    }
+    setSavingRR(true);
+    try {
+      const dto: UpdateProjectDto = {
+        ...toUpdateDto(detail),
+        revenueRecognitionMethod: rrMethod,
+        estimatedTotalCost: rrMethod === 'PercentageOfCompletion' ? rrEstCost : undefined,
+      };
+      await projectService.update(detail.id, dto);
+      toast.success('Pengaturan Revenue Recognition tersimpan');
+      setRrModalOpen(false);
+      loadAll(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Gagal menyimpan pengaturan');
+    } finally {
+      setSavingRR(false);
+    }
+  };
+
+  const handleMarkComplete = async () => {
+    if (!detail) return;
+    setCompleting(true);
+    try {
+      const dto: UpdateProjectDto = { ...toUpdateDto(detail), status: 'Completed' };
+      await projectService.update(detail.id, dto);
+      toast.success('Project ditandai selesai');
+      loadAll(false);
+    } catch (e) {
+      const err = e as Error & { status?: number; data?: { requiresConfirmation?: boolean } };
+      if (err.status === 409 && err.data?.requiresConfirmation) {
+        setTrueUpConfirm({ message: err.message });
+      } else {
+        toast.error(err.message ?? 'Gagal menandai project selesai');
+      }
+    } finally {
+      setCompleting(false);
+    }
+  };
+
+  const handleConfirmTrueUp = async () => {
+    if (!detail) return;
+    setConfirmingTrueUp(true);
+    try {
+      const dto: UpdateProjectDto = { ...toUpdateDto(detail), status: 'Completed', confirmRevenueTrueUp: true };
+      await projectService.update(detail.id, dto);
+      toast.success('Project ditandai selesai, sisa pendapatan sudah diakui');
+      setTrueUpConfirm(null);
+      loadAll(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Gagal menyelesaikan penutupan project');
+    } finally {
+      setConfirmingTrueUp(false);
+    }
+  };
+
+  const handleRecordProgress = async () => {
+    if (!detail) return;
+    setRecordingProgress(true);
+    try {
+      const result = await projectService.postRevenueRecognition(detail.id);
+      toast.success(`Progres dicatat: ${formatPercent(result.percentageComplete, 2)} (+${formatRp(result.incrementalRevenue)})`);
+      loadAll(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Gagal mencatat progres');
+    } finally {
+      setRecordingProgress(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -90,6 +211,8 @@ export default function ProjectDetailPage() {
 
   const marginPositive = (cost?.estimatedMargin ?? 0) >= 0;
   const arPositive     = (cost?.outstandingAR ?? 0) <= 0;
+  const isPoc           = detail.revenueRecognitionMethod === 'PercentageOfCompletion';
+  const canMarkComplete = detail.status !== 'Completed' && detail.status !== 'Cancelled';
 
   return (
     <AppLayout
@@ -100,14 +223,28 @@ export default function ProjectDetailPage() {
       ]}
     >
       <div className="space-y-5">
-        {/* Back + Header */}
-        <div className="flex items-center gap-3">
+        {/* Back + Header actions */}
+        <div className="flex items-center justify-between gap-3">
           <button
             onClick={() => router.push('/project')}
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft size={14} /> Kembali
           </button>
+          <div className="flex items-center gap-2">
+            <button className="btn-secondary text-xs flex items-center gap-1.5" onClick={openRrModal}>
+              <Settings2 size={14} /> Revenue Recognition
+            </button>
+            {canMarkComplete && (
+              <button
+                className="btn-primary text-xs flex items-center gap-1.5"
+                onClick={handleMarkComplete}
+                disabled={completing}
+              >
+                <CheckCircle2 size={14} /> {completing ? 'Memproses...' : 'Tandai Selesai'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Project Info Card */}
@@ -118,6 +255,9 @@ export default function ProjectDetailPage() {
                 <span className="text-xs font-700 text-primary font-tabular">{detail.code}</span>
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 ${STATUS_COLOR[detail.status] ?? 'bg-muted text-muted-foreground'}`}>
                   {STATUS_LABEL[detail.status] ?? detail.status}
+                </span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 bg-violet-100 text-violet-700">
+                  {isPoc ? 'Percentage of Completion' : 'Immediate'}
                 </span>
               </div>
               <h1 className="text-lg font-800 text-foreground mb-3">{detail.name}</h1>
@@ -153,6 +293,24 @@ export default function ProjectDetailPage() {
                   <DollarSign size={13} className="flex-shrink-0" />
                   <span>Budget: <span className="text-foreground font-600">{formatRp(detail.budget)}</span></span>
                 </div>
+                {isPoc && (
+                  <>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <DollarSign size={13} className="flex-shrink-0" />
+                      <span>Estimated Total Cost: <span className="text-foreground font-600">{formatRp(detail.estimatedTotalCost ?? 0)}</span></span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <DollarSign size={13} className="flex-shrink-0" />
+                      <span>Unbilled Revenue: <span className="text-foreground font-600">{formatRp(detail.unbilledRevenueBalance)}</span></span>
+                    </div>
+                    {detail.overbilledBalance > 0 && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <DollarSign size={13} className="flex-shrink-0" />
+                        <span>Overbilled: <span className="text-foreground font-600">{formatRp(detail.overbilledBalance)}</span></span>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
@@ -178,7 +336,18 @@ export default function ProjectDetailPage() {
         {/* Cost Monitoring */}
         {cost && (
           <div>
-            <h2 className="text-[13px] font-700 text-foreground mb-3">Cost Monitoring</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-[13px] font-700 text-foreground">Cost Monitoring</h2>
+              {isPoc && (
+                <button
+                  className="btn-secondary text-xs flex items-center gap-1.5"
+                  onClick={handleRecordProgress}
+                  disabled={recordingProgress}
+                >
+                  <PlusCircle size={14} /> {recordingProgress ? 'Memproses...' : 'Catat Progres Pendapatan'}
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <CostCard
                 label="Revenue (SO)"
@@ -244,6 +413,43 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
+        {/* Jadwal Pengakuan Pendapatan */}
+        {isPoc && (
+          <div className="erp-card shadow-card">
+            <h2 className="text-[13px] font-700 text-foreground mb-3">Jadwal Pengakuan Pendapatan</h2>
+            {!history || history.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Belum ada progres yang dicatat</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="text-left text-xs text-muted-foreground border-b border-border">
+                      <th className="pb-2 font-600">Tanggal</th>
+                      <th className="pb-2 font-600 text-right">%</th>
+                      <th className="pb-2 font-600 text-right">Actual Cost</th>
+                      <th className="pb-2 font-600 text-right">Cumulative Revenue</th>
+                      <th className="pb-2 font-600 text-right">Incremental</th>
+                      <th className="pb-2 font-600">No Jurnal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((h) => (
+                      <tr key={h.id} className="border-b border-border/50 last:border-0">
+                        <td className="py-2 text-foreground">{formatDate(h.recognitionDate)}</td>
+                        <td className="py-2 text-right font-tabular">{formatPercent(h.percentageComplete, 2)}</td>
+                        <td className="py-2 text-right font-tabular">{formatRp(h.actualCostToDate)}</td>
+                        <td className="py-2 text-right font-tabular">{formatRp(h.cumulativeRevenueRecognized)}</td>
+                        <td className="py-2 text-right font-tabular text-emerald-600 font-600">{formatRp(h.incrementalRevenueThisEntry)}</td>
+                        <td className="py-2 text-primary font-600">{h.journalEntryNo ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tasks */}
         <div className="erp-card shadow-card">
           <div className="flex items-center justify-between mb-4">
@@ -300,6 +506,58 @@ export default function ProjectDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Modal: Pengaturan Revenue Recognition */}
+      <ERPModal
+        isOpen={rrModalOpen}
+        onClose={() => setRrModalOpen(false)}
+        title="Pengaturan Revenue Recognition"
+        subtitle={detail.code}
+        size="sm"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={() => setRrModalOpen(false)} disabled={savingRR}>Batal</button>
+            <button className="btn-primary" onClick={handleSaveRR} disabled={savingRR}>
+              {savingRR ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="erp-form-label">Revenue Recognition Method</label>
+            <select
+              className="erp-input"
+              value={rrMethod}
+              onChange={(e) => setRrMethod(e.target.value as RevenueRecognitionMethod)}
+            >
+              <option value="Immediate">Immediate</option>
+              <option value="PercentageOfCompletion">Percentage of Completion</option>
+            </select>
+          </div>
+          {rrMethod === 'PercentageOfCompletion' && (
+            <div>
+              <label className="erp-form-label">Estimated Total Cost<span className="text-red-500 ml-0.5">*</span></label>
+              <CurrencyInput value={rrEstCost} onChange={setRrEstCost} />
+              <p className="text-xs text-muted-foreground mt-1">
+                Dipakai sebagai penyebut basis Cost-to-Cost (ActualCost / EstimatedTotalCost).
+              </p>
+            </div>
+          )}
+        </div>
+      </ERPModal>
+
+      {/* Confirm: True-up revenue saat menutup Project POC */}
+      <ConfirmModal
+        isOpen={!!trueUpConfirm}
+        onClose={() => setTrueUpConfirm(null)}
+        onConfirm={handleConfirmTrueUp}
+        title="Konfirmasi Penutupan Proyek"
+        description={trueUpConfirm?.message ?? ''}
+        confirmLabel="Ya, Tutup & Akui Sisa Pendapatan"
+        loading={confirmingTrueUp}
+        variant="default"
+      />
     </AppLayout>
   );
 }

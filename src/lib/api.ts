@@ -40,8 +40,9 @@ async function request<T>(
         ? Object.values(error.errors as Record<string, string[]>).flat().join('; ')
         : null) ??
       `Request failed: ${res.status}`;
-    const err = new Error(message) as Error & { status: number };
+    const err = new Error(message) as Error & { status: number; data?: unknown };
     err.status = res.status;
+    err.data = error.data;
     throw err;
   }
 

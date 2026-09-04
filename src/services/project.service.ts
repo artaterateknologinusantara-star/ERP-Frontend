@@ -27,6 +27,8 @@ export interface ProjectTask {
   sortOrder: number;
 }
 
+export type RevenueRecognitionMethod = 'Immediate' | 'PercentageOfCompletion';
+
 export interface ProjectDetail extends ProjectListItem {
   customerId: string;
   salesOrderId?: string;
@@ -34,6 +36,10 @@ export interface ProjectDetail extends ProjectListItem {
   projectManagerId?: string;
   notes?: string;
   tasks: ProjectTask[];
+  revenueRecognitionMethod: RevenueRecognitionMethod;
+  estimatedTotalCost?: number;
+  unbilledRevenueBalance: number;
+  overbilledBalance: number;
 }
 
 export interface ProjectStats {
@@ -58,6 +64,9 @@ export interface CreateProjectDto {
 export interface UpdateProjectDto extends CreateProjectDto {
   progress: number;
   status: string;
+  revenueRecognitionMethod?: RevenueRecognitionMethod;
+  estimatedTotalCost?: number;
+  confirmRevenueTrueUp?: boolean;
 }
 
 export interface CreateTaskDto {
@@ -68,6 +77,24 @@ export interface CreateTaskDto {
   priority: string;
   sortOrder: number;
   notes?: string;
+}
+
+export interface RevenueRecognitionResult {
+  percentageComplete: number;
+  incrementalRevenue: number;
+  cumulativeRevenueRecognized: number;
+  actualCostToDate: number;
+}
+
+export interface ProjectRevenueRecognitionEntry {
+  id: string;
+  recognitionDate: string;
+  actualCostToDate: number;
+  percentageComplete: number;
+  cumulativeRevenueRecognized: number;
+  incrementalRevenueThisEntry: number;
+  journalEntryId?: string;
+  journalEntryNo?: string;
 }
 
 export interface ProjectCostSummary {
@@ -125,6 +152,16 @@ export const projectService = {
 
   async getCostSummary(id: string): Promise<ProjectCostSummary> {
     const res = await api.get<ProjectCostSummary>(`/projects/${id}/cost`);
+    return res.data!;
+  },
+
+  async getRevenueRecognitionHistory(id: string): Promise<ProjectRevenueRecognitionEntry[]> {
+    const res = await api.get<ProjectRevenueRecognitionEntry[]>(`/projects/${id}/revenue-recognition`);
+    return res.data!;
+  },
+
+  async postRevenueRecognition(id: string): Promise<RevenueRecognitionResult> {
+    const res = await api.post<RevenueRecognitionResult>(`/projects/${id}/revenue-recognition`, {});
     return res.data!;
   },
 };
