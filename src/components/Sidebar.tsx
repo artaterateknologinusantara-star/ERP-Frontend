@@ -82,6 +82,7 @@ const navGroups: NavGroup[] = [
       { id: 'nav-expense', label: 'Expense Management', icon: <Receipt size={15} />, href: '/expense' },
       { id: 'nav-expense-category', label: 'Kategori Pengeluaran', icon: <Layers size={15} />, href: '/expense-category' },
       { id: 'nav-bank', label: 'Bank', icon: <Banknote size={15} />, href: '/bank' },
+      { id: 'nav-bank-reconciliation', label: 'Rekonsiliasi Bank', icon: <RefreshCw size={15} />, href: '/bank-reconciliation' },
       { id: 'nav-finance-reports', label: 'Finance Reports', icon: <BookOpen size={15} />, href: '/finance-reports' },
     ],
   },
