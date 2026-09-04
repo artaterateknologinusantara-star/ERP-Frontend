@@ -104,6 +104,7 @@ export interface PaymentRecord {
   paymentDate: string;
   amount: number;
   method: string;
+  cashBankAccountId?: string;
   reference?: string;
   notes?: string;
 }
@@ -149,6 +150,7 @@ export interface RecordPaymentRequest {
   paymentDate: string;
   amount: number;
   method: string;
+  cashBankAccountId?: string;
   reference?: string;
   notes?: string;
 }
@@ -197,6 +199,7 @@ export async function recordPayment(id: string, data: RecordPaymentRequest): Pro
     date: data.paymentDate,
     amount: data.amount,
     method: data.method,
+    cashBankAccountId: data.cashBankAccountId,
     reference: data.reference,
     notes: data.notes,
   });

@@ -96,6 +96,7 @@ export interface POPaymentItem {
   paymentDate: string;
   amount: number;
   method: string;
+  cashBankAccountId?: string;
   reference?: string;
   notes?: string;
   createdAt: string;
@@ -105,6 +106,7 @@ export interface RecordPOPaymentRequest {
   paymentDate: string;
   amount: number;
   method: string;
+  cashBankAccountId?: string;
   reference?: string;
   notes?: string;
 }

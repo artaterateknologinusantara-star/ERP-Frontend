@@ -19,6 +19,7 @@ import {
   RecordPaymentRequest,
 } from '@/services/invoice.service';
 import { getSalesOrderDownPayments, SalesOrderPaymentRecord } from '@/services/salesorder.service';
+import { getFlatAccounts, Account } from '@/services/account.service';
 import { InvoiceStatus } from '@/types';
 
 const PAYMENT_METHODS = ['Transfer', 'Tunai', 'Giro', 'Cek'];
@@ -64,16 +65,19 @@ export default function InvoiceDetailPage() {
     paymentDate: string;
     amount: string;
     method: string;
+    cashBankAccountId: string;
     reference: string;
     notes: string;
   }>({
     paymentDate: todayIso(),
     amount: '',
     method: 'Transfer',
+    cashBankAccountId: '',
     reference: '',
     notes: '',
   });
   const [paying, setPaying] = useState(false);
+  const [cashAccounts, setCashAccounts] = useState<Account[]>([]);
 
   // Down Payment
   const [availableDps, setAvailableDps]   = useState<SalesOrderPaymentRecord[]>([]);
@@ -106,6 +110,10 @@ export default function InvoiceDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    getFlatAccounts().then((all) => setCashAccounts(all.filter((a) => a.type === 'Asset'))).catch(() => toast.error('Gagal memuat daftar akun'));
+  }, []);
 
   useEffect(() => {
     if (!inv?.salesOrderId) { setAvailableDps([]); return; }
@@ -185,7 +193,7 @@ export default function InvoiceDetailPage() {
 
   const openPayModal = () => {
     if (!inv) return;
-    setPayForm({ paymentDate: todayIso(), amount: '', method: 'Transfer', reference: '', notes: '' });
+    setPayForm({ paymentDate: todayIso(), amount: '', method: 'Transfer', cashBankAccountId: '', reference: '', notes: '' });
     setPayModal(true);
   };
 
@@ -200,12 +208,17 @@ export default function InvoiceDetailPage() {
       toast.error(`Jumlah melebihi sisa tagihan (${formatRp(inv.balance)})`);
       return;
     }
+    if (!payForm.cashBankAccountId) {
+      toast.error('Akun Kas/Bank wajib dipilih');
+      return;
+    }
     setPaying(true);
     try {
       const req: RecordPaymentRequest = {
         paymentDate: payForm.paymentDate,
         amount,
         method: payForm.method,
+        cashBankAccountId: payForm.cashBankAccountId,
         reference: payForm.reference || undefined,
         notes: payForm.notes || undefined,
       };
@@ -576,6 +589,17 @@ export default function InvoiceDetailPage() {
               onChange={(e) => setPayForm((f) => ({ ...f, method: e.target.value }))}
             >
               {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="erp-form-label">Akun Kas/Bank<span className="text-red-500 ml-0.5">*</span></label>
+            <select
+              className="erp-input"
+              value={payForm.cashBankAccountId}
+              onChange={(e) => setPayForm((f) => ({ ...f, cashBankAccountId: e.target.value }))}
+            >
+              <option value="">— Pilih Akun —</option>
+              {cashAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
             </select>
           </div>
           <div>

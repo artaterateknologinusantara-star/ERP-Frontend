@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -19,6 +19,7 @@ import {
   invoiceService,
   InvoiceListItem,
 } from '@/services/invoice.service';
+import { getFlatAccounts, Account } from '@/services/account.service';
 import { InvoiceStatus } from '@/types';
 
 const STATUS_OPTIONS = [
@@ -55,10 +56,16 @@ export default function InvoiceTable() {
     paymentDate: todayIso(),
     amount: '',
     method: 'Transfer',
+    cashBankAccountId: '',
     reference: '',
     notes: '',
   });
   const [paying, setPaying] = useState(false);
+  const [cashAccounts, setCashAccounts] = useState<Account[]>([]);
+
+  useEffect(() => {
+    getFlatAccounts().then((all) => setCashAccounts(all.filter((a) => a.type === 'Asset'))).catch(() => toast.error('Gagal memuat daftar akun'));
+  }, []);
 
   // Delete modal
   const [deleteModal, setDeleteModal] = useState(false);
@@ -98,7 +105,7 @@ export default function InvoiceTable() {
 
   const openPayModal = (row: InvoiceListItem) => {
     setPayTarget(row);
-    setPayForm({ paymentDate: todayIso(), amount: '', method: 'Transfer', reference: '', notes: '' });
+    setPayForm({ paymentDate: todayIso(), amount: '', method: 'Transfer', cashBankAccountId: '', reference: '', notes: '' });
     setPayModal(true);
   };
 
@@ -113,12 +120,17 @@ export default function InvoiceTable() {
       toast.error(`Jumlah melebihi sisa tagihan (${formatRp(payTarget.balance)})`);
       return;
     }
+    if (!payForm.cashBankAccountId) {
+      toast.error('Akun Kas/Bank wajib dipilih');
+      return;
+    }
     setPaying(true);
     try {
       await recordPayment(payTarget.id, {
         paymentDate: payForm.paymentDate,
         amount,
         method: payForm.method,
+        cashBankAccountId: payForm.cashBankAccountId,
         reference: payForm.reference || undefined,
         notes: payForm.notes || undefined,
       });
@@ -286,6 +298,17 @@ export default function InvoiceTable() {
                 onChange={(e) => setPayForm((f) => ({ ...f, method: e.target.value }))}
               >
                 {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="erp-form-label">Akun Kas/Bank<span className="text-red-500 ml-0.5">*</span></label>
+              <select
+                className="erp-input"
+                value={payForm.cashBankAccountId}
+                onChange={(e) => setPayForm((f) => ({ ...f, cashBankAccountId: e.target.value }))}
+              >
+                <option value="">— Pilih Akun —</option>
+                {cashAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
               </select>
             </div>
             <div>

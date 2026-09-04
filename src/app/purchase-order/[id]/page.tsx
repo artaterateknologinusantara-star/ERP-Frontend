@@ -22,6 +22,7 @@ import {
   POItem,
   RecordPOPaymentRequest,
 } from '@/services/purchase.service';
+import { getFlatAccounts, Account } from '@/services/account.service';
 import { PurchaseOrderStatus } from '@/types';
 import { SALES_ORDERS_QUERY_KEY } from '@/app/sales-order/components/SalesOrderTable';
 
@@ -76,9 +77,15 @@ export default function PurchaseOrderDetailPage() {
     paymentDate: new Date().toISOString().split('T')[0],
     amount: 0,
     method: 'Transfer',
+    cashBankAccountId: '',
     reference: '',
     notes: '',
   });
+  const [cashAccounts, setCashAccounts] = useState<Account[]>([]);
+
+  useEffect(() => {
+    getFlatAccounts().then((all) => setCashAccounts(all.filter((a) => a.type === 'Asset'))).catch(() => toast.error('Gagal memuat daftar akun'));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -148,6 +155,7 @@ export default function PurchaseOrderDetailPage() {
       paymentDate: new Date().toISOString().split('T')[0],
       amount: po.balance ?? po.total,
       method: 'Transfer',
+      cashBankAccountId: '',
       reference: '',
       notes: '',
     });
@@ -160,12 +168,17 @@ export default function PurchaseOrderDetailPage() {
       toast.error('Jumlah pembayaran harus lebih dari 0');
       return;
     }
+    if (!paymentForm.cashBankAccountId) {
+      toast.error('Akun Kas/Bank wajib dipilih');
+      return;
+    }
     setPaymentLoading(true);
     try {
       await recordPOPayment(po.id, {
         paymentDate: paymentForm.paymentDate,
         amount:      Number(paymentForm.amount),
         method:      paymentForm.method,
+        cashBankAccountId: paymentForm.cashBankAccountId,
         reference:   paymentForm.reference || undefined,
         notes:       paymentForm.notes || undefined,
       });
@@ -498,6 +511,14 @@ export default function PurchaseOrderDetailPage() {
             <select className="erp-input" value={paymentForm.method}
               onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value }))}>
               {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="erp-form-label">Akun Kas/Bank <span className="text-red-500">*</span></label>
+            <select className="erp-input" value={paymentForm.cashBankAccountId}
+              onChange={(e) => setPaymentForm((f) => ({ ...f, cashBankAccountId: e.target.value }))}>
+              <option value="">— Pilih Akun —</option>
+              {cashAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
             </select>
           </div>
           <div>
