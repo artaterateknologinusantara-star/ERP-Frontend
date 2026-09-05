@@ -263,6 +263,7 @@ export default function SalesOrderDetailPage() {
       });
       toast.success('Down Payment berhasil dicatat');
       setDpModal(false);
+      queryClient.invalidateQueries({ queryKey: [SALES_ORDERS_QUERY_KEY] });
       loadDownPayments(so.id);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal mencatat Down Payment');
@@ -337,6 +338,7 @@ export default function SalesOrderDetailPage() {
       toast.success(`SO berhasil diubah ke ${confirmAction.status}`);
       setConfirmModal(false);
       setConfirmAction(null);
+      queryClient.invalidateQueries({ queryKey: [SALES_ORDERS_QUERY_KEY] });
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal mengubah status');
@@ -378,6 +380,7 @@ export default function SalesOrderDetailPage() {
     try {
       const doResult = await createDOFromSO(so.id);
       toast.success(`Delivery Order ${doResult.no} berhasil dibuat`);
+      queryClient.invalidateQueries({ queryKey: [SALES_ORDERS_QUERY_KEY] });
       router.push(`/stock-out/${doResult.id}`);
     } catch (e: unknown) {
       toast.error((e as { message?: string })?.message ?? 'Gagal membuat DO');

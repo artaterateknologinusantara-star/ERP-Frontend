@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import TableToolbar from '@/components/ui/TableToolbar';
@@ -128,6 +129,7 @@ function SortIcon({ col, sortKey, sortDir }: {
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [selected,        setSelected]       = useState<string[]>([]);
   const [deleteTarget,    setDeleteTarget]   = useState<string | null>(null);
@@ -244,6 +246,7 @@ Thank you for your time and consideration. We look forward to your feedback and 
         toast.success(`Penawaran ${row.no} ditolak`);
       }
       setApprovalModal(null);
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
       onRefresh();
     } catch {
       toast.error(action === 'approve' ? 'Gagal menyetujui penawaran' : 'Gagal menolak penawaran');

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -19,6 +20,7 @@ import {
   InvoiceDetail,
   RecordPaymentRequest,
 } from '@/services/invoice.service';
+import { INVOICES_QUERY_KEY } from '@/app/invoice/components/InvoiceTable';
 import { getSalesOrderDownPayments, SalesOrderPaymentRecord } from '@/services/salesorder.service';
 import { getFlatAccounts, Account } from '@/services/account.service';
 import { InvoiceStatus } from '@/types';
@@ -57,6 +59,7 @@ function invoiceStepIndex(status: string, paid: number): number {
 export default function InvoiceDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const queryClient = useQueryClient();
 
   const [inv, setInv] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -241,6 +244,7 @@ export default function InvoiceDetailPage() {
       await recordPayment(inv.id, req);
       toast.success('Pembayaran berhasil dicatat');
       setPayModal(false);
+      queryClient.invalidateQueries({ queryKey: [INVOICES_QUERY_KEY] });
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal mencatat pembayaran');

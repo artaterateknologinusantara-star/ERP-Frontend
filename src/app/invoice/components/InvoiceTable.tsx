@@ -37,7 +37,7 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-const INVOICES_QUERY_KEY = 'invoices';
+export const INVOICES_QUERY_KEY = 'invoices';
 
 export default function InvoiceTable() {
   const router = useRouter();

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -24,6 +25,7 @@ import { ExpenseStatus } from '@/types';
 export default function ExpenseDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const queryClient = useQueryClient();
 
   const [expense, setExpense] = useState<ExpenseDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,6 +89,7 @@ export default function ExpenseDetailPage() {
     try {
       await approveExpense(expense.id);
       toast.success('Expense berhasil di-approve');
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal approve Expense');
@@ -103,6 +106,7 @@ export default function ExpenseDetailPage() {
       toast.success('Expense berhasil ditolak');
       setRejectModal(false);
       setRejectReason('');
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal reject Expense');

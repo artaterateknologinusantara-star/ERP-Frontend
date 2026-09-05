@@ -83,6 +83,7 @@ export default function ExpenseTable() {
       await approveExpense(id);
       toast.success(`${no} berhasil di-approve`);
       invalidate();
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal approve Expense');
     }

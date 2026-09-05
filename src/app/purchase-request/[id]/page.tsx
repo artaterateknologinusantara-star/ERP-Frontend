@@ -27,6 +27,7 @@ import { supplierService } from '@/services/supplier.service';
 import { PurchaseRequestStatus, PurchaseOrderStatus } from '@/types';
 import type { Supplier } from '@/types';
 import { SALES_ORDERS_QUERY_KEY } from '@/app/sales-order/components/SalesOrderTable';
+import { PURCHASE_ORDERS_QUERY_KEY } from '@/app/purchase-order/components/PurchaseOrderTable';
 
 // ── Stepper ───────────────────────────────────────────────────────────────────
 
@@ -278,6 +279,7 @@ export default function PurchaseRequestDetailPage() {
       });
       toast.success(`Purchase Order ${po.no} berhasil dibuat`);
       setPoModal(false);
+      queryClient.invalidateQueries({ queryKey: [PURCHASE_ORDERS_QUERY_KEY] });
       router.push(`/purchase-order/${po.id}`);
     } catch (e: unknown) {
       setPoError(e instanceof Error ? e.message : 'Gagal membuat PO');

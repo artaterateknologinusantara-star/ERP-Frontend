@@ -27,7 +27,7 @@ const STATUS_OPTIONS = [
   { value: 'Cancelled', label: 'Cancelled' },
 ];
 
-const PURCHASE_ORDERS_QUERY_KEY = 'purchase-orders';
+export const PURCHASE_ORDERS_QUERY_KEY = 'purchase-orders';
 
 export default function PurchaseOrderTable() {
   const router = useRouter();
