@@ -562,7 +562,19 @@ Thank you for your time and consideration. We look forward to your feedback and 
                         <td className="erp-table-cell">
                           <StatusBadge status={rev.status as QuotationStatus} size="sm" />
                         </td>
-                        <td className="erp-table-cell erp-action-col" />
+                        <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                            onClick={() => handleOpenPdfPreview(rev)}
+                            disabled={pdfPreviewLoading === rev.id}
+                            title="Lihat PDF revisi ini"
+                          >
+                            {pdfPreviewLoading === rev.id
+                              ? <span className="w-3 h-3 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin inline-block" />
+                              : <Eye size={13} />}
+                            Lihat PDF
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </React.Fragment>
