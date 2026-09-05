@@ -462,6 +462,15 @@ export default function SalesOrderDetailPage() {
   const prHasItems  = firstPR ? (firstPR.itemCount ?? 1) > 0 : false;
   const prZeroItems = firstPR ? firstPR.itemCount === 0 : false;
 
+  // Phase stays 'pr-processing' (step index 2) for the whole Submitted→Approved→PartiallyOrdered
+  // window — only Ordered moves it on. Swap the step-2 label once the PR is actually approved so
+  // it doesn't keep reading "Approval PR" (implying approval hasn't happened) after it has.
+  const stepperSteps = STEPS.map((step, idx) => (
+    idx === 2 && (firstPR?.status === 'Approved' || firstPR?.status === 'PartiallyOrdered')
+      ? { label: 'Proses PR' }
+      : step
+  ));
+
   // "Buat DO" shown disabled (blocked by GR) when PR has items but GR not done
   const buatDOBlocked     = phase === 'pr-processing' || phase === 'gr-pending';
   // "Buat Invoice" available on Delivered, or when PR has 0 items (pure service, skip DO)
@@ -507,7 +516,7 @@ export default function SalesOrderDetailPage() {
         {so.status !== 'Draft' && (
           <WorkflowStepper
             title="Progress SO"
-            steps={STEPS}
+            steps={stepperSteps}
             currentStep={PHASE_STEP[phase]}
             cancelled={phase === 'cancelled'}
             cancelledLabel="Sales Order telah dibatalkan"
