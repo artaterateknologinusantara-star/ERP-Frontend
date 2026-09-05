@@ -194,6 +194,11 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail> {
   };
 }
 
+export async function markInvoiceAsSent(id: string): Promise<InvoiceDetail> {
+  const res = await api.patch<InvoiceDetail>(`/invoices/${id}/send`);
+  return res.data;
+}
+
 export async function recordPayment(id: string, data: RecordPaymentRequest): Promise<void> {
   await api.post(`/invoices/${id}/payments`, {
     date: data.paymentDate,

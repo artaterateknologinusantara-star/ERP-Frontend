@@ -229,7 +229,7 @@ export default function InvoiceTable() {
                   <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />,      label: 'Lihat Detail',    onClick: () => router.push(`/invoice/${row.id}`) },
-                      { icon: <CreditCard size={13} />, label: 'Record Payment', onClick: () => openPayModal(row), disabled: row.status === 'Paid' },
+                      { icon: <CreditCard size={13} />, label: 'Record Payment', onClick: () => openPayModal(row), disabled: row.status === 'Paid' || row.status === 'Draft' },
                       { icon: <Trash2 size={13} />,   label: 'Hapus Invoice',   onClick: () => openDeleteModal(row), danger: true, separator: true },
                     ]} />
                   </td>

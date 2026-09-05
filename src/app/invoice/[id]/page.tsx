@@ -9,9 +9,10 @@ import ERPModal from '@/components/ui/ERPModal';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import WorkflowStepper from '@/components/ui/WorkflowStepper';
 import { formatRp, formatDate } from '@/lib/format';
-import { AlertTriangle, CreditCard, DollarSign } from 'lucide-react';
+import { AlertTriangle, CreditCard, DollarSign, Send } from 'lucide-react';
 import {
   getInvoiceDetail,
+  markInvoiceAsSent,
   recordPayment,
   applyDownPaymentToInvoice,
   releaseRetention,
@@ -77,6 +78,7 @@ export default function InvoiceDetailPage() {
     notes: '',
   });
   const [paying, setPaying] = useState(false);
+  const [sending, setSending] = useState(false);
   const [cashAccounts, setCashAccounts] = useState<Account[]>([]);
 
   // Down Payment
@@ -191,6 +193,20 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const handleMarkAsSent = async () => {
+    if (!inv) return;
+    setSending(true);
+    try {
+      await markInvoiceAsSent(inv.id);
+      toast.success('Invoice berhasil dikirim');
+      await load();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal mengirim invoice');
+    } finally {
+      setSending(false);
+    }
+  };
+
   const openPayModal = () => {
     if (!inv) return;
     setPayForm({ paymentDate: todayIso(), amount: '', method: 'Transfer', cashBankAccountId: '', reference: '', notes: '' });
@@ -297,6 +313,15 @@ export default function InvoiceDetailPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              {inv.status === 'Draft' && (
+                <button
+                  onClick={handleMarkAsSent}
+                  disabled={sending}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 disabled:opacity-50 transition-colors font-600"
+                >
+                  <Send size={14} /> {sending ? 'Mengirim...' : 'Kirim Invoice'}
+                </button>
+              )}
               <button
                 className={`btn-primary flex items-center gap-1.5 ${!canPay ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title={payDisabledReason}
