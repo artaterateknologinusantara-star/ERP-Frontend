@@ -161,6 +161,9 @@ export default function PurchaseOrderTable() {
                   <td className="erp-table-cell text-center font-600">{row.itemCount}</td>
                   <td className="erp-table-cell">
                     <StatusBadge status={row.status as PurchaseOrderStatus} size="sm" />
+                    {row.status === 'Completed' && !row.hasActiveSupplierInvoice && (
+                      <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-600 whitespace-nowrap">Diterima, Belum Ditagih</span>
+                    )}
                   </td>
                   <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(row.total)}</td>
                   <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>

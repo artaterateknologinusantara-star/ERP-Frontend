@@ -17,7 +17,7 @@ export default function BalanceSummary<T extends FieldValues>({ control, name }:
   const lines = useWatch({ control, name }) as Array<{ debit?: number; credit?: number }> | undefined;
   const totalDebit = (lines ?? []).reduce((s, l) => s + (Number(l?.debit) || 0), 0);
   const totalCredit = (lines ?? []).reduce((s, l) => s + (Number(l?.credit) || 0), 0);
-  const diff = Math.round((totalDebit - totalCredit) * 100) / 100;
+  const diff = Math.round(totalDebit - totalCredit);
   const isBalanced = diff === 0 && totalDebit > 0;
 
   return (

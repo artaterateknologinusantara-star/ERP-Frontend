@@ -89,6 +89,7 @@ export interface PurchaseOrderListItem {
   status: string;
   total: number;
   itemCount: number;
+  hasActiveSupplierInvoice: boolean;
 }
 
 export interface POPaymentItem {
@@ -125,6 +126,7 @@ export interface PurchaseOrderDetail {
   totalPaid: number;
   balance: number;
   notes?: string;
+  hasActiveSupplierInvoice: boolean;
   items: POItem[];
   payments: POPaymentItem[];
 }

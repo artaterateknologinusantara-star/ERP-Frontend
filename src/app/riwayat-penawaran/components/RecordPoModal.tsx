@@ -52,7 +52,7 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
   // and the existing isUnder/isOver diff warnings kick in once it no longer matches.
   useEffect(() => {
     if (!isOpen) return;
-    setAmount(quotation.grandTotal);
+    setAmount(Math.round(quotation.grandTotal));
   }, [isOpen, quotation.id, quotation.grandTotal]);
 
   // ── Amount validation ───────────────────────────────────────────────────────

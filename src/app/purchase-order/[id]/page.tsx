@@ -237,6 +237,9 @@ export default function PurchaseOrderDetailPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-foreground">{po.no}</h1>
               <StatusBadge status={po.status as PurchaseOrderStatus} />
+              {po.status === 'Completed' && !po.hasActiveSupplierInvoice && (
+                <span className="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-600 whitespace-nowrap">Diterima, Belum Ditagih</span>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {po.status === 'Draft' && (
@@ -305,7 +308,12 @@ export default function PurchaseOrderDetailPage() {
             <dl className="space-y-2 text-sm">
               <div className="flex gap-2">
                 <dt className="w-28 text-muted-foreground flex-shrink-0">Status</dt>
-                <dd><StatusBadge status={po.status as PurchaseOrderStatus} size="sm" /></dd>
+                <dd className="flex items-center gap-1.5 flex-wrap">
+                  <StatusBadge status={po.status as PurchaseOrderStatus} size="sm" />
+                  {po.status === 'Completed' && !po.hasActiveSupplierInvoice && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-600 whitespace-nowrap">Diterima, Belum Ditagih</span>
+                  )}
+                </dd>
               </div>
               <div className="flex gap-2 pt-2 border-t border-border">
                 <dt className="w-28 text-muted-foreground flex-shrink-0">Total PO</dt>

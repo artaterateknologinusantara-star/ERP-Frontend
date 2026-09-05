@@ -115,7 +115,7 @@ export default function ItemMasterTable() {
   const applyAutoMarginToForm = () => {
     const auto = computeAutoSellingPrice(form.purchasePrice, form.marginType, form.marginDefault);
     if (auto == null) { toast.error('Harga beli atau margin belum diisi'); return; }
-    setForm((f) => ({ ...f, sellingPrice: Math.round(auto * 100) / 100, isSellingPriceManual: false }));
+    setForm((f) => ({ ...f, sellingPrice: Math.round(auto), isSellingPriceManual: false }));
   };
 
   const handleBulkApplyMargin = async () => {

@@ -68,7 +68,7 @@ const defaultItem = {
 };
 
 function calcAmount(qty: number, unitPrice: number, discount: number): number {
-  return Math.round(qty * unitPrice * (1 - discount / 100) * 100) / 100;
+  return Math.round(qty * unitPrice * (1 - discount / 100));
 }
 
 // ── Row Amount (watches single row) ─────────────────────────────────────────
@@ -88,8 +88,8 @@ function Summary({ control }: { control: ReturnType<typeof useForm<FormValues>>[
   const subTotal = (items ?? []).reduce((sum, item) => {
     return sum + calcAmount(Number(item?.qty) || 0, Number(item?.unitPrice) || 0, Number(item?.discount) || 0);
   }, 0);
-  const taxAmount = Math.round(subTotal * 0.11 * 100) / 100;
-  const grandTotal = Math.round((subTotal + taxAmount) * 100) / 100;
+  const taxAmount = Math.round(subTotal * 0.11);
+  const grandTotal = Math.round(subTotal + taxAmount);
 
   return (
     <div className="erp-card">
