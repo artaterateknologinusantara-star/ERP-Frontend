@@ -10,10 +10,11 @@ interface Props {
 }
 
 export default function RiwayatSummaryCards({ quotations, loading }: Props) {
-  const total = quotations.length;
-  const totalNilai = quotations.reduce((s, q) => s + q.grandTotal, 0);
-  const disetujui = quotations.filter((q) => q.status === 'Disetujui').length;
-  const terkirim = quotations.filter((q) => q.status === 'Terkirim').length;
+  const latest = quotations.filter((q) => q.isLatestRevision);
+  const total = latest.length;
+  const totalNilai = latest.reduce((s, q) => s + q.grandTotal, 0);
+  const disetujui = latest.filter((q) => q.status === 'Disetujui').length;
+  const terkirim = latest.filter((q) => q.status === 'Terkirim').length;
   const approvalRate = total > 0 ? ((disetujui / total) * 100).toFixed(1) : '0';
 
   const dash = loading ? '—' : undefined;

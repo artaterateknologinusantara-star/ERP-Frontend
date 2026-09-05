@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
@@ -15,7 +15,7 @@ import { canApprove } from '@/lib/permissions';
 import { toast } from 'sonner';
 import {
   Send, Edit2, GitBranch, Trash2, Plus,
-  ChevronsUpDown, ChevronUp, ChevronDown,
+  ChevronsUpDown, ChevronUp, ChevronDown, ChevronRight,
   CheckCircle, XCircle, FileCheck, FileText, FileDown,
   Eye, X,
 } from 'lucide-react';
@@ -51,10 +51,33 @@ const STATUS_OPTIONS = [
 // ── Types ──────────────────────────────────────────────────────────────────────
 type SortKey = keyof QuotationListItem;
 
+interface GroupedQuotation extends QuotationListItem {
+  revisionHistory: QuotationListItem[];
+}
+
 interface Props {
   quotations: QuotationListItem[];
   loading: boolean;
   onRefresh: () => void;
+}
+
+// ── Grouping — collapse all revisions of the same No into one row ──────────────
+function groupByNo(quotations: QuotationListItem[]): GroupedQuotation[] {
+  const groups = new Map<string, QuotationListItem[]>();
+  quotations.forEach((q) => {
+    const rows = groups.get(q.no);
+    if (rows) rows.push(q);
+    else groups.set(q.no, [q]);
+  });
+
+  return Array.from(groups.values()).map((rows) => {
+    const main = rows.find((r) => r.isLatestRevision)
+      ?? rows.reduce((a, b) => (b.revision > a.revision ? b : a));
+    const revisionHistory = rows
+      .filter((r) => r.id !== main.id)
+      .sort((a, b) => b.revision - a.revision);
+    return { ...main, revisionHistory };
+  });
 }
 
 // ── PDF Preview Modal ──────────────────────────────────────────────────────────
@@ -144,13 +167,25 @@ export default function RiwayatPenawaranTable({ quotations, loading, onRefresh }
   const [soAutoLoading,   setSoAutoLoading]  = useState(false);
   const [pdfPreview,        setPdfPreview]       = useState<{ row: QuotationListItem; url: string } | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState<string | null>(null);
+  const [expandedRows,      setExpandedRows]     = useState<Set<string>>(new Set());
+
+  const groupedQuotations = useMemo(() => groupByNo(quotations), [quotations]);
+
+  const toggleExpand = (no: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(no)) next.delete(no);
+      else next.add(no);
+      return next;
+    });
+  };
 
   const {
     search, statusFilter, page, perPage,
     sortKey, sortDir, filtered, pageData, totalPages,
     handleSearch, handleStatusFilter, handleSort, handlePerPageChange, setPage,
-  } = useTableFilter<QuotationListItem>({
-    data: quotations,
+  } = useTableFilter<GroupedQuotation>({
+    data: groupedQuotations,
     searchFields: ['no', 'customerName', 'projectName', 'salesName'],
     statusField: 'status',
     defaultPerPage: 10,
@@ -422,7 +457,7 @@ Thank you for your time and consideration. We look forward to your feedback and 
                 >
                   <span className="flex items-center gap-1">
                     {col.label}
-                    <SortIcon col={col.key} sortKey={sortKey} sortDir={sortDir} />
+                    <SortIcon col={col.key} sortKey={sortKey as SortKey | undefined} sortDir={sortDir} />
                   </span>
                 </th>
               ))}
@@ -449,45 +484,90 @@ Thank you for your time and consideration. We look forward to your feedback and 
                 </td>
               </tr>
             ) : (
-              pageData.map((row) => (
-                <tr
-                  key={row.id}
-                  className={`border-b border-border hover:bg-primary/5 transition-colors ${
-                    selected.includes(row.id) ? 'bg-primary/5' : ''
-                  }`}
-                >
-                  <td className="erp-table-cell">
-                    <input
-                      type="checkbox"
-                      className="rounded"
-                      checked={selected.includes(row.id)}
-                      onChange={() => toggleSelect(row.id)}
-                      aria-label={`Pilih ${row.no}`}
-                    />
-                  </td>
-                  <td className="erp-table-cell font-700 text-primary whitespace-nowrap">{row.no}</td>
-                  <td className="erp-table-cell font-500 max-w-[160px] truncate" title={row.customerName}>{row.customerName}</td>
-                  <td className="erp-table-cell text-muted-foreground max-w-[160px] truncate" title={row.projectName}>{row.projectName}</td>
-                  <td className="erp-table-cell text-muted-foreground whitespace-nowrap">{row.date}</td>
-                  <td className="erp-table-cell text-center">
-                    {row.revision > 0 ? (
-                      <span className="bg-orange-100 text-orange-700 text-xs font-700 px-2 py-0.5 rounded-full">
-                        R.{String(row.revision).padStart(2, '0')}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="erp-table-cell whitespace-nowrap">{row.salesName}</td>
-                  <td className="erp-table-cell font-700 font-tabular whitespace-nowrap">{formatRp(row.grandTotal)}</td>
-                  <td className="erp-table-cell">
-                    <StatusBadge status={row.status as QuotationStatus} size="sm" />
-                  </td>
-                  <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
-                    <RowActionMenu items={getActionItems(row)} />
-                  </td>
-                </tr>
-              ))
+              pageData.map((row) => {
+                const hasHistory = row.revisionHistory.length > 0;
+                const isExpanded = expandedRows.has(row.no);
+                return (
+                  <React.Fragment key={row.id}>
+                    <tr
+                      className={`border-b border-border hover:bg-primary/5 transition-colors ${
+                        selected.includes(row.id) ? 'bg-primary/5' : ''
+                      }`}
+                    >
+                      <td className="erp-table-cell">
+                        <input
+                          type="checkbox"
+                          className="rounded"
+                          checked={selected.includes(row.id)}
+                          onChange={() => toggleSelect(row.id)}
+                          aria-label={`Pilih ${row.no}`}
+                        />
+                      </td>
+                      <td className="erp-table-cell font-700 text-primary whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1 ${hasHistory ? 'cursor-pointer select-none' : ''}`}
+                          onClick={() => hasHistory && toggleExpand(row.no)}
+                        >
+                          {hasHistory ? (
+                            isExpanded
+                              ? <ChevronDown size={13} className="text-muted-foreground flex-shrink-0" />
+                              : <ChevronRight size={13} className="text-muted-foreground flex-shrink-0" />
+                          ) : (
+                            <span className="inline-block w-[13px] flex-shrink-0" />
+                          )}
+                          {row.no}
+                        </span>
+                      </td>
+                      <td className="erp-table-cell font-500 max-w-[160px] truncate" title={row.customerName}>{row.customerName}</td>
+                      <td className="erp-table-cell text-muted-foreground max-w-[160px] truncate" title={row.projectName}>{row.projectName}</td>
+                      <td className="erp-table-cell text-muted-foreground whitespace-nowrap">{row.date}</td>
+                      <td className="erp-table-cell text-center">
+                        {row.revision > 0 ? (
+                          <span className="bg-orange-100 text-orange-700 text-xs font-700 px-2 py-0.5 rounded-full">
+                            R.{String(row.revision).padStart(2, '0')}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="erp-table-cell whitespace-nowrap">{row.salesName}</td>
+                      <td className="erp-table-cell font-700 font-tabular whitespace-nowrap">{formatRp(row.grandTotal)}</td>
+                      <td className="erp-table-cell">
+                        <StatusBadge status={row.status as QuotationStatus} size="sm" />
+                      </td>
+                      <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
+                        <RowActionMenu items={getActionItems(row)} />
+                      </td>
+                    </tr>
+                    {isExpanded && row.revisionHistory.map((rev) => (
+                      <tr key={rev.id} className="border-b border-border bg-muted/20">
+                        <td className="erp-table-cell" />
+                        <td className="erp-table-cell text-muted-foreground whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 pl-[17px] text-[12px] italic">↳ riwayat</span>
+                        </td>
+                        <td className="erp-table-cell text-muted-foreground">—</td>
+                        <td className="erp-table-cell text-muted-foreground">—</td>
+                        <td className="erp-table-cell text-muted-foreground whitespace-nowrap">{rev.date}</td>
+                        <td className="erp-table-cell text-center">
+                          {rev.revision > 0 ? (
+                            <span className="bg-orange-50 text-orange-600 text-xs font-600 px-2 py-0.5 rounded-full">
+                              R.{String(rev.revision).padStart(2, '0')}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="erp-table-cell text-muted-foreground">—</td>
+                        <td className="erp-table-cell font-tabular text-muted-foreground whitespace-nowrap">{formatRp(rev.grandTotal)}</td>
+                        <td className="erp-table-cell">
+                          <StatusBadge status={rev.status as QuotationStatus} size="sm" />
+                        </td>
+                        <td className="erp-table-cell erp-action-col" />
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })
             )}
           </tbody>
         </table>
