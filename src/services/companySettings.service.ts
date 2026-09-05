@@ -110,6 +110,16 @@ export const companySettingsService = {
     return res.json() as Promise<ApiResponse<RegeneratePrefixesResponse>>;
   },
 
+  async getNumberingConfigs(): Promise<ApiResponse<NumberingConfigEntry[]>> {
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/company-settings/numbering-configs`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+
+    if (!res.ok) throw new Error(await parseErrorMessage(res, 'Gagal memuat data Numbering'));
+    return res.json() as Promise<ApiResponse<NumberingConfigEntry[]>>;
+  },
+
   // GetLogo is [Authorize]-protected (no query-string token support server-side), so an <img src="...">
   // can't hit it directly — fetch it as an authenticated blob and hand back a local object URL instead.
   // Caller is responsible for URL.revokeObjectURL(...) once the image is no longer shown.

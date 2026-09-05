@@ -9,7 +9,7 @@ import RolesTab from './RolesTab';
 import DemoLeadsTab from './DemoLeadsTab';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import ERPModal from '@/components/ui/ERPModal';
-import { companySettingsService } from '@/services/companySettings.service';
+import { companySettingsService, NumberingConfigEntry } from '@/services/companySettings.service';
 import { branchService, Branch, CreateBranchDto } from '@/services/branch.service';
 import type { CompanySettings } from '@/types';
 
@@ -29,13 +29,17 @@ const taxSettings = [
   { id: 'tax-003', name: 'PPh 21', rate: 5, type: 'Percentage', status: 'Aktif', default: false },
 ];
 
-const numberingFormats = [
-  { id: 'num-001', module: 'Penawaran', prefix: 'Q.SYN', format: 'Q.SYN-YY.NNNN', example: 'Q.SYN-26.0148', autoReset: 'Tahunan' },
-  { id: 'num-002', module: 'Sales Order', prefix: 'SO.SYN', format: 'SO.SYN-YY.NNNN', example: 'SO.SYN-26.0048', autoReset: 'Tahunan' },
-  { id: 'num-003', module: 'Invoice', prefix: 'INV.SYN', format: 'INV.SYN-YY.NNNN', example: 'INV.SYN-26.0064', autoReset: 'Tahunan' },
-  { id: 'num-004', module: 'Purchase Request', prefix: 'PR.SYN', format: 'PR.SYN-YY.NNNN', example: 'PR.SYN-26.0032', autoReset: 'Tahunan' },
-  { id: 'num-005', module: 'Purchase Order', prefix: 'PO.SYN', format: 'PO.SYN-YY.NNNN', example: 'PO.SYN-26.0019', autoReset: 'Tahunan' },
-];
+const DOC_TYPE_LABELS: Record<string, string> = {
+  QUOTATION: 'Penawaran',
+  SALES_ORDER: 'Sales Order',
+  INVOICE: 'Invoice',
+  PURCHASE_REQUEST: 'Purchase Request',
+  PURCHASE_ORDER: 'Purchase Order',
+  JOURNAL_ENTRY: 'Journal Entry',
+  SUPPLIER_INVOICE: 'Supplier Invoice',
+  EXPENSE: 'Expense',
+  DELIVERY_ORDER: 'Delivery Order',
+};
 
 export default function SettingsModule({ activeTab }: SettingsModuleProps) {
   const queryClient = useQueryClient();
@@ -189,7 +193,10 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
   };
 
   useEffect(() => {
-    if (activeTab !== 'company') return;
+    // 'numbering' also needs Company Settings loaded — the "Kode/Prefix Dokumen" field
+    // and its save/regenerate actions live in that tab now, but still read/write the
+    // same CompanySettings record as the 'company' tab.
+    if (activeTab !== 'company' && activeTab !== 'numbering') return;
     let active = true;
     setLoadingSettings(true);
     companySettingsService
@@ -208,6 +215,27 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
   }, [activeTab]);
 
   useEffect(() => () => { if (logoUrlRef.current) URL.revokeObjectURL(logoUrlRef.current); }, []);
+
+  const [numberingConfigs, setNumberingConfigs] = useState<NumberingConfigEntry[]>([]);
+  const [loadingNumberingConfigs, setLoadingNumberingConfigs] = useState(true);
+
+  useEffect(() => {
+    if (activeTab !== 'numbering') return;
+    let active = true;
+    setLoadingNumberingConfigs(true);
+    companySettingsService
+      .getNumberingConfigs()
+      .then((res) => {
+        if (!active) return;
+        if (res.success && res.data) setNumberingConfigs(res.data);
+        else toast.error(res.message ?? 'Gagal memuat data Numbering');
+      })
+      .catch((err) => {
+        if (active) toast.error(err instanceof Error ? err.message : 'Gagal memuat data Numbering');
+      })
+      .finally(() => { if (active) setLoadingNumberingConfigs(false); });
+    return () => { active = false; };
+  }, [activeTab]);
 
   const validateCompanyProfile = () => {
     let ok = true;
@@ -269,6 +297,7 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
       const res = await companySettingsService.regeneratePrefixes();
       if (res.success && res.data) {
         toast.success(res.message ?? `Prefix diperbarui untuk ${res.data.updatedCount} tipe dokumen.`);
+        setNumberingConfigs(res.data.numberingConfigs);
         setShowRegenerateConfirm(false);
       }
     } catch (err) {
@@ -324,7 +353,6 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
       );
     }
     return (
-      <>
       <form onSubmit={handleSaveCompanyProfile} className="space-y-5">
         <div className="erp-card shadow-card">
           <h3 className="text-[13px] font-700 text-foreground mb-4 pb-3 border-b border-border">Informasi Perusahaan</h3>
@@ -417,32 +445,6 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">Alamat</label>
               <textarea className="erp-input resize-none" rows={2} value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-600 text-muted-foreground mb-1.5">Kode/Prefix Dokumen</label>
-              <input type="text" maxLength={20} className="erp-input" value={documentPrefix} onChange={(e) => setDocumentPrefix(e.target.value)} />
-              <p className="text-xs text-muted-foreground mt-1">
-                Contoh: ABC atau NAMAPERUSAHAAN — akan dipakai di nomor dokumen baru, seperti INV.ABC-26.0001.
-              </p>
-              <p className="text-xs text-amber-600 mt-1">
-                Mengubah prefix ini tidak akan mempengaruhi dokumen yang sudah ada, hanya dokumen baru ke depan.
-              </p>
-              <div className="mt-2">
-                <button
-                  type="button"
-                  className="btn-secondary text-xs"
-                  disabled={hasUnsavedDocumentPrefix || !savedDocumentPrefix}
-                  title={hasUnsavedDocumentPrefix ? 'Simpan perubahan Kode/Prefix Dokumen dulu sebelum menerapkannya' : undefined}
-                  onClick={() => setShowRegenerateConfirm(true)}
-                >
-                  Terapkan Prefix ke Dokumen Baru
-                </button>
-                {hasUnsavedDocumentPrefix && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Simpan perubahan Kode/Prefix Dokumen di atas dulu (klik &quot;Simpan Perubahan&quot;) sebelum menerapkannya ke dokumen baru.
-                  </p>
-                )}
-              </div>
-            </div>
             <div>
               <label className="block text-xs font-600 text-muted-foreground mb-1.5">Mata Uang</label>
               <select className="erp-input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
@@ -487,18 +489,6 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
           </button>
         </div>
       </form>
-
-      <ConfirmModal
-        isOpen={showRegenerateConfirm}
-        onClose={() => setShowRegenerateConfirm(false)}
-        onConfirm={handleRegeneratePrefixes}
-        loading={regenerating}
-        variant="default"
-        title="Terapkan Prefix ke Dokumen Baru?"
-        description={`Ini akan mengubah prefix nomor dokumen BARU ke depan (contoh: Q.SYN jadi Q.${savedDocumentPrefix || 'SYN'}). Dokumen yang SUDAH ADA tidak akan berubah nomornya.`}
-        confirmLabel="Terapkan"
-      />
-    </>
     );
   }
 
@@ -682,36 +672,91 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
   }
 
   if (activeTab === 'numbering') {
+    const yy = String(new Date().getFullYear() % 100).padStart(2, '0');
     return (
-      <div className="erp-card shadow-card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[13px] font-700 text-foreground">Format Penomoran Dokumen</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse">
-            <thead>
-              <tr className="border-b-2 border-border bg-muted/40">
-                {['Modul', 'Prefix', 'Format', 'Contoh', 'Reset Otomatis', 'Aksi'].map((h) => (
-                  <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {numberingFormats.map((row) => (
-                <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
-                  <td className="erp-table-cell font-600">{row.module}</td>
-                  <td className="erp-table-cell font-600 text-primary">{row.prefix}</td>
-                  <td className="erp-table-cell text-muted-foreground font-mono text-xs">{row.format}</td>
-                  <td className="erp-table-cell font-600 text-xs">{row.example}</td>
-                  <td className="erp-table-cell text-muted-foreground">{row.autoReset}</td>
-                  <td className="erp-table-cell">
-                    <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"><Edit2 size={13} /></button>
-                  </td>
+      <div className="space-y-5">
+        <form onSubmit={handleSaveCompanyProfile} className="erp-card shadow-card">
+          <h3 className="text-[13px] font-700 text-foreground mb-4 pb-3 border-b border-border">Kode/Prefix Dokumen</h3>
+          <div className="max-w-xl">
+            <input
+              type="text"
+              maxLength={20}
+              className="erp-input"
+              value={documentPrefix}
+              onChange={(e) => setDocumentPrefix(e.target.value)}
+              disabled={loadingSettings}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Contoh: ABC atau NAMAPERUSAHAAN — akan dipakai di nomor dokumen baru, seperti INV.ABC-{yy}.0001.
+            </p>
+            <p className="text-xs text-amber-600 mt-1">
+              Mengubah prefix ini tidak akan mempengaruhi dokumen yang sudah ada, hanya dokumen baru ke depan.
+            </p>
+            <div className="flex items-center gap-2 mt-3">
+              <button type="submit" className="btn-primary text-xs" disabled={saving || loadingSettings || !companyName.trim()}>
+                {saving ? <><Loader2 size={13} className="animate-spin" /> Menyimpan...</> : <><Save size={13} /> Simpan Perubahan</>}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                disabled={hasUnsavedDocumentPrefix || !savedDocumentPrefix}
+                title={hasUnsavedDocumentPrefix ? 'Simpan perubahan Kode/Prefix Dokumen dulu sebelum menerapkannya' : undefined}
+                onClick={() => setShowRegenerateConfirm(true)}
+              >
+                Terapkan Prefix ke Dokumen Baru
+              </button>
+            </div>
+            {hasUnsavedDocumentPrefix && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Simpan perubahan Kode/Prefix Dokumen di atas dulu sebelum menerapkannya ke dokumen baru.
+              </p>
+            )}
+          </div>
+        </form>
+
+        <div className="erp-card shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-[13px] font-700 text-foreground">Format Penomoran Dokumen</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px] border-collapse">
+              <thead>
+                <tr className="border-b-2 border-border bg-muted/40">
+                  {['Modul', 'Prefix', 'Contoh Nomor Berikutnya', 'Reset Otomatis'].map((h) => (
+                    <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {loadingNumberingConfigs ? (
+                  <tr><td colSpan={4} className="text-center py-10 text-muted-foreground">Memuat data...</td></tr>
+                ) : numberingConfigs.length === 0 ? (
+                  <tr><td colSpan={4} className="text-center py-10 text-muted-foreground">Belum ada data Numbering</td></tr>
+                ) : numberingConfigs.map((row) => (
+                  <tr key={row.docType} className="border-b border-border hover:bg-primary/5 transition-colors">
+                    <td className="erp-table-cell font-600">{DOC_TYPE_LABELS[row.docType] ?? row.docType}</td>
+                    <td className="erp-table-cell font-600 text-primary">{row.prefix}</td>
+                    <td className="erp-table-cell font-600 text-xs">
+                      {row.prefix}-{yy}.{String(row.lastNumber + 1).padStart(4, '0')}
+                    </td>
+                    <td className="erp-table-cell text-muted-foreground">Tidak reset otomatis (nomor terus berlanjut lintas tahun)</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        <ConfirmModal
+          isOpen={showRegenerateConfirm}
+          onClose={() => setShowRegenerateConfirm(false)}
+          onConfirm={handleRegeneratePrefixes}
+          loading={regenerating}
+          variant="default"
+          title="Terapkan Prefix ke Dokumen Baru?"
+          description={`Ini akan mengubah prefix nomor dokumen BARU ke depan (contoh: Q.SYN jadi Q.${savedDocumentPrefix || 'SYN'}). Dokumen yang SUDAH ADA tidak akan berubah nomornya.`}
+          confirmLabel="Terapkan"
+        />
       </div>
     );
   }
