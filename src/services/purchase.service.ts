@@ -23,6 +23,7 @@ export interface PurchaseRequestListItem {
   status: string;
   total: number;
   itemCount: number;
+  remainingItemCount: number;
 }
 
 export interface PurchaseRequestDetail {

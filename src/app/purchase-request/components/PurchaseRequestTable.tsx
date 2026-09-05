@@ -25,6 +25,7 @@ const STATUS_OPTIONS = [
   { value: 'Submitted', label: 'Submitted' },
   { value: 'Approved', label: 'Approved' },
   { value: 'Rejected', label: 'Rejected' },
+  { value: 'PartiallyOrdered', label: 'Partially Ordered' },
   { value: 'Ordered', label: 'Ordered' },
 ];
 
@@ -163,6 +164,11 @@ export default function PurchaseRequestTable() {
                   <td className="erp-table-cell text-center font-600">{row.itemCount}</td>
                   <td className="erp-table-cell">
                     <StatusBadge status={row.status as PurchaseRequestStatus} size="sm" />
+                    {row.status === 'PartiallyOrdered' && row.remainingItemCount > 0 && (
+                      <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-600 whitespace-nowrap">
+                        Sisa {row.remainingItemCount} item belum di-PO
+                      </span>
+                    )}
                   </td>
                   <td className="erp-table-cell font-700 font-tabular text-right">{formatRp(row.total)}</td>
                   <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
