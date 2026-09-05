@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -19,6 +20,7 @@ import {
 export default function JournalEntryDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const id = params.id as string;
 
   const [entry, setEntry] = useState<JournalEntryDetail | null>(null);
@@ -44,6 +46,7 @@ export default function JournalEntryDetailPage() {
       await postJournalEntry(entry.id);
       toast.success(`${entry.entryNumber} berhasil di-post`);
       setPostModal(false);
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal men-post journal entry');

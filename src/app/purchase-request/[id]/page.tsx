@@ -173,6 +173,7 @@ export default function PurchaseRequestDetailPage() {
       await updatePRStatus(pr.id, newStatus);
       toast.success(msg);
       queryClient.invalidateQueries({ queryKey: [SALES_ORDERS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Operasi gagal');

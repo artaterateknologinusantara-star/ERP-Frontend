@@ -82,6 +82,7 @@ export default function PurchaseRequestTable() {
       await updatePRStatus(id, newStatus);
       toast.success(msg);
       invalidate();
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Operasi gagal');
     }
