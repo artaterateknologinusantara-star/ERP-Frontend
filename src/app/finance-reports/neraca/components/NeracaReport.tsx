@@ -6,12 +6,25 @@ import { Download } from 'lucide-react';
 import { formatRp } from '@/lib/format';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { getBalanceSheet, exportBalanceSheetPdf, BalanceSheet, BalanceSheetAccountRow } from '@/services/reports.service';
+import GeneralLedgerModal from '../../trial-balance/components/GeneralLedgerModal';
+
+const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function Section({ title, rows, total }: { title: string; rows: BalanceSheetAccountRow[]; total: number }) {
+function Section({
+  title,
+  rows,
+  total,
+  onRowClick,
+}: {
+  title: string;
+  rows: BalanceSheetAccountRow[];
+  total: number;
+  onRowClick: (row: BalanceSheetAccountRow) => void;
+}) {
   return (
     <div>
       <div className="bg-muted/40 px-2 py-1 rounded mb-2">
@@ -23,13 +36,20 @@ function Section({ title, rows, total }: { title: string; rows: BalanceSheetAcco
             {rows.length === 0 ? (
               <tr><td className="erp-table-cell text-muted-foreground text-sm py-4" colSpan={3}>Tidak ada saldo</td></tr>
             ) : (
-              rows.map((r, i) => (
-                <tr key={`${r.accountCode}-${i}`} className="border-b border-border">
-                  <td className="erp-table-cell font-600 text-primary text-xs w-24">{r.accountCode}</td>
-                  <td className="erp-table-cell">{r.accountName}</td>
-                  <td className="erp-table-cell font-tabular text-right w-40">{formatRp(r.balance)}</td>
-                </tr>
-              ))
+              rows.map((r, i) => {
+                const clickable = !!r.accountId && r.accountId !== EMPTY_GUID;
+                return (
+                  <tr
+                    key={`${r.accountCode}-${i}`}
+                    className={`border-b border-border ${clickable ? 'hover:bg-primary/5 transition-colors cursor-pointer' : ''}`}
+                    onClick={clickable ? () => onRowClick(r) : undefined}
+                  >
+                    <td className="erp-table-cell font-600 text-primary text-xs w-24">{r.accountCode}</td>
+                    <td className="erp-table-cell">{r.accountName}</td>
+                    <td className="erp-table-cell font-tabular text-right w-40">{formatRp(r.balance)}</td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
           <tfoot>
@@ -49,6 +69,7 @@ export default function NeracaReport() {
   const [data, setData] = useState<BalanceSheet | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<{ id: string; code: string; name: string } | null>(null);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -98,9 +119,24 @@ export default function NeracaReport() {
         <div className="text-center py-12 text-muted-foreground text-sm">Tidak ada data</div>
       ) : (
         <div className="space-y-5">
-          <Section title="Aset" rows={data.assets} total={data.totalAssets} />
-          <Section title="Liabilitas" rows={data.liabilities} total={data.totalLiabilities} />
-          <Section title="Ekuitas" rows={data.equities} total={data.totalEquities} />
+          <Section
+            title="Aset"
+            rows={data.assets}
+            total={data.totalAssets}
+            onRowClick={(r) => setSelectedAccount({ id: r.accountId, code: r.accountCode, name: r.accountName })}
+          />
+          <Section
+            title="Liabilitas"
+            rows={data.liabilities}
+            total={data.totalLiabilities}
+            onRowClick={(r) => setSelectedAccount({ id: r.accountId, code: r.accountCode, name: r.accountName })}
+          />
+          <Section
+            title="Ekuitas"
+            rows={data.equities}
+            total={data.totalEquities}
+            onRowClick={(r) => setSelectedAccount({ id: r.accountId, code: r.accountCode, name: r.accountName })}
+          />
 
           <div className="border-t-2 border-border pt-3 space-y-1.5">
             <div className="flex items-center justify-between text-sm">
@@ -124,6 +160,16 @@ export default function NeracaReport() {
             )}
           </div>
         </div>
+      )}
+
+      {selectedAccount && (
+        <GeneralLedgerModal
+          accountId={selectedAccount.id}
+          accountCode={selectedAccount.code}
+          accountName={selectedAccount.name}
+          isOpen={!!selectedAccount}
+          onClose={() => setSelectedAccount(null)}
+        />
       )}
     </div>
   );

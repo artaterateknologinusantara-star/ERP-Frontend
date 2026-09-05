@@ -6,6 +6,7 @@ import { Download } from 'lucide-react';
 import { formatRp } from '@/lib/format';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { getIncomeStatement, exportIncomeStatementPdf, IncomeStatement, IncomeStatementAccountRow } from '@/services/reports.service';
+import GeneralLedgerModal from '../../trial-balance/components/GeneralLedgerModal';
 
 function firstDayOfMonth(): string {
   const now = new Date();
@@ -16,7 +17,17 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function Section({ title, rows, total }: { title: string; rows: IncomeStatementAccountRow[]; total: number }) {
+function Section({
+  title,
+  rows,
+  total,
+  onRowClick,
+}: {
+  title: string;
+  rows: IncomeStatementAccountRow[];
+  total: number;
+  onRowClick: (row: IncomeStatementAccountRow) => void;
+}) {
   return (
     <div>
       <h4 className="text-xs font-700 text-foreground uppercase tracking-wide mb-2">{title}</h4>
@@ -27,7 +38,11 @@ function Section({ title, rows, total }: { title: string; rows: IncomeStatementA
               <tr><td className="erp-table-cell text-muted-foreground text-sm py-4" colSpan={3}>Tidak ada transaksi</td></tr>
             ) : (
               rows.map((r) => (
-                <tr key={r.accountCode} className="border-b border-border">
+                <tr
+                  key={r.accountCode}
+                  className="border-b border-border hover:bg-primary/5 transition-colors cursor-pointer"
+                  onClick={() => onRowClick(r)}
+                >
                   <td className="erp-table-cell font-600 text-primary text-xs w-24">{r.accountCode}</td>
                   <td className="erp-table-cell">{r.accountName}</td>
                   <td className="erp-table-cell font-tabular text-right w-40">{formatRp(r.amount)}</td>
@@ -53,6 +68,7 @@ export default function LabaRugiReport() {
   const [data, setData] = useState<IncomeStatement | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<{ id: string; code: string; name: string } | null>(null);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -101,8 +117,18 @@ export default function LabaRugiReport() {
         <div className="text-center py-12 text-muted-foreground text-sm">Tidak ada data</div>
       ) : (
         <div className="space-y-5">
-          <Section title="Pendapatan" rows={data.revenues} total={data.totalRevenue} />
-          <Section title="Beban (termasuk HPP)" rows={data.expenses} total={data.totalExpense} />
+          <Section
+            title="Pendapatan"
+            rows={data.revenues}
+            total={data.totalRevenue}
+            onRowClick={(r) => setSelectedAccount({ id: r.accountId, code: r.accountCode, name: r.accountName })}
+          />
+          <Section
+            title="Beban (termasuk HPP)"
+            rows={data.expenses}
+            total={data.totalExpense}
+            onRowClick={(r) => setSelectedAccount({ id: r.accountId, code: r.accountCode, name: r.accountName })}
+          />
 
           <div className={`flex items-center justify-between p-3 rounded-lg border ${data.netIncome >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
             <span className="text-sm font-700 text-foreground">LABA / RUGI BERSIH</span>
@@ -111,6 +137,16 @@ export default function LabaRugiReport() {
             </span>
           </div>
         </div>
+      )}
+
+      {selectedAccount && (
+        <GeneralLedgerModal
+          accountId={selectedAccount.id}
+          accountCode={selectedAccount.code}
+          accountName={selectedAccount.name}
+          isOpen={!!selectedAccount}
+          onClose={() => setSelectedAccount(null)}
+        />
       )}
     </div>
   );

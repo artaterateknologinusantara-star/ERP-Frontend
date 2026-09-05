@@ -13,6 +13,7 @@ export interface TrialBalanceRow {
 }
 
 export interface IncomeStatementAccountRow {
+  accountId: string;
   accountCode: string;
   accountName: string;
   amount: number;
@@ -29,6 +30,7 @@ export interface IncomeStatement {
 }
 
 export interface BalanceSheetAccountRow {
+  accountId: string;
   accountCode: string;
   accountName: string;
   balance: number;
