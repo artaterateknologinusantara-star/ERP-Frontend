@@ -50,6 +50,24 @@ export interface ProjectStats {
   planning: number;
 }
 
+export interface UserLookup {
+  id: string;
+  name: string;
+}
+
+export interface ProjectTaskListItem {
+  id: string;
+  title: string;
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  assignedToId?: string;
+  assignedToName?: string;
+  status: string;
+  priority: string;
+  dueDate?: string;
+}
+
 export interface CreateProjectDto {
   name: string;
   customerId: string;
@@ -59,6 +77,8 @@ export interface CreateProjectDto {
   endDate?: string;
   budget: number;
   notes?: string;
+  revenueRecognitionMethod?: RevenueRecognitionMethod;
+  estimatedTotalCost?: number;
 }
 
 export interface UpdateProjectDto extends CreateProjectDto {
@@ -114,6 +134,16 @@ export interface ProjectCostSummary {
 export const projectService = {
   async getStats(): Promise<ProjectStats> {
     const res = await api.get<ProjectStats>('/projects/stats');
+    return res.data!;
+  },
+
+  async getManagers(): Promise<UserLookup[]> {
+    const res = await api.get<UserLookup[]>('/projects/managers');
+    return res.data!;
+  },
+
+  async getAllTasks(): Promise<ProjectTaskListItem[]> {
+    const res = await api.get<ProjectTaskListItem[]>('/projects/tasks');
     return res.data!;
   },
 

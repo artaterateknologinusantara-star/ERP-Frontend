@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Eye, Plus } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
-import { toast } from 'sonner';
 import { projectService, ProjectListItem } from '@/services/project.service';
 import { formatRp } from '@/lib/format';
 import TableToolbar from '@/components/ui/TableToolbar';
@@ -77,7 +76,7 @@ export default function ProjectTable() {
         onStatusFilter={(v) => { setStatusFilter(v); setPage(1); }}
         statusOptions={STATUS_OPTIONS}
         actions={
-          <button className="btn-primary" onClick={() => toast.info('Form buat project baru')}>
+          <button className="btn-primary" onClick={() => router.push('/project/buat')}>
             <Plus size={14} /> Buat Project
           </button>
         }
