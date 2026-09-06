@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Save, Plus, Edit2, Trash2, Loader2, ImagePlus } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Save, Plus, Edit2, Trash2, Loader2, ImagePlus, Power } from 'lucide-react';
 import { toast } from 'sonner';
 import UsersTab from './UsersTab';
 import RolesTab from './RolesTab';
@@ -11,23 +11,23 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import ERPModal from '@/components/ui/ERPModal';
 import { companySettingsService, NumberingConfigEntry } from '@/services/companySettings.service';
 import { branchService, Branch, CreateBranchDto } from '@/services/branch.service';
+import { taxRateService, TaxRate, TaxRateFormDto } from '@/services/taxRate.service';
 import type { CompanySettings } from '@/types';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type SettingsTab = 'company' | 'branch' | 'users' | 'roles' | 'demo-leads' | 'tax' | 'numbering' | 'preferences';
 
+const TAX_RATES_QUERY_KEY = 'tax-rates';
+const EMPTY_TAX_RATE_FORM: TaxRateFormDto = { code: '', name: '', rate: 0, isDefault: false, effectiveFrom: '', effectiveTo: '' };
+// TaxRate.rate is stored as a 0-1 fraction server-side -- display it as the percent users expect.
+const formatRatePercent = (rate: number) => Number((rate * 100).toFixed(4));
+
 interface SettingsModuleProps {
   activeTab: SettingsTab;
 }
 
 const EMPTY_BRANCH_FORM: CreateBranchDto = { name: '', address: '', phone: '', manager: '' };
-
-const taxSettings = [
-  { id: 'tax-001', name: 'PPN 11%', rate: 11, type: 'Percentage', status: 'Aktif', default: true },
-  { id: 'tax-002', name: 'PPh 23 (2%)', rate: 2, type: 'Percentage', status: 'Aktif', default: false },
-  { id: 'tax-003', name: 'PPh 21', rate: 5, type: 'Percentage', status: 'Aktif', default: false },
-];
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   QUOTATION: 'Penawaran',
@@ -128,6 +128,135 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
       setDeletingBranch(false);
     }
   };
+  // ── Tax Rate (Pengaturan Pajak) ───────────────────────────────────────────
+  const [taxRateModal, setTaxRateModal] = useState<'create' | 'edit' | null>(null);
+  const [selectedTaxRate, setSelectedTaxRate] = useState<TaxRate | null>(null);
+  const [taxRateForm, setTaxRateForm] = useState<TaxRateFormDto>(EMPTY_TAX_RATE_FORM);
+  const [taxRateNameError, setTaxRateNameError] = useState('');
+  const [savingTaxRate, setSavingTaxRate] = useState(false);
+
+  const { data: taxRatesData, isLoading: loadingTaxRates } = useQuery({
+    queryKey: [TAX_RATES_QUERY_KEY],
+    queryFn: () => taxRateService.list({ perPage: 100 }),
+    enabled: activeTab === 'tax' || activeTab === 'preferences',
+  });
+  const taxRates = taxRatesData?.data ?? [];
+
+  const invalidateTaxRates = () => queryClient.invalidateQueries({ queryKey: [TAX_RATES_QUERY_KEY] });
+
+  const openCreateTaxRate = () => {
+    setTaxRateForm(EMPTY_TAX_RATE_FORM);
+    setTaxRateNameError('');
+    setTaxRateModal('create');
+  };
+
+  const openEditTaxRate = (row: TaxRate) => {
+    setSelectedTaxRate(row);
+    setTaxRateForm({
+      code: row.code,
+      name: row.name,
+      // TaxRate.Rate is stored as a 0-1 fraction (0.11 = 11%, see TaxRateService/InvoiceService/
+      // SalesOrderService's `subTotal * taxRate` calc, no /100) -- the form field is percent-based
+      // for input UX, converted back to a fraction on submit.
+      rate: row.rate * 100,
+      isDefault: row.isDefault,
+      effectiveFrom: row.effectiveFrom ?? '',
+      effectiveTo: row.effectiveTo ?? '',
+    });
+    setTaxRateNameError('');
+    setTaxRateModal('edit');
+  };
+
+  const closeTaxRateModal = () => {
+    setTaxRateModal(null);
+    setSelectedTaxRate(null);
+  };
+
+  const handleSaveTaxRate = async () => {
+    if (!taxRateForm.name.trim() || !taxRateForm.code.trim()) {
+      setTaxRateNameError('Kode dan Nama Pajak wajib diisi.');
+      return;
+    }
+    setSavingTaxRate(true);
+    try {
+      const payload: TaxRateFormDto = {
+        ...taxRateForm,
+        code: taxRateForm.code.trim(),
+        name: taxRateForm.name.trim(),
+        rate: taxRateForm.rate / 100,
+        effectiveFrom: taxRateForm.effectiveFrom || null,
+        effectiveTo: taxRateForm.effectiveTo || null,
+      };
+      if (taxRateModal === 'create') {
+        await taxRateService.create(payload);
+        toast.success('Pajak berhasil ditambahkan');
+      } else if (taxRateModal === 'edit' && selectedTaxRate) {
+        await taxRateService.update(selectedTaxRate.id, payload);
+        toast.success('Pajak berhasil diperbarui');
+      }
+      closeTaxRateModal();
+      invalidateTaxRates();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menyimpan Pajak');
+    } finally {
+      setSavingTaxRate(false);
+    }
+  };
+
+  const handleToggleTaxRateStatus = async (row: TaxRate) => {
+    try {
+      await taxRateService.setStatus(row.id, !row.isActive);
+      toast.success(`Pajak ${row.isActive ? 'dinonaktifkan' : 'diaktifkan'}`);
+      invalidateTaxRates();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal mengubah status Pajak');
+    }
+  };
+
+  // No dedicated "set default" endpoint exists -- PUT already clears other defaults
+  // server-side (TaxRateService.ClearDefaultsAsync), so a full update with IsDefault:true
+  // is the correct call here, not PATCH /status (which only ever touches IsActive).
+  const handleSetDefaultTaxRate = async (row: TaxRate) => {
+    await taxRateService.update(row.id, {
+      code: row.code,
+      name: row.name,
+      rate: row.rate,
+      isDefault: true,
+      effectiveFrom: row.effectiveFrom ?? null,
+      effectiveTo: row.effectiveTo ?? null,
+    });
+    invalidateTaxRates();
+  };
+
+  // ── Preferences ────────────────────────────────────────────────────────────
+  const [dateFormat, setDateFormat] = useState('DD/MM/YYYY');
+  const [numberFormat, setNumberFormat] = useState('Rp 1.000.000');
+  const [selectedDefaultTaxRateId, setSelectedDefaultTaxRateId] = useState('');
+  const [savingPreferences, setSavingPreferences] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'preferences') return;
+    const current = taxRatesData?.data.find((t) => t.isDefault);
+    if (current) setSelectedDefaultTaxRateId(current.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, taxRatesData]);
+
+  const handleSavePreferences = async () => {
+    const currentDefault = taxRates.find((t) => t.isDefault);
+    const target = taxRates.find((t) => t.id === selectedDefaultTaxRateId);
+    setSavingPreferences(true);
+    try {
+      if (target && target.id !== currentDefault?.id) {
+        await handleSetDefaultTaxRate(target);
+      }
+      toast.success('Preferensi berhasil disimpan');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Gagal menyimpan Preferensi');
+    } finally {
+      setSavingPreferences(false);
+    }
+  };
+
   const [companyName, setCompanyName] = useState('');
   const [companyEmail, setCompanyEmail] = useState('');
   const [companyPhone, setCompanyPhone] = useState('');
@@ -637,30 +766,49 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
 
   if (activeTab === 'tax') {
     return (
+      <>
       <div className="erp-card shadow-card">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-[13px] font-700 text-foreground">Pengaturan Pajak</h3>
-          <button className="btn-primary"><Plus size={14} /> Tambah Pajak</button>
+          <button className="btn-primary" onClick={openCreateTaxRate}><Plus size={14} /> Tambah Pajak</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] border-collapse">
             <thead>
               <tr className="border-b-2 border-border bg-muted/40">
-                {['Nama Pajak', 'Tarif (%)', 'Tipe', 'Default', 'Status', 'Aksi'].map((h) => (
+                {['Kode', 'Nama Pajak', 'Tarif (%)', 'Default', 'Status', 'Aksi'].map((h) => (
                   <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {taxSettings.map((row) => (
+              {loadingTaxRates ? (
+                <tr><td colSpan={6} className="text-center py-10 text-muted-foreground">Memuat data...</td></tr>
+              ) : taxRates.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-10 text-muted-foreground">Belum ada data Pajak</td></tr>
+              ) : taxRates.map((row) => (
                 <tr key={row.id} className="border-b border-border hover:bg-primary/5 transition-colors">
+                  <td className="erp-table-cell font-600 text-primary">{row.code}</td>
                   <td className="erp-table-cell font-600">{row.name}</td>
-                  <td className="erp-table-cell font-700 text-primary">{row.rate}%</td>
-                  <td className="erp-table-cell text-muted-foreground">{row.type}</td>
-                  <td className="erp-table-cell">{row.default ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 status-disetujui">Default</span> : '-'}</td>
-                  <td className="erp-table-cell"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 ${row.status === 'Aktif' ? 'status-disetujui' : 'status-draft'}`}>{row.status}</span></td>
+                  <td className="erp-table-cell font-700 text-primary">{formatRatePercent(row.rate)}%</td>
+                  <td className="erp-table-cell">{row.isDefault ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 status-disetujui">Default</span> : '-'}</td>
+                  <td className="erp-table-cell"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 ${row.isActive ? 'status-disetujui' : 'status-draft'}`}>{row.isActive ? 'Aktif' : 'Tidak Aktif'}</span></td>
                   <td className="erp-table-cell">
-                    <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"><Edit2 size={13} /></button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
+                        onClick={() => openEditTaxRate(row)}
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                      <button
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
+                        title={row.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                        onClick={() => handleToggleTaxRateStatus(row)}
+                      >
+                        <Power size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -668,6 +816,92 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
           </table>
         </div>
       </div>
+
+      <ERPModal
+        isOpen={taxRateModal !== null}
+        onClose={closeTaxRateModal}
+        title={taxRateModal === 'create' ? 'Tambah Pajak' : 'Edit Pajak'}
+        size="md"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={closeTaxRateModal} disabled={savingTaxRate}>Batal</button>
+            <button className="btn-primary" onClick={handleSaveTaxRate} disabled={savingTaxRate}>
+              {savingTaxRate ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="erp-form-label">Kode <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                className={`erp-input ${taxRateNameError ? 'border-red-500' : ''}`}
+                value={taxRateForm.code}
+                onChange={(e) => {
+                  setTaxRateForm((f) => ({ ...f, code: e.target.value }));
+                  if (e.target.value.trim()) setTaxRateNameError('');
+                }}
+              />
+            </div>
+            <div>
+              <label className="erp-form-label">Tarif (%) <span className="text-red-500">*</span></label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.01}
+                className="erp-input"
+                value={taxRateForm.rate}
+                onChange={(e) => setTaxRateForm((f) => ({ ...f, rate: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) }))}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="erp-form-label">Nama Pajak <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              className={`erp-input ${taxRateNameError ? 'border-red-500' : ''}`}
+              value={taxRateForm.name}
+              onChange={(e) => {
+                setTaxRateForm((f) => ({ ...f, name: e.target.value }));
+                if (e.target.value.trim()) setTaxRateNameError('');
+              }}
+            />
+            {taxRateNameError && <p className="text-xs text-red-500 mt-1">{taxRateNameError}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="erp-form-label">Berlaku Dari</label>
+              <input
+                type="date"
+                className="erp-input"
+                value={taxRateForm.effectiveFrom ?? ''}
+                onChange={(e) => setTaxRateForm((f) => ({ ...f, effectiveFrom: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="erp-form-label">Berlaku Sampai</label>
+              <input
+                type="date"
+                className="erp-input"
+                value={taxRateForm.effectiveTo ?? ''}
+                onChange={(e) => setTaxRateForm((f) => ({ ...f, effectiveTo: e.target.value }))}
+              />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-[13px] text-foreground">
+            <input
+              type="checkbox"
+              checked={taxRateForm.isDefault}
+              onChange={(e) => setTaxRateForm((f) => ({ ...f, isDefault: e.target.checked }))}
+            />
+            Jadikan PPN Default
+          </label>
+        </div>
+      </ERPModal>
+      </>
     );
   }
 
@@ -766,21 +1000,50 @@ export default function SettingsModule({ activeTab }: SettingsModuleProps) {
     <div className="erp-card shadow-card">
       <h3 className="text-[13px] font-700 text-foreground mb-4 pb-3 border-b border-border">Preferensi ERP</h3>
       <div className="space-y-4 max-w-xl">
-        {[
-          { label: 'Bahasa Sistem', value: 'Bahasa Indonesia', options: ['Bahasa Indonesia', 'English'] },
-          { label: 'Format Tanggal', value: 'DD/MM/YYYY', options: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'] },
-          { label: 'Format Angka', value: 'Rp 1.000.000', options: ['Rp 1.000.000', 'Rp 1,000,000'] },
-          { label: 'PPN Default', value: '11%', options: ['11%', '0%'] },
-        ].map((pref) => (
-          <div key={pref.label} className="flex items-center gap-4">
-            <label className="text-[13px] font-500 text-foreground w-40 flex-shrink-0">{pref.label}</label>
-            <select className="erp-input max-w-[240px]" defaultValue={pref.value}>
-              {pref.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+        <div>
+          <div className="flex items-center gap-4">
+            <label className="text-[13px] font-500 text-foreground w-40 flex-shrink-0">Bahasa Sistem</label>
+            <select className="erp-input max-w-[240px]" value="Bahasa Indonesia" disabled>
+              <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+            </select>
+            <span className="text-xs text-muted-foreground">Segera hadir</span>
+          </div>
+        </div>
+        <div>
+          <div className="flex items-center gap-4">
+            <label className="text-[13px] font-500 text-foreground w-40 flex-shrink-0">Format Tanggal</label>
+            <select className="erp-input max-w-[240px]" value={dateFormat} onChange={(e) => setDateFormat(e.target.value)}>
+              {['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'].map((opt) => <option key={opt} value={opt}>{opt}</option>)}
             </select>
           </div>
-        ))}
+          <p className="text-xs text-muted-foreground mt-1 ml-44">Preferensi tampilan lokal (belum tersimpan ke server).</p>
+        </div>
+        <div>
+          <div className="flex items-center gap-4">
+            <label className="text-[13px] font-500 text-foreground w-40 flex-shrink-0">Format Angka</label>
+            <select className="erp-input max-w-[240px]" value={numberFormat} onChange={(e) => setNumberFormat(e.target.value)}>
+              {['Rp 1.000.000', 'Rp 1,000,000'].map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 ml-44">Preferensi tampilan lokal (belum tersimpan ke server).</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <label className="text-[13px] font-500 text-foreground w-40 flex-shrink-0">PPN Default</label>
+          <select
+            className="erp-input max-w-[240px]"
+            value={selectedDefaultTaxRateId}
+            disabled={loadingTaxRates}
+            onChange={(e) => setSelectedDefaultTaxRateId(e.target.value)}
+          >
+            {taxRates.filter((t) => t.isActive).map((t) => (
+              <option key={t.id} value={t.id}>{t.name} ({formatRatePercent(t.rate)}%)</option>
+            ))}
+          </select>
+        </div>
         <div className="flex justify-end pt-4 border-t border-border">
-          <button className="btn-primary"><Save size={14} /> Simpan Preferensi</button>
+          <button className="btn-primary" onClick={handleSavePreferences} disabled={savingPreferences}>
+            {savingPreferences ? <><Loader2 size={14} className="animate-spin" /> Menyimpan...</> : <><Save size={14} /> Simpan Preferensi</>}
+          </button>
         </div>
       </div>
     </div>
