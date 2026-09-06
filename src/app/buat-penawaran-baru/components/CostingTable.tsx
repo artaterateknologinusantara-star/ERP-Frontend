@@ -8,15 +8,17 @@ import { computeFloorPrice, floorWarningText } from '@/lib/itemMargin';
 import type { CostingTab, CostingGroup, CostingRow, ItemMaster } from '@/types';
 import ItemAutocomplete from './ItemAutocomplete';
 import CurrencyInput from '@/components/ui/CurrencyInput';
+import DimensionCalculatorPopover from './DimensionCalculatorPopover';
 
 interface Props {
   tabData: CostingTab;
   onUpdate: (updated: CostingTab) => void;
+  isCivilMeMode: boolean;
 }
 
 const uomOptions = ['Unit', 'Meter', 'Box', 'Pack', 'Set', 'Batang', 'Titik', 'Ls', 'Buah', 'Roll'];
 
-export default function CostingTable({ tabData, onUpdate }: Props) {
+export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props) {
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
 
@@ -37,6 +39,18 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
         g.id !== groupId ? g : {
           ...g,
           rows: g.rows.map((r) => r.id !== rowId ? r : { ...r, [field]: value }),
+        }
+      ),
+    });
+  };
+
+  const updateRowFields = (groupId: string, rowId: string, fields: Partial<CostingRow>) => {
+    onUpdate({
+      ...tabData,
+      groups: tabData.groups.map((g) =>
+        g.id !== groupId ? g : {
+          ...g,
+          rows: g.rows.map((r) => r.id !== rowId ? r : { ...r, ...fields }),
         }
       ),
     });
@@ -126,6 +140,13 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
     });
   };
 
+  const updateGroupFields = (groupId: string, fields: Partial<CostingGroup>) => {
+    onUpdate({
+      ...tabData,
+      groups: tabData.groups.map((g) => (g.id === groupId ? { ...g, ...fields } : g)),
+    });
+  };
+
   const deleteGroup = (groupId: string) => {
     onUpdate({ ...tabData, groups: tabData.groups.filter((g) => g.id !== groupId) });
   };
@@ -148,6 +169,9 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
 
   return (
     <div>
+    <datalist id="uom-options">
+      {uomOptions.map((u) => <option key={u} value={u} />)}
+    </datalist>
     <div className="hidden lg:block overflow-x-auto overflow-y-auto max-h-[560px]">
       <table className="w-full text-base border-collapse min-w-[1220px]">
         <thead className="sticky top-0 z-10">
@@ -156,7 +180,7 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
             <th className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider min-w-[140px]">Equipment</th>
             <th className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider min-w-[180px]">Deskripsi</th>
             <th className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider min-w-[90px]">Mfg</th>
-            <th className="erp-table-cell text-center text-muted-foreground font-600 text-xs uppercase tracking-wider min-w-[70px]">Qty</th>
+            <th className="erp-table-cell text-center text-muted-foreground font-600 text-xs uppercase tracking-wider min-w-[80px]">Qty</th>
             <th className="erp-table-cell text-center text-muted-foreground font-600 text-xs uppercase tracking-wider min-w-[100px]">UoM</th>
             <th className="erp-table-cell text-right text-muted-foreground font-600 text-xs uppercase tracking-wider min-w-[110px]">Jasa/Satuan</th>
             <th className="erp-table-cell text-right text-muted-foreground font-600 text-xs uppercase tracking-wider min-w-[110px]">Jasa Total</th>
@@ -228,17 +252,26 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
                         onChange={(e) => updateRow(group.id, row.id, 'manufacturer', e.target.value)}
                         className="erp-input text-base" placeholder="Brand / MFG" />
                     </td>
-                    <td className="erp-table-cell min-w-[70px]">
-                      <input type="number" value={row.qty} min={0}
-                        onChange={(e) => updateRow(group.id, row.id, 'qty', parseFloat(e.target.value) || 0)}
-                        className="erp-input text-right font-tabular" />
+                    <td className="erp-table-cell min-w-[80px]">
+                      <div className="relative">
+                        <input type="number" value={row.qty} min={0}
+                          onChange={(e) => updateRow(group.id, row.id, 'qty', parseFloat(e.target.value) || 0)}
+                          className="erp-input text-right font-tabular [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                        {isCivilMeMode && (
+                          <div className="absolute -top-1.5 -right-1.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                            <DimensionCalculatorPopover
+                              length={row.length} width={row.width} height={row.height}
+                              onApply={({ qty, length, width, height }) =>
+                                updateRowFields(group.id, row.id, { qty, length, width, height })}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="erp-table-cell min-w-[100px]">
-                      <select value={row.unit}
+                      <input list="uom-options" value={row.unit}
                         onChange={(e) => updateRow(group.id, row.id, 'unit', e.target.value)}
-                        className="erp-input text-base">
-                        {uomOptions.map((u) => <option key={u} value={u}>{u}</option>)}
-                      </select>
+                        className="erp-input text-base" />
                     </td>
                     <td className="erp-table-cell">
                       <CurrencyInput value={row.servicePrice} prefix=""
@@ -289,9 +322,22 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
                 {!isCollapsed && (
                   <tr className="costing-subtotal-bar">
                     <td className="erp-table-cell" colSpan={6}>
-                      <span className="text-primary font-700 text-xs uppercase tracking-wide">
-                        Subtotal — {group.name}
-                      </span>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-primary font-700 text-xs uppercase tracking-wide">
+                          Subtotal — {group.name}
+                        </span>
+                        {isCivilMeMode && (
+                          <span className="flex items-center gap-1.5 text-xs">
+                            <label className="text-muted-foreground">Volume:</label>
+                            <input type="number" min={0} value={group.recapVolume ?? ''}
+                              onChange={(e) => updateGroupFields(group.id, { recapVolume: e.target.value === '' ? null : parseFloat(e.target.value) || 0 })}
+                              className="erp-input w-16 text-right font-tabular py-1" placeholder="1" />
+                            <input list="uom-options" value={group.recapUnit ?? ''}
+                              onChange={(e) => updateGroupFields(group.id, { recapUnit: e.target.value || null })}
+                              className="erp-input w-20 py-1" placeholder="Ls" />
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="erp-table-cell text-right font-700 font-tabular text-primary text-base" colSpan={2}>
                       {fmtRp(groupJasa(group))}
@@ -422,17 +468,24 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
                           <div className="grid grid-cols-2 gap-2.5">
                             <div>
                               <label className="tooltip-label block mb-1">Qty</label>
-                              <input type="number" inputMode="decimal" value={row.qty} min={0}
-                                onChange={(e) => updateRow(group.id, row.id, 'qty', parseFloat(e.target.value) || 0)}
-                                className="erp-input text-md font-tabular" />
+                              <div className="flex items-center gap-1">
+                                <input type="number" inputMode="decimal" value={row.qty} min={0}
+                                  onChange={(e) => updateRow(group.id, row.id, 'qty', parseFloat(e.target.value) || 0)}
+                                  className="erp-input text-md font-tabular" />
+                                {isCivilMeMode && (
+                                  <DimensionCalculatorPopover
+                                    length={row.length} width={row.width} height={row.height}
+                                    onApply={({ qty, length, width, height }) =>
+                                      updateRowFields(group.id, row.id, { qty, length, width, height })}
+                                  />
+                                )}
+                              </div>
                             </div>
                             <div>
                               <label className="tooltip-label block mb-1">Satuan</label>
-                              <select value={row.unit}
+                              <input list="uom-options" value={row.unit}
                                 onChange={(e) => updateRow(group.id, row.id, 'unit', e.target.value)}
-                                className="erp-input text-md">
-                                {uomOptions.map((u) => <option key={u} value={u}>{u}</option>)}
-                              </select>
+                                className="erp-input text-md" />
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-2.5">
@@ -480,9 +533,22 @@ export default function CostingTable({ tabData, onUpdate }: Props) {
 
             {/* Group Subtotal */}
             {!isCollapsed && (
-              <div className="costing-subtotal-bar px-3 py-2.5 flex items-center justify-between">
-                <span className="text-xs font-700 text-primary uppercase tracking-wide">Subtotal</span>
-                <span className="font-700 font-tabular text-primary text-md">{fmtRp(groupTotal(group))}</span>
+              <div className="costing-subtotal-bar px-3 py-2.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-700 text-primary uppercase tracking-wide">Subtotal</span>
+                  <span className="font-700 font-tabular text-primary text-md">{fmtRp(groupTotal(group))}</span>
+                </div>
+                {isCivilMeMode && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <label className="text-muted-foreground flex-shrink-0">Volume:</label>
+                    <input type="number" inputMode="decimal" min={0} value={group.recapVolume ?? ''}
+                      onChange={(e) => updateGroupFields(group.id, { recapVolume: e.target.value === '' ? null : parseFloat(e.target.value) || 0 })}
+                      className="erp-input w-full text-right font-tabular py-1" placeholder="1" />
+                    <input list="uom-options" value={group.recapUnit ?? ''}
+                      onChange={(e) => updateGroupFields(group.id, { recapUnit: e.target.value || null })}
+                      className="erp-input w-full py-1" placeholder="Ls" />
+                  </div>
+                )}
               </div>
             )}
           </div>

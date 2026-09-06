@@ -128,6 +128,9 @@ export interface CostingRow {
   materialPrice: number;
   /** Harga beli/satuan material — dipakai untuk hitung margin di form. Tidak dikirim/disimpan ke backend. */
   costPrice: number;
+  length?: number | null;
+  width?: number | null;
+  height?: number | null;
   sortOrder: number;
   /** Snapshot dari Item Master saat baris diisi — dipakai untuk warning margin di form. Tidak dikirim/disimpan ke backend. */
   itemMasterId?: string;
@@ -141,6 +144,9 @@ export interface CostingGroup {
   name: string;
   rows: CostingRow[];
   sortOrder: number;
+  /** Hanya dipakai kalau Mode Civil & ME aktif — nilai default (Volume=1, Unit="Ls") di backend kalau kosong. */
+  recapVolume?: number | null;
+  recapUnit?: string | null;
 }
 
 export interface CostingTab {
@@ -171,6 +177,8 @@ export interface Quotation {
   tabs: CostingTab[];
   discount: number;
   taxRate: number;
+  isCivilMeMode: boolean;
+  totalAreaSqm?: number | null;
   paymentTerms: string;
   termsAndConditions: string;
   notes: string;

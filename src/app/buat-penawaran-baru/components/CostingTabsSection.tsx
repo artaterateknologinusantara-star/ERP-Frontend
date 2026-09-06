@@ -12,9 +12,10 @@ interface Props {
   setTabs: React.Dispatch<React.SetStateAction<CostingTab[]>>;
   activeTab: string;
   setActiveTab: (id: string) => void;
+  isCivilMeMode: boolean;
 }
 
-export default function CostingTabsSection({ tabs, setTabs, activeTab, setActiveTab }: Props) {
+export default function CostingTabsSection({ tabs, setTabs, activeTab, setActiveTab, isCivilMeMode }: Props) {
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
 
   const activeTabData = tabs.find((t) => t.id === activeTab) || tabs[0];
@@ -70,6 +71,7 @@ export default function CostingTabsSection({ tabs, setTabs, activeTab, setActive
           onUpdate={(updated) => {
             setTabs((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
           }}
+          isCivilMeMode={isCivilMeMode}
         />
       )}
 

@@ -28,6 +28,8 @@ export interface CreateQuotationDto {
   validUntil?: string;
   discount: number;
   taxRate: number;
+  isCivilMeMode: boolean;
+  totalAreaSqm?: number | null;
   paymentTerms?: string;
   termsAndConditions?: string;
   notes?: string;
@@ -45,6 +47,8 @@ interface BackendTab {
 interface BackendGroup {
   name: string;
   sortOrder: number;
+  recapVolume?: number | null;
+  recapUnit?: string | null;
   items: BackendItem[];
 }
 
@@ -57,6 +61,9 @@ interface BackendItem {
   unit: string;
   servicePrice: number;
   materialPrice: number;
+  length?: number | null;
+  width?: number | null;
+  height?: number | null;
   sortOrder: number;
 }
 
@@ -68,6 +75,8 @@ export function mapTabsToBackend(tabs: CostingTab[]): BackendTab[] {
     groups: tab.groups.map((group, gi) => ({
       name: group.name,
       sortOrder: group.sortOrder ?? gi,
+      recapVolume: group.recapVolume ?? undefined,
+      recapUnit: group.recapUnit ?? undefined,
       items: group.rows.map((row, ri) => ({
         itemNo: row.no,
         equipment: row.equipment,
@@ -77,6 +86,9 @@ export function mapTabsToBackend(tabs: CostingTab[]): BackendTab[] {
         unit: row.unit,
         servicePrice: row.servicePrice,
         materialPrice: row.materialPrice,
+        length: row.length ?? undefined,
+        width: row.width ?? undefined,
+        height: row.height ?? undefined,
         sortOrder: row.sortOrder ?? ri,
       })),
     })),

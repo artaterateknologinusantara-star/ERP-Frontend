@@ -29,6 +29,9 @@ const makeEmptyRow = (groupId: string, no: string, sortOrder: number): CostingRo
   servicePrice: 0,
   materialPrice: 0,
   costPrice: 0,
+  length: null,
+  width: null,
+  height: null,
   sortOrder,
 });
 
@@ -78,6 +81,8 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
       id: g.id,
       name: g.name,
       sortOrder: g.sortOrder ?? 0,
+      recapVolume: g.recapVolume ?? null,
+      recapUnit: g.recapUnit ?? null,
       rows: (g.items ?? []).map((i: any) => ({
         id: i.id,
         no: i.itemNo,
@@ -89,6 +94,9 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
         servicePrice: i.servicePrice,
         materialPrice: i.materialPrice,
         costPrice: 0,
+        length: i.length ?? null,
+        width: i.width ?? null,
+        height: i.height ?? null,
         sortOrder: i.sortOrder ?? 0,
       })),
     })),
@@ -123,6 +131,8 @@ interface QuotationDraft {
   activeTab: string;
   discount: number;
   taxRate: number;
+  isCivilMeMode: boolean;
+  totalAreaSqm: number | null;
   paymentTerms: PaymentTerm[];
   netPayment: number;
   termsAndConditions: string;
@@ -148,6 +158,8 @@ export default function BuatPenawaranForm() {
   const [activeTab, setActiveTab] = useState(initialTabs[0].id);
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(11);
+  const [isCivilMeMode, setIsCivilMeMode] = useState(false);
+  const [totalAreaSqm, setTotalAreaSqm] = useState<number | null>(null);
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([]);
   const [netPayment, setNetPayment] = useState(30);
   const [termsAndConditions, setTermsAndConditions] = useState('');
@@ -177,10 +189,10 @@ export default function BuatPenawaranForm() {
   // Kept fresh every render so the beforeunload listener (registered once) can still
   // flush the latest values without needing to re-subscribe on every keystroke.
   const latestDraftStateRef = useRef<Omit<QuotationDraft, 'savedAt'>>({
-    infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+    infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes,
   });
   latestDraftStateRef.current = {
-    infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+    infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes,
   };
 
   // Load existing quotation for edit mode
@@ -204,6 +216,8 @@ export default function BuatPenawaranForm() {
         if (q.tabs?.length) setTabs(mapApiTabs(q.tabs as any[]));
         setDiscount(q.discount);
         setTaxRate(q.taxRate);
+        setIsCivilMeMode(q.isCivilMeMode ?? false);
+        setTotalAreaSqm(q.totalAreaSqm ?? null);
         setCurrentStatus(q.status);
         setApprovedAt(q.approvedAt);
         setApprovedByName(q.approvedByName);
@@ -256,7 +270,7 @@ export default function BuatPenawaranForm() {
   useEffect(() => {
     if (!hydrated) return;
     const snapshot = JSON.stringify({
-      infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+      infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes,
     });
     if (baselineRef.current === null) {
       baselineRef.current = snapshot;
@@ -268,7 +282,7 @@ export default function BuatPenawaranForm() {
     saveTimerRef.current = setTimeout(() => {
       const savedAt = new Date().toISOString();
       const payload: QuotationDraft = {
-        infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes, savedAt,
+        infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes, savedAt,
       };
       try {
         localStorage.setItem(draftKey, JSON.stringify(payload));
@@ -281,7 +295,7 @@ export default function BuatPenawaranForm() {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [hydrated, draftKey, infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes]);
+  }, [hydrated, draftKey, infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes]);
 
   // Last-resort flush: if the tab closes mid-debounce, save whatever is pending immediately.
   useEffect(() => {
@@ -309,6 +323,8 @@ export default function BuatPenawaranForm() {
     setActiveTab(pendingDraft.activeTab);
     setDiscount(pendingDraft.discount);
     setTaxRate(pendingDraft.taxRate);
+    setIsCivilMeMode(pendingDraft.isCivilMeMode);
+    setTotalAreaSqm(pendingDraft.totalAreaSqm);
     setPaymentTerms(pendingDraft.paymentTerms);
     setNetPayment(pendingDraft.netPayment);
     setTermsAndConditions(pendingDraft.termsAndConditions);
@@ -332,7 +348,7 @@ export default function BuatPenawaranForm() {
     try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
     isDirtyRef.current = false;
     baselineRef.current = JSON.stringify({
-      infoValues, tabs, activeTab, discount, taxRate, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+      infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes,
     });
     setLastAutosaveAt(null);
   };
@@ -350,6 +366,8 @@ export default function BuatPenawaranForm() {
       validUntil: infoValues.validUntil || undefined,
       discount,
       taxRate,
+      isCivilMeMode,
+      totalAreaSqm: totalAreaSqm ?? undefined,
       paymentTerms: ptStr,
       termsAndConditions,
       additionalNotes,
@@ -365,16 +383,13 @@ export default function BuatPenawaranForm() {
     try {
       const dto = buildDto();
       if (targetId) {
-        // UPDATE existing quotation (draft or revision draft) — stay on page
+        // UPDATE existing quotation (draft or revision draft) — redirect to history,
+        // same as create, so the user sees the submitted result there
         await quotationService.update(targetId, dto);
         const isRevision = infoValues.revision > 0;
         toast.success(isRevision ? 'Draft revisi berhasil diperbarui' : 'Draft penawaran berhasil diperbarui');
-        setSaveLabel(
-          isRevision
-            ? `Tersimpan · R.${String(infoValues.revision).padStart(2, '0')}`
-            : 'Tersimpan'
-        );
         clearDraftState();
+        router.push('/riwayat-penawaran');
       } else {
         // CREATE new quotation — redirect to history so user sees it
         const res = await quotationService.create(dto);
@@ -464,6 +479,42 @@ export default function BuatPenawaranForm() {
         </div>
       </div>
 
+      {/* Mode Civil & ME toggle + Total Area */}
+      <div className="flex flex-wrap items-center gap-4 px-3 sm:px-5">
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isCivilMeMode}
+            onClick={() => setIsCivilMeMode((v) => !v)}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+              isCivilMeMode ? 'bg-primary' : 'bg-muted'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isCivilMeMode ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+          <span className="text-sm font-600 text-foreground">Mode Civil & ME</span>
+        </label>
+
+        {isCivilMeMode && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">Total Area (m²)</label>
+            <input
+              type="number"
+              min={0}
+              value={totalAreaSqm ?? ''}
+              onChange={(e) => setTotalAreaSqm(e.target.value === '' ? null : parseFloat(e.target.value) || 0)}
+              className="erp-input w-28 text-right font-tabular"
+              placeholder="0"
+            />
+          </div>
+        )}
+      </div>
+
       {/* Status Approval — hanya tampil untuk penawaran yang sudah Disetujui/Ditolak */}
       {(currentStatus === 'Disetujui' || currentStatus === 'Ditolak') && (
         <div className="erp-card">
@@ -513,6 +564,7 @@ export default function BuatPenawaranForm() {
         setTabs={setTabs}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        isCivilMeMode={isCivilMeMode}
       />
 
       {/* Section 3: Bottom panel */}
