@@ -122,7 +122,7 @@ minimal tanpa migration) — bukan preview yang dihitung ulang di frontend. Liha
 
 # Antrian Jangka Panjang (Belum Dikerjakan)
 
-> Item di Track Accounting/GL Lanjutan **menunggu urutan setelah Fase 0-6 Accounting/GL selesai** (lihat di atas); item #1 (Track Purchasing) sengaja terpisah dari dependency itu dan sudah dikerjakan lebih dulu. Sisanya belum ada implementasi apa pun — dokumentasi/perencanaan saja. Urutan mencerminkan prioritas bisnis saat dokumen ini ditulis, bisa berubah kalau ada kebutuhan mendesak baru.
+> Item di Track Accounting/GL Lanjutan **menunggu urutan setelah Fase 0-6 Accounting/GL selesai** (lihat di atas); item #1 (Track Purchasing) sengaja terpisah dari dependency itu dan sudah dikerjakan lebih dulu. **[DIPERBARUI 2026-09-07]** Item #5-#8 juga sudah diverifikasi selesai dan wired ke kode nyata (lihat masing-masing di bawah) — bukan lagi cuma dokumentasi/perencanaan. Sisanya (#9-#13) belum ada implementasi apa pun. Urutan mencerminkan prioritas bisnis saat dokumen ini ditulis, bisa berubah kalau ada kebutuhan mendesak baru.
 
 ## Track Purchasing (terpisah dari track Accounting/GL)
 
@@ -345,34 +345,39 @@ pemilik proyek):
   `Down Payment Customer: UI Terima DP di SO + Terapkan DP di Invoice` (frontend).
 
 ### 5. Retention / Termin Pembayaran Proyek
-**Prioritas: Tinggi**
+**Status: ✅ Selesai**
 
 - **Business need**: umum di proyek infrastruktur — customer menahan 5-10% pembayaran sampai masa garansi/warranty selesai.
 - **Business rule**: retention adalah AR yang belum bisa ditagih ("Piutang Retensi"), harus dibedakan dari AR normal supaya AR aging report tidak menyesatkan (retention bukan berarti customer telat bayar, tapi memang belum jatuh tempo sampai syarat garansi selesai).
-- **Terkait erat dengan item #6 (Revenue Recognition — Percentage of Completion)**: retention biasanya
-  muncul di proyek jangka panjang yang termin pembayarannya juga terkait progres pekerjaan — sebaiknya
-  **didesain bersamaan** dengan item #6 saat waktunya tiba, bukan terpisah, supaya skema termin +
-  pengakuan pendapatan + retensi konsisten satu sama lain.
+- **Solusi yang diimplementasikan**: `SalesOrder.RetentionPercentage` (default 0, input di form SO) menentukan `Invoice.RetentionAmount`/`RetentionReleasedAmount`, dihitung otomatis saat Invoice dibuat (`InvoiceService.cs`). Posting GL memecah piutang jadi 2 akun ("1-2000 Piutang Usaha" net retensi, "1-2100 Piutang Retensi" bagian yang ditahan). Pembayaran invoice dibatasi supaya bagian retensi tidak bisa tertagih sebelum dilepas (`maxCollectible = Amount - RetentionAmount + RetentionReleasedAmount`). Pelepasan retensi lewat endpoint tersendiri (`InvoiceController` → `InvoiceService.ReleaseRetentionAsync`), mencatat baris `RetentionRelease` + posting JE (`JournalSourceType.RetentionRelease`). Frontend: modal "Lepas Retensi" penuh di `invoice/[id]/page.tsx`, menampilkan sisa/terlepas retensi.
+- **Cross-reference (2026-09-07)**: aturan Sales Order status **Completed** sekarang retention-aware — `SalesOrderService.UpdateStatusAsync` mensyaratkan `Paid >= Amount - RetentionAmount` (retensi yang belum dicairkan tidak dihitung sebagai tunggakan), penyempurnaan langsung dari fitur ini. Lihat `00_PROJECT_STATUS.md` baris modul Sales.
+- Lihat detail implementasi lengkap di riwayat commit terkait "Retention".
 
 ### 6. Revenue Recognition — Percentage of Completion untuk Proyek Jangka Panjang
-**Prioritas: Tinggi**
+**Status: ✅ Selesai**
 
 - **Business need**: saat ini Pendapatan diakui penuh saat Invoice terbit (`InvoiceService.CreateAsync`, Fase 2). Untuk proyek yang berjalan berbulan-bulan dengan termin bertahap, standar akuntansi yang lebih tepat adalah mengakui pendapatan sesuai progres pekerjaan (percentage of completion), bukan sesuai kapan invoice terbit.
-- **Terkait erat dengan item #5 (Retention / Termin Pembayaran Proyek)**: **sebaiknya didesain
-  bersamaan** saat waktunya tiba, bukan terpisah — lihat catatan silang di item #5.
+- **Solusi yang diimplementasikan**: `Project.RevenueRecognitionMethod` (enum `Immediate`/`PercentageOfCompletion`) dipilih saat Project dibuat. Entity `ProjectRevenueRecognition` melacak `ActualCostToDate`, `PercentageComplete`, `CumulativeRevenueRecognized`, `IncrementalRevenueThisEntry`, tertaut ke `JournalEntry`. Logic di `ProjectController.RecordRevenueRecognition`: hitung actual cost to date dari SO terkait, persentase selesai = cost/`EstimatedTotalCost`, pendapatan inkremental vs kumulatif terakhir, lalu posting JE (Debit "1-2200 Piutang Belum Ditagih", Kredit "4-1000 Pendapatan Penjualan") dan menambah `Project.UnbilledRevenueBalance` — dibungkus transaction. Ada juga endpoint `ListRevenueRecognition` (riwayat) dan mekanisme "true-up" saat Project ditutup (Fase B3). Frontend `project/[id]/page.tsx`: pemilih metode, aksi post revenue recognition, tabel riwayat, konfirmasi true-up saat close project PoC.
+- Lihat detail implementasi lengkap di riwayat commit terkait "Revenue Recognition Fase A1/B1-B3".
 
 ### 7. Segregation of Duties untuk Journal Entry Manual
-**Prioritas: Tinggi**
+**Status: ✅ Selesai**
 
 - **Business need**: saat ini siapa pun yang login bisa membuat/reverse jurnal manual (`POST /api/journal-entries`, `POST /api/journal-entries/{id}/reverse`, Fase 1) tanpa pembatasan role sama sekali. Ini titik paling rawan manipulasi laporan keuangan di sistem manapun — makin kritis karena sistem ini akan dipakai untuk pelaporan resmi (SPT, auditor, bank), bukan cuma pembukuan internal.
-- **Business rule (arah desain awal)**: minimal 2 role terpisah — yang boleh membuat draft entry, dan yang boleh approve/post entry — dipisah orangnya (maker-checker). Detail alur (apakah semua jurnal manual butuh approval, atau hanya di atas nominal tertentu) belum diputuskan, akan dibahas saat item ini masuk sprint implementasi.
+- **Solusi yang diimplementasikan**: `JournalEntryController` sekarang men-split permission Create vs Post/Reverse — `POST /api/journal-entries` digate `[RequirePermission(Modules.Accounting, PermissionActions.Create)]`, sementara `POST /{id}/post` dan `POST /{id}/reverse` digate `PermissionActions.Approve` (permission independen, dicek `ModulePermissionHandler`). `JournalPostingService.CreateManualEntryAsync` selalu membuat entry berstatus Draft (field lama `PostImmediately` diabaikan) — pembuat dan penyetuju wajib beda aksi/permission. `PostDraftEntryAsync` terpisah, mencatat `PostedByUserId` beda dari `CreatedBy`. Frontend `journal-entry/[id]/page.tsx` menyembunyikan tombol Post/Reverse kalau role caller tidak `canApprove('Accounting')`.
+- **Catatan penting — belum maker-checker penuh secara default**: seed data role saat ini (`AppDbContext.cs`) hanya memberi permission `Accounting.CanCreate`+`CanApprove` ke Administrator (role Finance bahkan `CanCreate=false`) — jadi out-of-the-box belum ada pemisahan orang yang nyata, admin perlu mengonfigurasi role "maker" (Create=true, Approve=false) terpisah dulu lewat Roles tab. Juga tidak ada pengecekan eksplisit yang mencegah 1 user yang sama membuat DAN meng-approve entry yang sama persis — murni bergantung pada konfigurasi permission per role.
 - **Catatan**: ini **berbeda** dari gap otorisasi granular yang sudah tercatat di `00_PROJECT_STATUS.md` Known Gaps (`GET /api/auth/users` tanpa `[Authorize]`, `SystemResetController` tanpa pembatasan role) — levelnya lebih kritis khusus untuk integritas laporan keuangan, bukan celah otorisasi umum.
+- Lihat detail implementasi lengkap di riwayat commit terkait "Segregation of Duties untuk Journal Entry".
 
 ### 8. Rekonsiliasi Bank
-**Prioritas: Menengah**
+**Status: ✅ Selesai (Fase 1 — impor CSV + pencocokan manual)**
 
 - **Business need**: mencocokkan saldo Kas/Bank di GL vs mutasi rekening koran sungguhan. Standar minimum di semua sistem akuntansi. Tanpa ini, selisih pencatatan (biaya admin bank, dsb) tidak akan ketahuan sampai neraca sudah melenceng jauh.
-- **Terkait erat dengan item #12 (Cash Flow Statement & Cash/Bank Enhancement)**: keduanya sama-sama butuh data mutasi Kas/Bank yang akurat — kemungkinan besar cocok dikerjakan berdekatan, meski scope-nya beda (rekonsiliasi vs pelaporan arus kas).
+- **Solusi yang diimplementasikan**: entity baru (migrasi `AddBankReconciliationTables`) + `BankReconciliationService` + `BankReconciliationController` — impor mutasi rekening koran via CSV (`POST /import`, divalidasi `BankStatementCsvParser`, all-or-nothing: seluruh file ditolak kalau ada 1 baris error), lalu pencocokan baris manual/dibantu kandidat (`match`/`unmatch`/`ignore` per baris), plus perbandingan saldo GL vs bank (`GET /balances?asOf=`, mencakup 4 akun Kas/Bank "1-1001..1-1004"). Frontend `bank-reconciliation/page.tsx` — halaman kerja penuh: pilih akun, daftar riwayat impor, modal upload CSV, pencocokan baris per baris dengan dropdown kandidat, tampilan saldo GL.
+- **Scope Fase 1 vs yang masih di luar scope**: mencakup impor CSV + pencocokan manual/berbantuan kandidat + perbandingan saldo — TIDAK ada integrasi API bank/open-banking langsung (feed otomatis dari bank), itu di luar scope Fase 1 ini.
+- **Catatan disambiguasi**: halaman ini (`bank-reconciliation/page.tsx`) berbeda dari `bank/page.tsx` (daftar saldo akun Kas/Bank sederhana, masih data hardcoded — lihat `00_PROJECT_STATUS.md` Known Gaps) — jangan dianggap `bank/page.tsx` ikut selesai karena fitur ini.
+- **Terkait erat dengan item #12 (Cash Flow Statement & Cash/Bank Enhancement)**: keduanya sama-sama butuh data mutasi Kas/Bank yang akurat — item #12 (Cash Flow Statement formal serta penggantian `bank/page.tsx` dari hardcode ke data GL nyata) **masih belum dikerjakan**.
+- Lihat detail implementasi lengkap di riwayat commit terkait "Rekonsiliasi Bank Fase 1".
 
 ### 9. Down Payment / Uang Muka ke Supplier
 **Prioritas: Menengah**
