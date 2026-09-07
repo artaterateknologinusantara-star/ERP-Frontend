@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import ERPModal from '@/components/ui/ERPModal';
 import { systemResetService } from '@/services/system-reset.service';
+import { hasPermission } from '@/lib/permissions';
 import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -233,9 +234,10 @@ function ResetConfirmModal({ isOpen, onClose, category, isAll = false, onConfirm
 interface CategoryCardProps {
   category: ResetCategory;
   onSelect: (category: ResetCategory) => void;
+  canReset: boolean;
 }
 
-function CategoryCard({ category, onSelect }: CategoryCardProps) {
+function CategoryCard({ category, onSelect, canReset }: CategoryCardProps) {
   return (
     <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3 hover:border-red-300 hover:shadow-sm transition-all duration-150 group">
       <div className="flex items-start gap-3">
@@ -257,13 +259,15 @@ function CategoryCard({ category, onSelect }: CategoryCardProps) {
         ))}
       </ul>
 
-      <button
-        onClick={() => onSelect(category)}
-        className="mt-auto w-full flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-600 text-red-600 hover:bg-red-100 hover:border-red-300 transition-colors"
-      >
-        <RotateCcw size={12} />
-        Reset Kategori Ini
-      </button>
+      {canReset && (
+        <button
+          onClick={() => onSelect(category)}
+          className="mt-auto w-full flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-600 text-red-600 hover:bg-red-100 hover:border-red-300 transition-colors"
+        >
+          <RotateCcw size={12} />
+          Reset Kategori Ini
+        </button>
+      )}
     </div>
   );
 }
@@ -275,6 +279,7 @@ export default function TransactionResetModule() {
   const [isAll, setIsAll] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const canReset = hasPermission('Settings', 'canDelete');
   const isModalOpen = selectedCategory !== null || isAll;
 
   const handleClose = () => {
@@ -326,6 +331,7 @@ export default function TransactionResetModule() {
             <CategoryCard
               key={cat.id}
               category={cat}
+              canReset={canReset}
               onSelect={(c) => { setIsAll(false); setSelectedCategory(c); }}
             />
           ))}
@@ -356,15 +362,17 @@ export default function TransactionResetModule() {
               </ul>
             </div>
           </div>
-          <div className="flex-shrink-0">
-            <button
-              onClick={() => { setSelectedCategory(null); setIsAll(true); }}
-              className="flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-600 text-white hover:bg-red-700 transition-colors whitespace-nowrap"
-            >
-              <Trash2 size={15} />
-              Reset All Data
-            </button>
-          </div>
+          {canReset && (
+            <div className="flex-shrink-0">
+              <button
+                onClick={() => { setSelectedCategory(null); setIsAll(true); }}
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-600 text-white hover:bg-red-700 transition-colors whitespace-nowrap"
+              >
+                <Trash2 size={15} />
+                Reset All Data
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

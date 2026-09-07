@@ -16,6 +16,7 @@ import {
   RevenueRecognitionMethod, UpdateProjectDto,
 } from '@/services/project.service';
 import { formatRp, formatDate, formatPercent } from '@/lib/format';
+import { hasPermission } from '@/lib/permissions';
 import { toast } from 'sonner';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -213,6 +214,8 @@ export default function ProjectDetailPage() {
   const arPositive     = (cost?.outstandingAR ?? 0) <= 0;
   const isPoc           = detail.revenueRecognitionMethod === 'PercentageOfCompletion';
   const canMarkComplete = detail.status !== 'Completed' && detail.status !== 'Cancelled';
+  const canEditProject   = hasPermission('Project', 'canEdit');
+  const canApproveRevRec = hasPermission('Project', 'canApprove');
 
   return (
     <AppLayout
@@ -232,10 +235,12 @@ export default function ProjectDetailPage() {
             <ArrowLeft size={14} /> Kembali
           </button>
           <div className="flex items-center gap-2">
-            <button className="btn-secondary text-xs flex items-center gap-1.5" onClick={openRrModal}>
-              <Settings2 size={14} /> Revenue Recognition
-            </button>
-            {canMarkComplete && (
+            {canEditProject && (
+              <button className="btn-secondary text-xs flex items-center gap-1.5" onClick={openRrModal}>
+                <Settings2 size={14} /> Revenue Recognition
+              </button>
+            )}
+            {canMarkComplete && canEditProject && (
               <button
                 className="btn-primary text-xs flex items-center gap-1.5"
                 onClick={handleMarkComplete}
@@ -338,7 +343,7 @@ export default function ProjectDetailPage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[13px] font-700 text-foreground">Cost Monitoring</h2>
-              {isPoc && (
+              {isPoc && canApproveRevRec && (
                 <button
                   className="btn-secondary text-xs flex items-center gap-1.5"
                   onClick={handleRecordProgress}

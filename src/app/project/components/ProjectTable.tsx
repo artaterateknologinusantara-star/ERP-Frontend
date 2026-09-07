@@ -9,6 +9,7 @@ import { projectService, ProjectListItem } from '@/services/project.service';
 import { formatRp } from '@/lib/format';
 import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
+import { hasPermission } from '@/lib/permissions';
 
 const STATUS_OPTIONS = [
   { value: 'Semua', label: 'Semua Status' },
@@ -76,9 +77,11 @@ export default function ProjectTable() {
         onStatusFilter={(v) => { setStatusFilter(v); setPage(1); }}
         statusOptions={STATUS_OPTIONS}
         actions={
-          <button className="btn-primary" onClick={() => router.push('/project/buat')}>
-            <Plus size={14} /> Buat Project
-          </button>
+          hasPermission('Project', 'canCreate') ? (
+            <button className="btn-primary" onClick={() => router.push('/project/buat')}>
+              <Plus size={14} /> Buat Project
+            </button>
+          ) : undefined
         }
       />
 

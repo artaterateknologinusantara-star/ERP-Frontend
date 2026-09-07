@@ -8,6 +8,7 @@ import AppLayout from '@/components/AppLayout';
 import ERPModal from '@/components/ui/ERPModal';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import { formatRp, formatDate } from '@/lib/format';
+import { hasPermission } from '@/lib/permissions';
 import {
   getBalances,
   importBankStatement,
@@ -141,6 +142,9 @@ export default function BankReconciliationPage() {
     }
   };
 
+  const canImport = hasPermission('Finance', 'canCreate');
+  const canEditRecon = hasPermission('Finance', 'canEdit');
+
   const statementBalance = importDetail?.statementEndingBalance;
   const selisih = glBalance !== null && statementBalance !== undefined && statementBalance !== null
     ? glBalance - statementBalance
@@ -171,14 +175,16 @@ export default function BankReconciliationPage() {
                 <p className="text-xs text-muted-foreground mt-1">Saldo GL saat ini: {formatRp(selectedAccount.balance)}</p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setShowImportModal(true)}
-              disabled={!selectedAccountId}
-              className="btn-primary flex items-center gap-2 justify-center"
-            >
-              <Upload size={14} /> Import Mutasi
-            </button>
+            {canImport && (
+              <button
+                type="button"
+                onClick={() => setShowImportModal(true)}
+                disabled={!selectedAccountId}
+                className="btn-primary flex items-center gap-2 justify-center"
+              >
+                <Upload size={14} /> Import Mutasi
+              </button>
+            )}
           </div>
         </div>
 
@@ -307,7 +313,7 @@ export default function BankReconciliationPage() {
                               )}
                             </td>
                             <td className="erp-table-cell whitespace-nowrap">
-                              {line.matchStatus === 'Unmatched' && line.suggestedMatches.length > 0 && (
+                              {line.matchStatus === 'Unmatched' && line.suggestedMatches.length > 0 && canEditRecon && (
                                 <button
                                   type="button"
                                   disabled={acting || (line.suggestedMatches.length > 1 && !selectedCandidate[line.id])}
@@ -320,7 +326,7 @@ export default function BankReconciliationPage() {
                                   <CheckCircle2 size={13} /> Konfirmasi Match
                                 </button>
                               )}
-                              {line.matchStatus === 'Matched' && (
+                              {line.matchStatus === 'Matched' && canEditRecon && (
                                 <button
                                   type="button"
                                   disabled={acting}
@@ -332,14 +338,16 @@ export default function BankReconciliationPage() {
                               )}
                               {line.matchStatus === 'Unmatched' && line.suggestedMatches.length === 0 && (
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <button
-                                    type="button"
-                                    disabled={acting}
-                                    onClick={() => handleIgnore(line.id)}
-                                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-600 disabled:opacity-40"
-                                  >
-                                    <Ban size={13} /> Abaikan
-                                  </button>
+                                  {canEditRecon && (
+                                    <button
+                                      type="button"
+                                      disabled={acting}
+                                      onClick={() => handleIgnore(line.id)}
+                                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-600 disabled:opacity-40"
+                                    >
+                                      <Ban size={13} /> Abaikan
+                                    </button>
+                                  )}
                                   <Link
                                     href="/journal-entry/buat"
                                     className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-600"
