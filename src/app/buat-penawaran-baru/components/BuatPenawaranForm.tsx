@@ -12,6 +12,7 @@ import SyaratPembayaranSection from './SyaratPembayaranSection';
 import SyaratKetentuanSection from './SyaratKetentuanSection';
 import TotalMarginSection from './TotalMarginSection';
 import CatatanTambahanSection from './CatatanTambahanSection';
+import PenawaranModePickerModal from './PenawaranModePickerModal';
 import type { CostingTab, CostingRow, PaymentTerm, QuotationStatus } from '@/types';
 import { quotationService, mapTabsToBackend } from '@/services/quotation.service';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
@@ -162,6 +163,9 @@ export default function BuatPenawaranForm() {
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(11);
   const [isCivilMeMode, setIsCivilMeMode] = useState(false);
+  // Create flow: mode is picked once via PenawaranModePickerModal and then stays fixed.
+  // Edit flow: mode already comes from the loaded quotation, so no picker is needed.
+  const [modeChosen, setModeChosen] = useState(!!editId);
   const [totalAreaSqm, setTotalAreaSqm] = useState<number | null>(null);
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([]);
   const [netPayment, setNetPayment] = useState(30);
@@ -438,6 +442,18 @@ export default function BuatPenawaranForm() {
   const mTier = getMarginTier(mMarginPercent);
   const mTc = marginTierClasses[mTier];
 
+  // Create flow only — block the form behind the mode picker until a mode is chosen.
+  if (!editId && !modeChosen) {
+    return (
+      <PenawaranModePickerModal
+        onSelect={(mode) => {
+          setIsCivilMeMode(mode === 'civil-me');
+          setModeChosen(true);
+        }}
+      />
+    );
+  }
+
   // Mobile sticky summary bar should be rendered as a sibling of the
   // main .animate-fade-in container so fixed positioning anchors to viewport.
   return (
@@ -453,6 +469,11 @@ export default function BuatPenawaranForm() {
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-700 text-foreground">{infoValues.quotationNo}</h2>
               <StatusBadge status={currentStatus} size="sm" />
+              {isCivilMeMode && (
+                <span className="text-xs font-600 px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  Civil & ME
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">{saveLabel}</p>
           </div>
@@ -482,28 +503,9 @@ export default function BuatPenawaranForm() {
         </div>
       </div>
 
-      {/* Mode Civil & ME toggle + Total Area */}
-      <div className="flex flex-wrap items-center gap-4 px-3 sm:px-5">
-        <label className="flex items-center gap-2 cursor-pointer select-none">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={isCivilMeMode}
-            onClick={() => setIsCivilMeMode((v) => !v)}
-            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-              isCivilMeMode ? 'bg-primary' : 'bg-muted'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                isCivilMeMode ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-          <span className="text-sm font-600 text-foreground">Mode Civil & ME</span>
-        </label>
-
-        {isCivilMeMode && (
+      {/* Total Area — hanya relevan untuk mode Civil & ME */}
+      {isCivilMeMode && (
+        <div className="flex flex-wrap items-center gap-4 px-3 sm:px-5">
           <div className="flex items-center gap-2">
             <label className="text-xs text-muted-foreground whitespace-nowrap">Total Area (m²)</label>
             <input
@@ -515,8 +517,8 @@ export default function BuatPenawaranForm() {
               placeholder="0"
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Status Approval — hanya tampil untuk penawaran yang sudah Disetujui/Ditolak */}
       {(currentStatus === 'Disetujui' || currentStatus === 'Ditolak') && (
