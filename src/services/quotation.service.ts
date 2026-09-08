@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import { CostingTab, Quotation, QuotationListItem, QuotationStatus, PaginatedResponse } from '@/types';
+import { CostingTab, Quotation, QuotationListItem, QuotationStatus, PaginatedResponse, WorkItem, WorkDetail, WorkDetailAttachment } from '@/types';
 
 export interface SendQuotationResult {
   quotationNo: string;
@@ -37,14 +37,18 @@ export interface CreateQuotationDto {
   tabs: BackendTab[];
 }
 
+const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ── Backend shape (matches SaveQuotationRequest on the API) ───────────────────
 interface BackendTab {
+  id?: string;
   label: string;
   sortOrder: number;
   groups: BackendGroup[];
 }
 
 interface BackendGroup {
+  id?: string;
   name: string;
   sortOrder: number;
   recapVolume?: number | null;
@@ -72,9 +76,11 @@ interface BackendItem {
 // Maps frontend CostingTab[] → backend tabs shape
 export function mapTabsToBackend(tabs: CostingTab[]): BackendTab[] {
   return tabs.map((tab, ti) => ({
+    id: GUID_RE.test(tab.id) ? tab.id : undefined,
     label: tab.label,
     sortOrder: tab.sortOrder ?? ti,
     groups: tab.groups.map((group, gi) => ({
+      id: GUID_RE.test(group.id) ? group.id : undefined,
       name: group.name,
       sortOrder: group.sortOrder ?? gi,
       recapVolume: group.recapVolume ?? undefined,
@@ -166,36 +172,67 @@ export const quotationService = {
     });
   },
 
-  async uploadGroupRab(groupId: string, file: File): Promise<void> {
+  // ── Item Pekerjaan / Detail Kerja (RAB/BQ) — auto-save per baris ────────────
+  createWorkItem(groupId: string, dto: { name: string; sortOrder: number }) {
+    return api.post<WorkItem>(`/quotations/groups/${groupId}/work-items`, dto);
+  },
+
+  updateWorkItem(id: string, dto: { name: string; sortOrder: number }) {
+    return api.put<void>(`/quotations/work-items/${id}`, dto);
+  },
+
+  deleteWorkItem(id: string) {
+    return api.delete(`/quotations/work-items/${id}`);
+  },
+
+  createWorkDetail(workItemId: string, dto: {
+    name: string; spesifikasi?: string; volume: number; unit: string; unitPrice: number; sortOrder: number;
+  }) {
+    return api.post<WorkDetail>(`/quotations/work-items/${workItemId}/work-details`, dto);
+  },
+
+  updateWorkDetail(id: string, dto: {
+    name: string; spesifikasi?: string; volume: number; unit: string; unitPrice: number; sortOrder: number;
+  }) {
+    return api.put<void>(`/quotations/work-details/${id}`, dto);
+  },
+
+  deleteWorkDetail(id: string) {
+    return api.delete(`/quotations/work-details/${id}`);
+  },
+
+  async uploadWorkDetailAttachment(workDetailId: string, file: File): Promise<WorkDetailAttachment> {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/groups/${groupId}/rab`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/work-details/${workDetailId}/attachments`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
       body: formData,
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: res.statusText }));
-      throw new Error(err.message ?? 'Gagal mengunggah RAB');
+      throw new Error(err.message ?? 'Gagal mengunggah gambar');
     }
+    const body = await res.json();
+    return body.data;
   },
 
-  async deleteGroupRab(groupId: string): Promise<void> {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/groups/${groupId}/rab`, {
+  async deleteWorkDetailAttachment(attachmentId: string): Promise<void> {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/work-details/attachments/${attachmentId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: res.statusText }));
-      throw new Error(err.message ?? 'Gagal menghapus RAB');
+      throw new Error(err.message ?? 'Gagal menghapus gambar');
     }
   },
 
-  downloadGroupRab(groupId: string): Promise<Blob> {
-    return fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/groups/${groupId}/rab`, {
+  downloadWorkDetailAttachment(attachmentId: string): Promise<Blob> {
+    return fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/work-details/attachments/${attachmentId}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
     }).then((r) => {
-      if (!r.ok) throw new Error(`RAB download failed: ${r.status}`);
+      if (!r.ok) throw new Error(`Attachment download failed: ${r.status}`);
       return r.blob();
     });
   },

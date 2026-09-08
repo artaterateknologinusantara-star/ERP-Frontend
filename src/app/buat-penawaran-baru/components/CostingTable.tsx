@@ -10,6 +10,7 @@ import ItemAutocomplete from './ItemAutocomplete';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import DimensionCalculatorPopover from './DimensionCalculatorPopover';
 import GroupSubconPanel from './GroupSubconPanel';
+import GroupWorkItemsPanel from './GroupWorkItemsPanel';
 
 interface Props {
   tabData: CostingTab;
@@ -340,7 +341,10 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                         )}
                       </div>
                       {isCivilMeMode && (
-                        <GroupSubconPanel group={group} onUpdate={(fields) => updateGroupFields(group.id, fields)} />
+                        <>
+                          <GroupSubconPanel group={group} onUpdate={(fields) => updateGroupFields(group.id, fields)} />
+                          <GroupWorkItemsPanel group={group} onUpdate={(fields) => updateGroupFields(group.id, fields)} />
+                        </>
                       )}
                     </td>
                     <td className="erp-table-cell text-right font-700 font-tabular text-primary text-base" colSpan={2}>
@@ -554,7 +558,10 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                   </div>
                 )}
                 {isCivilMeMode && (
-                  <GroupSubconPanel group={group} onUpdate={(fields) => updateGroupFields(group.id, fields)} />
+                  <>
+                    <GroupSubconPanel group={group} onUpdate={(fields) => updateGroupFields(group.id, fields)} />
+                    <GroupWorkItemsPanel group={group} onUpdate={(fields) => updateGroupFields(group.id, fields)} />
+                  </>
                 )}
               </div>
             )}

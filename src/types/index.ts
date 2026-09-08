@@ -152,8 +152,32 @@ export interface CostingGroup {
   subcontractorId?: string | null;
   subcontractorName?: string | null;
   finalSubconCost?: number | null;
-  /** true kalau group ini sudah punya lampiran RAB tersimpan di server. */
-  hasRabAttachment?: boolean;
+  /** Struktur RAB/BQ (Item Pekerjaan → Detail Kerja) — dipakai kalau Mode Civil & ME aktif. */
+  workItems?: WorkItem[];
+}
+
+export interface WorkDetailAttachment {
+  id: string;
+  fileName: string;
+  sortOrder: number;
+}
+
+export interface WorkDetail {
+  id: string;
+  name: string;
+  spesifikasi: string;
+  volume: number;
+  unit: string;
+  unitPrice: number;
+  sortOrder: number;
+  attachments: WorkDetailAttachment[];
+}
+
+export interface WorkItem {
+  id: string;
+  name: string;
+  sortOrder: number;
+  workDetails: WorkDetail[];
 }
 
 export interface CostingTab {
