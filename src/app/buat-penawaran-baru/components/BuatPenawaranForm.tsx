@@ -83,6 +83,9 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
       sortOrder: g.sortOrder ?? 0,
       recapVolume: g.recapVolume ?? null,
       recapUnit: g.recapUnit ?? null,
+      subcontractorId: g.subcontractorId ?? null,
+      finalSubconCost: g.finalSubconCost ?? null,
+      hasRabAttachment: g.hasRabAttachment ?? false,
       rows: (g.items ?? []).map((i: any) => ({
         id: i.id,
         no: i.itemNo,
