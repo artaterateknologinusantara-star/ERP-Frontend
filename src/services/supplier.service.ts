@@ -6,6 +6,7 @@ export interface SupplierListParams {
   perPage?: number;
   search?: string;
   isActive?: boolean;
+  supplierType?: 'Material' | 'Subcontractor' | 'Both';
 }
 
 export interface CreateSupplierDto {
@@ -18,6 +19,7 @@ export interface CreateSupplierDto {
   npwp?: string;
   bankName?: string;
   bankAccount?: string;
+  supplierType?: 'Material' | 'Subcontractor' | 'Both' | '';
 }
 
 export const supplierService = {
@@ -27,6 +29,7 @@ export const supplierService = {
       perPage: params?.perPage,
       search: params?.search,
       ...(params?.isActive !== undefined ? { isActive: String(params.isActive) } : {}),
+      ...(params?.supplierType ? { supplierType: params.supplierType } : {}),
     });
   },
 

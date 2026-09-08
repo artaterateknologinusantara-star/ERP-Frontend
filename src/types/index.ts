@@ -62,6 +62,7 @@ export interface Supplier {
   npwp?: string;
   bankName?: string;
   bankAccount?: string;
+  supplierType?: 'Material' | 'Subcontractor' | 'Both' | null;
   totalPO: number;
   status: ActiveStatus;
   createdAt: string;
@@ -147,6 +148,12 @@ export interface CostingGroup {
   /** Hanya dipakai kalau Mode Civil & ME aktif — nilai default (Volume=1, Unit="Ls") di backend kalau kosong. */
   recapVolume?: number | null;
   recapUnit?: string | null;
+  /** Subkontraktor + biaya final RAB per group — dipakai kalau Mode Civil & ME aktif. */
+  subcontractorId?: string | null;
+  subcontractorName?: string | null;
+  finalSubconCost?: number | null;
+  /** true kalau group ini sudah punya lampiran RAB tersimpan di server. */
+  hasRabAttachment?: boolean;
 }
 
 export interface CostingTab {

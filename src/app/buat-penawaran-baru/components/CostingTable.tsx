@@ -9,6 +9,7 @@ import type { CostingTab, CostingGroup, CostingRow, ItemMaster } from '@/types';
 import ItemAutocomplete from './ItemAutocomplete';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import DimensionCalculatorPopover from './DimensionCalculatorPopover';
+import GroupSubconPanel from './GroupSubconPanel';
 
 interface Props {
   tabData: CostingTab;
@@ -338,6 +339,9 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                           </span>
                         )}
                       </div>
+                      {isCivilMeMode && (
+                        <GroupSubconPanel group={group} onUpdate={(fields) => updateGroupFields(group.id, fields)} />
+                      )}
                     </td>
                     <td className="erp-table-cell text-right font-700 font-tabular text-primary text-base" colSpan={2}>
                       {fmtRp(groupJasa(group))}
@@ -548,6 +552,9 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                       onChange={(e) => updateGroupFields(group.id, { recapUnit: e.target.value || null })}
                       className="erp-input w-full py-1" placeholder="Ls" />
                   </div>
+                )}
+                {isCivilMeMode && (
+                  <GroupSubconPanel group={group} onUpdate={(fields) => updateGroupFields(group.id, fields)} />
                 )}
               </div>
             )}

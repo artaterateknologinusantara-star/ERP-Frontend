@@ -49,6 +49,8 @@ interface BackendGroup {
   sortOrder: number;
   recapVolume?: number | null;
   recapUnit?: string | null;
+  subcontractorId?: string | null;
+  finalSubconCost?: number | null;
   items: BackendItem[];
 }
 
@@ -77,6 +79,8 @@ export function mapTabsToBackend(tabs: CostingTab[]): BackendTab[] {
       sortOrder: group.sortOrder ?? gi,
       recapVolume: group.recapVolume ?? undefined,
       recapUnit: group.recapUnit ?? undefined,
+      subcontractorId: group.subcontractorId ?? undefined,
+      finalSubconCost: group.finalSubconCost ?? undefined,
       items: group.rows.map((row, ri) => ({
         itemNo: row.no,
         equipment: row.equipment,
@@ -158,6 +162,40 @@ export const quotationService = {
       headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
     }).then((r) => {
       if (!r.ok) throw new Error(`PDF export failed: ${r.status}`);
+      return r.blob();
+    });
+  },
+
+  async uploadGroupRab(groupId: string, file: File): Promise<void> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/groups/${groupId}/rab`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(err.message ?? 'Gagal mengunggah RAB');
+    }
+  },
+
+  async deleteGroupRab(groupId: string): Promise<void> {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/groups/${groupId}/rab`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(err.message ?? 'Gagal menghapus RAB');
+    }
+  },
+
+  downloadGroupRab(groupId: string): Promise<Blob> {
+    return fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/groups/${groupId}/rab`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
+    }).then((r) => {
+      if (!r.ok) throw new Error(`RAB download failed: ${r.status}`);
       return r.blob();
     });
   },

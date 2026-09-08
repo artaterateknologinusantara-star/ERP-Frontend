@@ -26,9 +26,17 @@ interface SupplierRow {
   npwp?: string;
   bankName?: string;
   bankAccount?: string;
+  supplierType?: string;
   isActive: boolean;
   createdAt: string;
 }
+
+const SUPPLIER_TYPE_OPTIONS = [
+  { value: '', label: '—' },
+  { value: 'Material', label: 'Material' },
+  { value: 'Subcontractor', label: 'Subkontraktor' },
+  { value: 'Both', label: 'Material & Subkontraktor' },
+];
 
 const STATUS_OPTIONS = [
   { value: 'Semua', label: 'Semua Status' },
@@ -40,7 +48,7 @@ const PER_PAGE = 10;
 const VENDORS_QUERY_KEY = 'vendors';
 
 const EMPTY_FORM: CreateSupplierDto = {
-  name: '', contactPerson: '', phone: '', email: '', address: '', city: '', npwp: '', bankName: '', bankAccount: '',
+  name: '', contactPerson: '', phone: '', email: '', address: '', city: '', npwp: '', bankName: '', bankAccount: '', supplierType: '',
 };
 
 export default function VendorTable() {
@@ -90,7 +98,7 @@ export default function VendorTable() {
   const openCreate = () => { setForm(EMPTY_FORM); setModal('create'); };
   const openEdit = (row: SupplierRow) => {
     setSelected(row);
-    setForm({ name: row.name, contactPerson: row.contactPerson || '', phone: row.phone || '', email: row.email || '', address: row.address || '', city: row.city || '', npwp: row.npwp || '', bankName: row.bankName || '', bankAccount: row.bankAccount || '' });
+    setForm({ name: row.name, contactPerson: row.contactPerson || '', phone: row.phone || '', email: row.email || '', address: row.address || '', city: row.city || '', npwp: row.npwp || '', bankName: row.bankName || '', bankAccount: row.bankAccount || '', supplierType: (row.supplierType as CreateSupplierDto['supplierType']) || '' });
     setModal('edit');
   };
   const openDetail = (row: SupplierRow) => { setSelected(row); setModal('detail'); };
@@ -258,6 +266,18 @@ export default function VendorTable() {
           {field('NPWP', 'npwp')}
           {field('Nama Bank', 'bankName')}
           {field('No. Rekening', 'bankAccount')}
+          <div>
+            <label className="erp-form-label">Tipe Vendor</label>
+            <select
+              className="erp-input"
+              value={form.supplierType || ''}
+              onChange={(e) => setForm((f) => ({ ...f, supplierType: e.target.value as CreateSupplierDto['supplierType'] }))}
+            >
+              {SUPPLIER_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
           <div className="md:col-span-2">
             <label className="erp-form-label">Alamat</label>
             <textarea
@@ -288,6 +308,7 @@ export default function VendorTable() {
                 ['Email', selected.email || '—'], ['Kota', selected.city || '—'],
                 ['NPWP', selected.npwp || '—'], ['Bank', selected.bankName || '—'],
                 ['No. Rekening', selected.bankAccount || '—'],
+                ['Tipe Vendor', SUPPLIER_TYPE_OPTIONS.find((o) => o.value === selected.supplierType)?.label || '—'],
               ].map(([label, val]) => (
                 <div key={label}>
                   <p className="text-xs text-muted-foreground">{label}</p>
