@@ -86,6 +86,7 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
       recapUnit: g.recapUnit ?? null,
       subcontractorId: g.subcontractorId ?? null,
       finalSubconCost: g.finalSubconCost ?? null,
+      finalSellingPrice: g.finalSellingPrice ?? null,
       workItems: (g.workItems ?? []).map((w: any) => ({
         id: w.id,
         name: w.name,
@@ -472,9 +473,18 @@ export default function BuatPenawaranForm() {
   // the form on small screens (mirrors the checkout-summary pattern from e-commerce/enterprise apps).
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
   const allRows = tabs.flatMap((t) => t.groups.flatMap((g) => g.rows));
-  const mTotalMaterial = allRows.reduce((s, r) => s + r.qty * r.materialPrice, 0);
-  const mTotalJasa = allRows.reduce((s, r) => s + r.qty * r.servicePrice, 0);
-  const mTotalCost = allRows.reduce((s, r) => s + r.qty * r.costPrice, 0);
+  const allGroups = tabs.flatMap((t) => t.groups);
+  // Civil & ME has no per-row cost/sell split — totals come from FinalSellingPrice/FinalSubconCost
+  // per Group instead of Item rows (mirrors GrandTotalPanel/TotalMarginSection above).
+  const mTotalMaterial = isCivilMeMode
+    ? 0
+    : allRows.reduce((s, r) => s + r.qty * r.materialPrice, 0);
+  const mTotalJasa = isCivilMeMode
+    ? allGroups.reduce((s, g) => s + (g.finalSellingPrice ?? 0), 0)
+    : allRows.reduce((s, r) => s + r.qty * r.servicePrice, 0);
+  const mTotalCost = isCivilMeMode
+    ? allGroups.reduce((s, g) => s + (g.finalSubconCost ?? 0), 0)
+    : allRows.reduce((s, r) => s + r.qty * r.costPrice, 0);
   const mGrandTotal = mTotalMaterial + mTotalJasa;
   const mAfterDiscount = mGrandTotal - mGrandTotal * (discount / 100);
   const mGrandTotalWithTax = mAfterDiscount + mAfterDiscount * (taxRate / 100);
@@ -616,7 +626,7 @@ export default function BuatPenawaranForm() {
       {/* Section 3: Bottom panel */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         <div className="xl:col-span-2 space-y-5">
-          <TotalMarginSection tabs={tabs} discount={discount} />
+          <TotalMarginSection tabs={tabs} discount={discount} isCivilMeMode={isCivilMeMode} />
           <SyaratPembayaranSection
             terms={paymentTerms}
             onChange={setPaymentTerms}
@@ -633,6 +643,7 @@ export default function BuatPenawaranForm() {
             setDiscount={setDiscount}
             taxRate={taxRate}
             setTaxRate={setTaxRate}
+            isCivilMeMode={isCivilMeMode}
           />
         </div>
       </div>

@@ -21,11 +21,21 @@ export interface SelectOption {
 
 // ─── Status Types ─────────────────────────────────────────────────────────────
 
-export type QuotationStatus = 'Draft' | 'Terkirim' | 'Disetujui' | 'Ditolak' | 'Kadaluarsa' | 'Direvisi' | 'Selesai' | 'Superseded';
+export type QuotationStatus =
+  | 'Draft'
+  | 'Terkirim'
+  | 'Disetujui'
+  | 'Ditolak'
+  | 'Kadaluarsa'
+  | 'Direvisi'
+  | 'Selesai'
+  | 'Superseded';
 export type SalesOrderStatus = 'Draft' | 'Open' | 'Delivered' | 'Completed' | 'Cancelled';
 export type InvoiceStatus = 'Draft' | 'Sent' | 'Partial Paid' | 'Paid' | 'Overdue';
-export type PurchaseRequestStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Ordered' | 'PartiallyOrdered';
-export type PurchaseOrderStatus = 'Draft' | 'Ordered' | 'Partial Receive' | 'Completed' | 'Cancelled';
+export type PurchaseRequestStatus =
+  'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Ordered' | 'PartiallyOrdered';
+export type PurchaseOrderStatus =
+  'Draft' | 'Ordered' | 'Partial Receive' | 'Completed' | 'Cancelled';
 export type ExpenseStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Paid';
 export type SupplierInvoiceStatus = 'Draft' | 'Approved' | 'PartiallyPaid' | 'Paid' | 'Cancelled';
 export type ActiveStatus = 'Aktif' | 'Tidak Aktif';
@@ -152,6 +162,7 @@ export interface CostingGroup {
   subcontractorId?: string | null;
   subcontractorName?: string | null;
   finalSubconCost?: number | null;
+  finalSellingPrice?: number | null;
   /** Struktur RAB/BQ (Item Pekerjaan → Detail Kerja) — dipakai kalau Mode Civil & ME aktif. */
   workItems?: WorkItem[];
 }

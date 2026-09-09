@@ -126,10 +126,13 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
       id: groupId,
       name: 'Kategori Baru',
       // Mulai dengan 2 baris kosong agar user langsung paham cara mengisi tabel.
-      rows: [
-        makeEmptyRow(groupId, `${groupNo}.1`, 0, 1),
-        makeEmptyRow(groupId, `${groupNo}.2`, 1, 2),
-      ],
+      // Civil & ME tidak punya tabel item — grup diisi lewat Subkontraktor/BOQ.
+      rows: isCivilMeMode
+        ? []
+        : [
+            makeEmptyRow(groupId, `${groupNo}.1`, 0, 1),
+            makeEmptyRow(groupId, `${groupNo}.2`, 1, 2),
+          ],
       sortOrder: tabData.groups.length,
     };
     onUpdate({ ...tabData, groups: [...tabData.groups, newGroup] });
@@ -153,9 +156,14 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
     onUpdate({ ...tabData, groups: tabData.groups.filter((g) => g.id !== groupId) });
   };
 
-  const groupJasa = (g: CostingGroup) => g.rows.reduce((s, r) => s + r.qty * r.servicePrice, 0);
-  const groupMaterial = (g: CostingGroup) => g.rows.reduce((s, r) => s + r.qty * r.materialPrice, 0);
-  const groupTotal = (g: CostingGroup) => g.rows.reduce((s, r) => s + r.qty * (r.servicePrice + r.materialPrice), 0);
+  const groupJasa = (g: CostingGroup) =>
+    isCivilMeMode ? 0 : g.rows.reduce((s, r) => s + r.qty * r.servicePrice, 0);
+  const groupMaterial = (g: CostingGroup) =>
+    isCivilMeMode ? 0 : g.rows.reduce((s, r) => s + r.qty * r.materialPrice, 0);
+  const groupTotal = (g: CostingGroup) =>
+    isCivilMeMode
+      ? (g.finalSellingPrice ?? 0)
+      : g.rows.reduce((s, r) => s + r.qty * (r.servicePrice + r.materialPrice), 0);
   const tabJasa = () => tabData.groups.reduce((s, g) => s + groupJasa(g), 0);
   const tabMaterial = () => tabData.groups.reduce((s, g) => s + groupMaterial(g), 0);
   const tabTotal = () => tabData.groups.reduce((s, g) => s + groupTotal(g), 0);

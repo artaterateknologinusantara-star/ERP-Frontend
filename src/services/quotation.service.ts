@@ -1,6 +1,15 @@
 import { api } from '@/lib/api';
 import { GUID_RE } from '@/lib/guid';
-import { CostingTab, Quotation, QuotationListItem, QuotationStatus, PaginatedResponse, WorkItem, WorkDetail, WorkDetailAttachment } from '@/types';
+import {
+  CostingTab,
+  Quotation,
+  QuotationListItem,
+  QuotationStatus,
+  PaginatedResponse,
+  WorkItem,
+  WorkDetail,
+  WorkDetailAttachment,
+} from '@/types';
 
 export interface SendQuotationResult {
   quotationNo: string;
@@ -54,6 +63,7 @@ interface BackendGroup {
   recapUnit?: string | null;
   subcontractorId?: string | null;
   finalSubconCost?: number | null;
+  finalSellingPrice?: number | null;
   items: BackendItem[];
 }
 
@@ -86,6 +96,7 @@ export function mapTabsToBackend(tabs: CostingTab[]): BackendTab[] {
       recapUnit: group.recapUnit ?? undefined,
       subcontractorId: group.subcontractorId ?? undefined,
       finalSubconCost: group.finalSubconCost ?? undefined,
+      finalSellingPrice: group.finalSellingPrice ?? undefined,
       items: group.rows.map((row, ri) => ({
         itemNo: row.no,
         equipment: row.equipment,
@@ -184,15 +195,31 @@ export const quotationService = {
     return api.delete(`/quotations/work-items/${id}`);
   },
 
-  createWorkDetail(workItemId: string, dto: {
-    name: string; spesifikasi?: string; volume: number; unit: string; unitPrice: number; sortOrder: number;
-  }) {
+  createWorkDetail(
+    workItemId: string,
+    dto: {
+      name: string;
+      spesifikasi?: string;
+      volume: number;
+      unit: string;
+      unitPrice: number;
+      sortOrder: number;
+    }
+  ) {
     return api.post<WorkDetail>(`/quotations/work-items/${workItemId}/work-details`, dto);
   },
 
-  updateWorkDetail(id: string, dto: {
-    name: string; spesifikasi?: string; volume: number; unit: string; unitPrice: number; sortOrder: number;
-  }) {
+  updateWorkDetail(
+    id: string,
+    dto: {
+      name: string;
+      spesifikasi?: string;
+      volume: number;
+      unit: string;
+      unitPrice: number;
+      sortOrder: number;
+    }
+  ) {
     return api.put<void>(`/quotations/work-details/${id}`, dto);
   },
 
@@ -200,14 +227,20 @@ export const quotationService = {
     return api.delete(`/quotations/work-details/${id}`);
   },
 
-  async uploadWorkDetailAttachment(workDetailId: string, file: File): Promise<WorkDetailAttachment> {
+  async uploadWorkDetailAttachment(
+    workDetailId: string,
+    file: File
+  ): Promise<WorkDetailAttachment> {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/work-details/${workDetailId}/attachments`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
-      body: formData,
-    });
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/quotations/work-details/${workDetailId}/attachments`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
+        body: formData,
+      }
+    );
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: res.statusText }));
       throw new Error(err.message ?? 'Gagal mengunggah gambar');
@@ -217,10 +250,13 @@ export const quotationService = {
   },
 
   async deleteWorkDetailAttachment(attachmentId: string): Promise<void> {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/work-details/attachments/${attachmentId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
-    });
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/quotations/work-details/attachments/${attachmentId}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
+      }
+    );
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: res.statusText }));
       throw new Error(err.message ?? 'Gagal menghapus gambar');
@@ -228,9 +264,12 @@ export const quotationService = {
   },
 
   downloadWorkDetailAttachment(attachmentId: string): Promise<Blob> {
-    return fetch(`${process.env.NEXT_PUBLIC_API_URL}/quotations/work-details/attachments/${attachmentId}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
-    }).then((r) => {
+    return fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/quotations/work-details/attachments/${attachmentId}`,
+      {
+        headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
+      }
+    ).then((r) => {
       if (!r.ok) throw new Error(`Attachment download failed: ${r.status}`);
       return r.blob();
     });

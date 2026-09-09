@@ -10,14 +10,34 @@ interface Props {
   setDiscount: (v: number) => void;
   taxRate: number;
   setTaxRate: (v: number) => void;
+  isCivilMeMode: boolean;
 }
 
-export default function GrandTotalPanel({ tabs, discount, setDiscount, taxRate, setTaxRate }: Props) {
+export default function GrandTotalPanel({
+  tabs,
+  discount,
+  setDiscount,
+  taxRate,
+  setTaxRate,
+  isCivilMeMode,
+}: Props) {
+  // Civil & ME groups are priced by Subkontraktor SOW (FinalSellingPrice), not equipment/material
+  // rows — Jasa/Material split doesn't apply, so the whole group value is carried as "Jasa".
   const calcMaterial = (tab: CostingTab) =>
-    tab.groups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.materialPrice, 0), 0);
+    isCivilMeMode
+      ? 0
+      : tab.groups.reduce(
+          (s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.materialPrice, 0),
+          0
+        );
 
   const calcService = (tab: CostingTab) =>
-    tab.groups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.servicePrice, 0), 0);
+    isCivilMeMode
+      ? tab.groups.reduce((s, g) => s + (g.finalSellingPrice ?? 0), 0)
+      : tab.groups.reduce(
+          (s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.servicePrice, 0),
+          0
+        );
 
   const tabTotals = tabs.map((t) => ({
     id: t.id,
@@ -68,7 +88,9 @@ export default function GrandTotalPanel({ tabs, discount, setDiscount, taxRate, 
       {/* Grand Total before discount */}
       <div className="flex items-center justify-between py-2.5 bg-muted/50 rounded-lg px-3 mb-3">
         <span className="text-base font-700 text-foreground">Grand Total</span>
-        <span className="text-xl font-800 text-foreground font-tabular">{formatRp(grandTotal)}</span>
+        <span className="text-xl font-800 text-foreground font-tabular">
+          {formatRp(grandTotal)}
+        </span>
       </div>
 
       {/* Diskon */}
@@ -80,7 +102,9 @@ export default function GrandTotalPanel({ tabs, discount, setDiscount, taxRate, 
             min={0}
             max={100}
             value={discount}
-            onChange={(e) => setDiscount(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+            onChange={(e) =>
+              setDiscount(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))
+            }
             className="erp-input w-16 text-right font-tabular text-base"
           />
           <span className="text-base text-muted-foreground">%</span>
@@ -96,7 +120,9 @@ export default function GrandTotalPanel({ tabs, discount, setDiscount, taxRate, 
 
       <div className="flex items-center justify-between py-2 border-b border-border mb-2">
         <span className="text-base text-muted-foreground">Setelah Diskon</span>
-        <span className="text-base font-700 text-foreground font-tabular">{formatRp(afterDiscount)}</span>
+        <span className="text-base font-700 text-foreground font-tabular">
+          {formatRp(afterDiscount)}
+        </span>
       </div>
 
       {/* PPN */}
@@ -108,7 +134,9 @@ export default function GrandTotalPanel({ tabs, discount, setDiscount, taxRate, 
             min={0}
             max={100}
             value={taxRate}
-            onChange={(e) => setTaxRate(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+            onChange={(e) =>
+              setTaxRate(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))
+            }
             className="erp-input w-16 text-right font-tabular text-base"
           />
           <span className="text-base text-muted-foreground">%</span>
@@ -117,7 +145,9 @@ export default function GrandTotalPanel({ tabs, discount, setDiscount, taxRate, 
 
       <div className="flex items-center justify-between mb-3">
         <span className="text-base text-muted-foreground">Nominal PPN</span>
-        <span className="text-base font-600 text-foreground font-tabular">{formatRp(taxAmount)}</span>
+        <span className="text-base font-600 text-foreground font-tabular">
+          {formatRp(taxAmount)}
+        </span>
       </div>
 
       {/* Final Grand Total */}
