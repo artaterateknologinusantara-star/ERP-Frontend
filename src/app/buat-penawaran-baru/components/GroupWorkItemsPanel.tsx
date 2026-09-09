@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Plus, Trash2, Upload, X } from 'lucide-react';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import { quotationService } from '@/services/quotation.service';
+import { isGuid } from '@/lib/guid';
 import type { CostingGroup, WorkItem, WorkDetail } from '@/types';
 
 interface Props {
@@ -12,7 +13,6 @@ interface Props {
   onUpdate: (fields: Partial<CostingGroup>) => void;
 }
 
-const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_IMAGE_BYTES = 1 * 1024 * 1024;
 
 function detailPayload(d: WorkDetail) {
@@ -20,7 +20,7 @@ function detailPayload(d: WorkDetail) {
 }
 
 export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
-  const isPersisted = GUID_RE.test(group.id);
+  const isPersisted = isGuid(group.id);
   const workItems = group.workItems ?? [];
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   // Mirrors the latest workItems across renders so a multi-file upload batch (several awaits

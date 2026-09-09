@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { GUID_RE } from '@/lib/guid';
 import { CostingTab, Quotation, QuotationListItem, QuotationStatus, PaginatedResponse, WorkItem, WorkDetail, WorkDetailAttachment } from '@/types';
 
 export interface SendQuotationResult {
@@ -36,8 +37,6 @@ export interface CreateQuotationDto {
   additionalNotes?: string;
   tabs: BackendTab[];
 }
-
-const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Backend shape (matches SaveQuotationRequest on the API) ───────────────────
 interface BackendTab {

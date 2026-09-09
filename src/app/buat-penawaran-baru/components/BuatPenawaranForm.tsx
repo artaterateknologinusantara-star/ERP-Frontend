@@ -401,28 +401,51 @@ export default function BuatPenawaranForm() {
   };
 
   const handleSaveDraft = async () => {
-    if (!infoValues.customerId) { toast.error('Pilih pelanggan terlebih dahulu'); return; }
-    if (!infoValues.projectName.trim()) { toast.error('Nama proyek wajib diisi'); return; }
-    if (!infoValues.salesId) { toast.error('Pilih sales person terlebih dahulu'); return; }
+    if (!infoValues.customerId) {
+      toast.error('Pilih pelanggan terlebih dahulu');
+      return;
+    }
+    if (!infoValues.projectName.trim()) {
+      toast.error('Nama proyek wajib diisi');
+      return;
+    }
+    if (!infoValues.salesId) {
+      toast.error('Pilih sales person terlebih dahulu');
+      return;
+    }
     setIsSaving(true);
     try {
       const dto = buildDto();
       if (targetId) {
-        // UPDATE existing quotation (draft or revision draft) — redirect to history,
-        // same as create, so the user sees the submitted result there
-        await quotationService.update(targetId, dto);
+        // UPDATE existing quotation (draft or revision draft) — stay on this page and
+        // patch local state from the response (same shape as the getById load) so
+        // temp group/work-item ids picked up a real backend GUID this save round.
+        const res = await quotationService.update(targetId, dto);
+        const q = res.data;
         const isRevision = infoValues.revision > 0;
-        toast.success(isRevision ? 'Draft revisi berhasil diperbarui' : 'Draft penawaran berhasil diperbarui');
+        toast.success(
+          isRevision ? 'Draft revisi berhasil diperbarui' : 'Draft penawaran berhasil diperbarui'
+        );
+        if (q.tabs?.length) setTabs(mapApiTabs(q.tabs as any[]));
+        setInfoValues((v) => ({ ...v, quotationNo: q.no, revision: q.revision }));
+        setCurrentStatus(q.status);
+        setSaveLabel(q.revision > 0 ? `Draft · R.${String(q.revision).padStart(2, '0')}` : 'Draft');
         clearDraftState();
-        router.push('/riwayat-penawaran');
       } else {
-        // CREATE new quotation — redirect to history so user sees it
+        // CREATE new quotation — stay on this page, patch state from the response (real
+        // GUIDs for groups/work items), and silently put ?id= in the URL (via the History
+        // API, not the router) so a manual refresh loads this quotation in edit mode
+        // without re-triggering the editId-driven load effect and re-fetching mid-edit.
         const res = await quotationService.create(dto);
-        setCreatedId(res.data.id);
-        setInfoValues((v) => ({ ...v, quotationNo: res.data.no, revision: res.data.revision }));
+        const q = res.data;
+        setCreatedId(q.id);
+        if (q.tabs?.length) setTabs(mapApiTabs(q.tabs as any[]));
+        setInfoValues((v) => ({ ...v, quotationNo: q.no, revision: q.revision }));
+        setCurrentStatus(q.status);
+        setSaveLabel(q.revision > 0 ? `Draft · R.${String(q.revision).padStart(2, '0')}` : 'Draft');
+        window.history.replaceState(null, '', `${window.location.pathname}?id=${q.id}`);
         toast.success('Draft penawaran berhasil disimpan');
         clearDraftState();
-        router.push('/riwayat-penawaran');
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal menyimpan penawaran');
