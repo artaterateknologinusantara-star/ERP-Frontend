@@ -176,6 +176,8 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
     </datalist>
     <div className="hidden lg:block overflow-x-auto overflow-y-auto max-h-[560px]">
       <table className="w-full text-base border-collapse min-w-[1220px]">
+        {/* Standard mode only — Civil & ME groups have no equipment/material rows to head */}
+        {!isCivilMeMode && (
         <thead className="sticky top-0 z-10">
           <tr className="bg-muted border-b-2 border-border">
             <th className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider w-10">No</th>
@@ -193,6 +195,7 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
             <th className="erp-table-cell w-8"></th>
           </tr>
         </thead>
+        )}
         <tbody>
           {tabData.groups.map((group, groupIndex) => {
             const isCollapsed = collapsed.includes(group.id);

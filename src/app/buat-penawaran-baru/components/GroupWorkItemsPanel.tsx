@@ -23,8 +23,17 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
   const isPersisted = GUID_RE.test(group.id);
   const workItems = group.workItems ?? [];
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  // Mirrors the latest workItems across renders so a multi-file upload batch (several awaits
+  // in a row) always appends onto the most recent attachments list instead of a stale one
+  // captured at the start of the batch — a plain closure over `workItems` would lose earlier
+  // uploads in the same batch once a second one resolves.
+  const workItemsRef = useRef(workItems);
+  workItemsRef.current = workItems;
 
-  const setWorkItems = (next: WorkItem[]) => onUpdate({ workItems: next });
+  const setWorkItems = (next: WorkItem[]) => {
+    workItemsRef.current = next;
+    onUpdate({ workItems: next });
+  };
 
   const handleAddWorkItem = async () => {
     try {
@@ -69,7 +78,7 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
   };
 
   const updateDetailLocal = (workItemId: string, detailId: string, patch: Partial<WorkDetail>) => {
-    setWorkItems(workItems.map((w) => (
+    setWorkItems(workItemsRef.current.map((w) => (
       w.id !== workItemId ? w : {
         ...w,
         workDetails: w.workDetails.map((d) => (d.id === detailId ? { ...d, ...patch } : d)),
@@ -99,18 +108,31 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
   const handleUploadImage = async (workItem: WorkItem, detail: WorkDetail, file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
     if (!['jpg', 'jpeg', 'png'].includes(ext ?? '')) {
-      toast.error('Gambar harus berformat JPG atau PNG');
+      toast.error(`${file.name}: harus berformat JPG atau PNG`);
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      toast.error('Ukuran gambar maksimal 1MB');
+      toast.error(`${file.name}: ukuran maksimal 1MB`);
       return;
     }
     try {
       const attachment = await quotationService.uploadWorkDetailAttachment(detail.id, file);
-      updateDetailLocal(workItem.id, detail.id, { attachments: [...detail.attachments, attachment] });
+      // Read the latest attachments via the ref (not the `detail` argument, which may be stale
+      // by the time this resolves) so an earlier upload in the same multi-file batch isn't lost.
+      const currentAttachments = workItemsRef.current
+        .find((w) => w.id === workItem.id)?.workDetails.find((d) => d.id === detail.id)?.attachments ?? [];
+      updateDetailLocal(workItem.id, detail.id, { attachments: [...currentAttachments, attachment] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Gagal mengunggah gambar');
+      toast.error(err instanceof Error ? err.message : `${file.name}: gagal mengunggah gambar`);
+    }
+  };
+
+  const handleUploadImages = async (workItem: WorkItem, detail: WorkDetail, files: File[]) => {
+    // Sequential, not Promise.all — each upload must land (and update workItemsRef) before the
+    // next one reads "current attachments", and a rejected file (bad type/oversize) must not
+    // abort the rest of the batch.
+    for (const file of files) {
+      await handleUploadImage(workItem, detail, file);
     }
   };
 
@@ -165,28 +187,33 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
             </button>
           </div>
 
-          {workItem.workDetails.map((detail) => {
+          {workItem.workDetails.map((detail, di) => {
             const totalHarga = detail.volume * detail.unitPrice;
             const inputKey = `${workItem.id}:${detail.id}`;
             return (
               <div key={detail.id} className="ml-4 pl-2 border-l-2 border-border space-y-1">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  <input
-                    type="text"
-                    value={detail.name}
-                    onChange={(e) => updateDetailLocal(workItem.id, detail.id, { name: e.target.value })}
-                    onBlur={() => handleDetailBlur(detail)}
-                    placeholder="Detail Kerja (mis. Peninggian lantai t.20cm)"
-                    className="erp-input text-xs py-1"
-                  />
-                  <input
-                    type="text"
-                    value={detail.spesifikasi}
-                    onChange={(e) => updateDetailLocal(workItem.id, detail.id, { spesifikasi: e.target.value })}
-                    onBlur={() => handleDetailBlur(detail)}
-                    placeholder="Spesifikasi"
-                    className="erp-input text-xs py-1"
-                  />
+                <div className="flex items-start gap-1.5">
+                  <span className="text-[11px] text-muted-foreground font-tabular flex-shrink-0 pt-1.5">
+                    {wi + 1}.{di + 1}
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={detail.name}
+                      onChange={(e) => updateDetailLocal(workItem.id, detail.id, { name: e.target.value })}
+                      onBlur={() => handleDetailBlur(detail)}
+                      placeholder="Detail Kerja (mis. Peninggian lantai t.20cm)"
+                      className="erp-input text-xs py-1"
+                    />
+                    <input
+                      type="text"
+                      value={detail.spesifikasi}
+                      onChange={(e) => updateDetailLocal(workItem.id, detail.id, { spesifikasi: e.target.value })}
+                      onBlur={() => handleDetailBlur(detail)}
+                      placeholder="Spesifikasi"
+                      className="erp-input text-xs py-1"
+                    />
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <input
@@ -223,11 +250,15 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
                     ref={(el) => { fileInputRefs.current[inputKey] = el; }}
                     type="file"
                     accept="image/jpeg,image/png"
+                    multiple
                     className="hidden"
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
+                      // Snapshot to a plain array BEFORE clearing value — `e.target.files` is a
+                      // live FileList tied to the input, so resetting `.value` empties it too if
+                      // read afterwards, silently dropping every file in the batch.
+                      const files = e.target.files ? Array.from(e.target.files) : [];
                       e.target.value = '';
-                      if (file) handleUploadImage(workItem, detail, file);
+                      if (files.length > 0) handleUploadImages(workItem, detail, files);
                     }}
                   />
                   <button
