@@ -135,32 +135,6 @@ export interface SalesOrderStats {
   totalValue: number;
 }
 
-export interface CreateSalesOrderItemRequest {
-  itemMasterId?: string;
-  description: string;
-  sku?: string;
-  qty: number;
-  uom: string;
-  unitPrice: number;
-  discount: number;
-  notes?: string;
-  sortOrder: number;
-}
-
-export interface CreateSalesOrderRequest {
-  quotationId?: string;
-  customerId: string;
-  projectName: string;
-  salesId: string;
-  expectedDate?: string;
-  shipTo?: string;
-  terms?: string;
-  refQuotation?: string;
-  notes?: string;
-  retentionPercentage: number;
-  items: CreateSalesOrderItemRequest[];
-}
-
 // ── New Functions ──────────────────────────────────────────────────────────────
 
 export async function getSalesOrderStats(): Promise<SalesOrderStats> {
@@ -185,13 +159,6 @@ export async function getSalesOrders(params: {
     search: params.search || undefined,
     status: params.status || undefined,
   });
-}
-
-export async function createSalesOrder(
-  data: CreateSalesOrderRequest
-): Promise<SalesOrderDetail> {
-  const res = await api.post<SalesOrderDetail>('/sales-orders', data);
-  return res.data;
 }
 
 export async function createSOFromQuotation(

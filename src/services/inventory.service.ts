@@ -82,13 +82,24 @@ export interface CreateDOItemRequest {
 }
 
 export interface CreateDORequest {
-  salesOrderId?: string;
+  salesOrderId: string;
   customerId?: string;
   deliveryDate: string;
   deliveryAddress?: string;
   recipientName?: string;
   notes?: string;
   items: CreateDOItemRequest[];
+}
+
+export interface ShippableSoItem {
+  itemMasterId: string;
+  itemName: string;
+  sku?: string;
+  uom: string;
+  soQty: number;
+  alreadyShipped: number;
+  remainingQty: number;
+  stockAvailable: number;
 }
 
 export interface RecordStockInRequest {
@@ -157,6 +168,11 @@ export async function markDODelivered(id: string): Promise<DeliveryOrderDetail> 
 
 export async function deleteDeliveryOrder(id: string): Promise<void> {
   await api.delete(`/inventory/delivery-orders/${id}`);
+}
+
+export async function getShippableItemsForSO(soId: string): Promise<ShippableSoItem[]> {
+  const res = await api.get<ShippableSoItem[]>(`/inventory/delivery-orders/shippable-items/${soId}`);
+  return res.data ?? [];
 }
 
 export async function createDOFromSO(soId: string): Promise<DeliveryOrderDetail> {
