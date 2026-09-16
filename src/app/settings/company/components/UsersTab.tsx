@@ -11,7 +11,7 @@ import { authService } from '@/services/auth.service';
 import { formatDate } from '@/lib/format';
 import type { ActiveStatus } from '@/types';
 
-const EMPTY_FORM = { name: '', email: '', password: '', roleId: '', isActive: true };
+const EMPTY_FORM = { name: '', email: '', password: '', roleId: '', isActive: true, isSandbox: false };
 
 export default function UsersTab() {
   const [users, setUsers]   = useState<UserListItem[]>([]);
@@ -68,7 +68,7 @@ export default function UsersTab() {
     setSaving(true);
     try {
       if (modal === 'create') {
-        const dto: CreateUserDto = { name: form.name, email: form.email, password: form.password, roleId: form.roleId };
+        const dto: CreateUserDto = { name: form.name, email: form.email, password: form.password, roleId: form.roleId, isSandbox: form.isSandbox };
         await userService.create(dto);
         toast.success('User berhasil dibuat');
       } else if (selected) {
@@ -171,7 +171,14 @@ export default function UsersTab() {
                   className="border-b border-border hover:bg-primary/5 transition-colors group cursor-pointer"
                   onClick={() => openEdit(u)}
                 >
-                  <td className="erp-table-cell font-600">{u.name}</td>
+                  <td className="erp-table-cell font-600">
+                    {u.name}
+                    {u.isSandbox && (
+                      <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-600 uppercase tracking-wide bg-amber-100 text-amber-700">
+                        Sandbox
+                      </span>
+                    )}
+                  </td>
                   <td className="erp-table-cell text-muted-foreground">{u.email}</td>
                   <td className="erp-table-cell">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 status-terkirim">{u.roleName}</span>
@@ -205,7 +212,9 @@ export default function UsersTab() {
           <>
             <button className="btn-secondary" onClick={closeModal} disabled={saving}>Batal</button>
             <button className="btn-primary" onClick={handleSave} disabled={saving}>
-              {saving ? 'Menyimpan...' : 'Simpan'}
+              {saving
+                ? (modal === 'create' && form.isSandbox ? 'Membuat database sandbox...' : 'Menyimpan...')
+                : 'Simpan'}
             </button>
           </>
         }
@@ -234,6 +243,24 @@ export default function UsersTab() {
               {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
+          {modal === 'create' && (
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded"
+                  checked={form.isSandbox}
+                  onChange={(e) => setForm((p) => ({ ...p, isSandbox: e.target.checked }))}
+                />
+                <span className="text-[13px]">Buat sebagai akun sandbox (database terpisah)</span>
+              </label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Akun ini akan mendapat database sendiri yang terisolasi dari data produksi —
+                bisa dihapus kapan saja tanpa memengaruhi data asli. Proses pembuatan database
+                memakan waktu beberapa detik.
+              </p>
+            </div>
+          )}
           {modal === 'edit' && (
             <div className="flex items-center gap-3">
               <label className="erp-form-label mb-0">Status</label>
@@ -256,7 +283,7 @@ export default function UsersTab() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Hapus User?"
-        description={`User "${deleteTarget?.name}" akan dihapus permanen.`}
+        description={`User "${deleteTarget?.name}" akan dihapus permanen.${deleteTarget?.isSandbox ? ' Database sandbox terkait akan ikut dihapus permanen.' : ''}`}
         confirmLabel="Hapus"
         loading={deleting}
       />
