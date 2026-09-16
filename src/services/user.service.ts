@@ -9,6 +9,7 @@ export interface UserListItem {
   isActive: boolean;
   lastLoginAt?: string;
   createdAt: string;
+  isSandbox: boolean;
 }
 
 export interface RoleOption {
@@ -22,6 +23,7 @@ export interface CreateUserDto {
   email: string;
   password: string;
   roleId: string;
+  isSandbox: boolean;
 }
 
 export interface UpdateUserDto {
