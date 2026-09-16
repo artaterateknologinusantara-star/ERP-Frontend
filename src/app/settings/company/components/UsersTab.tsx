@@ -43,7 +43,10 @@ export default function UsersTab() {
   useEffect(() => { load(); }, [load]);
 
   const openCreate = () => {
-    setForm({ ...EMPTY_FORM, roleId: roles[0]?.id ?? '' });
+    // roleId stays blank (EMPTY_FORM) so creating a user always requires an explicit role
+    // choice — auto-selecting the alphabetically-first role silently defaulted new users to
+    // "Administrator" (before "Finance"/"Guest"/"Sales"), granting full access by accident.
+    setForm({ ...EMPTY_FORM });
     setSelected(null);
     setModal('create');
   };
