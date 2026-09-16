@@ -53,7 +53,7 @@ export default function UsersTab() {
 
   const openEdit = (u: UserListItem) => {
     setSelected(u);
-    setForm({ name: u.name, email: u.email, password: '', roleId: u.roleId, isActive: u.isActive });
+    setForm({ name: u.name, email: u.email, password: '', roleId: u.roleId, isActive: u.isActive, isSandbox: u.isSandbox });
     setModal('edit');
   };
 
