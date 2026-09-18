@@ -179,6 +179,8 @@ export default function SalesOrderDetailPage() {
   const [invoiceDueDate, setInvoiceDueDate]     = useState('');
   const [invoiceNomorFakturPajak, setInvoiceNomorFakturPajak] = useState('');
   const [creatingInvoice, setCreatingInvoice]   = useState(false);
+  // null = full-amount (legacy SO with no termins); set = invoicing one specific SalesOrderTermin.
+  const [selectedTerminId, setSelectedTerminId] = useState<string | null>(null);
 
   // PDF export
   const [exportingPdf, setExportingPdf]         = useState(false);
@@ -389,16 +391,29 @@ export default function SalesOrderDetailPage() {
     }
   };
 
+  const openInvoiceModal = (terminId: string | null) => {
+    setSelectedTerminId(terminId);
+    setInvoiceModal(true);
+  };
+
+  const closeInvoiceModal = () => {
+    setInvoiceModal(false);
+    setSelectedTerminId(null);
+  };
+
+  const selectedTermin = so?.termins.find((t) => t.id === selectedTerminId) ?? null;
+
   const handleCreateInvoice = async () => {
     if (!so || !invoiceDate || !invoiceDueDate) return;
     setCreatingInvoice(true);
     try {
       const res = await invoiceService.create({
         salesOrderId: so.id,
+        salesOrderTerminId: selectedTermin?.id,
         customerId:   so.customerId,
-        invoiceDate,
+        date:         invoiceDate,
         dueDate:      invoiceDueDate,
-        amount:       so.grandTotal,
+        amount:       selectedTermin ? selectedTermin.amount : so.grandTotal,
         nomorFakturPajak: invoiceNomorFakturPajak.trim() || undefined,
       });
       toast.success(`Invoice ${res.data?.no} berhasil dibuat`);
@@ -588,10 +603,11 @@ export default function SalesOrderDetailPage() {
                 ) : null
               )}
 
-              {/* Buat Invoice */}
-              {canBuatInvoice && (
+              {/* Buat Invoice — SO tanpa termin saja; SO dengan termin pakai daftar per-termin
+                  di kartu Invoice (sidebar), bukan tombol tunggal ini. */}
+              {canBuatInvoice && so.termins.length === 0 && (
                 <button
-                  onClick={() => setInvoiceModal(true)}
+                  onClick={() => openInvoiceModal(null)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-purple-300 text-purple-700 rounded-md hover:bg-purple-50 transition-colors font-600"
                 >
                   <Receipt size={14} /> Buat Invoice
@@ -893,11 +909,41 @@ export default function SalesOrderDetailPage() {
                     ))}
                   </div>
                 )}
-                {canBuatInvoice && (
-                  <button onClick={() => setInvoiceModal(true)}
-                    className="text-xs text-purple-600 hover:underline font-500">
-                    + Buat Invoice
-                  </button>
+                {so.termins.length > 0 ? (
+                  <div className="space-y-1.5 mt-1 pt-2 border-t border-border">
+                    {so.termins.map((t) => (
+                      <div key={t.id} className="flex items-center justify-between text-[13px] py-0.5 gap-2">
+                        <span className="text-foreground">
+                          Termin {t.sortOrder} — {t.description}{' '}
+                          <span className="text-muted-foreground">({t.percentage}%)</span>
+                        </span>
+                        {t.isInvoiced ? (
+                          t.invoiceId ? (
+                            <Link href={`/invoice/${t.invoiceId}`}
+                              className="text-xs text-green-600 hover:underline font-500 flex-shrink-0">
+                              Sudah ditagih
+                            </Link>
+                          ) : (
+                            <span className="text-xs text-green-600 font-500 flex-shrink-0">Sudah ditagih</span>
+                          )
+                        ) : canBuatInvoice ? (
+                          <button onClick={() => openInvoiceModal(t.id)}
+                            className="text-xs text-purple-600 hover:underline font-500 flex-shrink-0">
+                            Buat Invoice
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground flex-shrink-0">{formatRp(t.amount)}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  canBuatInvoice && (
+                    <button onClick={() => openInvoiceModal(null)}
+                      className="text-xs text-purple-600 hover:underline font-500">
+                      + Buat Invoice
+                    </button>
+                  )
                 )}
               </div>
 
@@ -971,15 +1017,18 @@ export default function SalesOrderDetailPage() {
       {invoiceModal && (
         <div
           className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-          onClick={() => setInvoiceModal(false)}
+          onClick={closeInvoiceModal}
         >
           <div
             className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-700 text-foreground mb-0.5">Buat Invoice</h3>
+            <h3 className="text-base font-700 text-foreground mb-0.5">
+              Buat Invoice{selectedTermin && ` — Termin ${selectedTermin.sortOrder}`}
+            </h3>
             <p className="text-sm text-muted-foreground mb-5">
               {so.no} — {so.customerName}
+              {selectedTermin && ` · ${selectedTermin.description}`}
             </p>
 
             <div className="space-y-4">
@@ -1010,7 +1059,8 @@ export default function SalesOrderDetailPage() {
                   Jumlah
                 </label>
                 <div className="erp-input bg-muted/30 text-muted-foreground font-tabular font-600 select-none">
-                  {formatRp(so.grandTotal)}
+                  {formatRp(selectedTermin ? selectedTermin.amount : so.grandTotal)}
+                  {selectedTermin && ` (${selectedTermin.percentage}% dari total SO)`}
                 </div>
               </div>
               <div>
@@ -1030,7 +1080,7 @@ export default function SalesOrderDetailPage() {
 
             <div className="flex gap-2 mt-6">
               <button
-                onClick={() => setInvoiceModal(false)}
+                onClick={closeInvoiceModal}
                 className="btn-secondary flex-1"
               >
                 Batal

@@ -85,6 +85,16 @@ export interface SalesOrderItem {
   sortOrder: number;
 }
 
+export interface SalesOrderTermin {
+  id: string;
+  sortOrder: number;
+  description: string;
+  percentage: number;
+  amount: number;
+  isInvoiced: boolean;
+  invoiceId?: string;
+}
+
 export interface SalesOrderDetail {
   id: string;
   no: string;
@@ -110,6 +120,7 @@ export interface SalesOrderDetail {
   grandTotal: number;
   retentionPercentage: number;
   items: SalesOrderItem[];
+  termins: SalesOrderTermin[];
   createdAt: string;
 }
 

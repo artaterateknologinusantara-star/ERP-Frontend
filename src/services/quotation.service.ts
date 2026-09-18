@@ -41,10 +41,17 @@ export interface CreateQuotationDto {
   isCivilMeMode: boolean;
   totalAreaSqm?: number | null;
   paymentTerms?: string;
+  termins?: BackendTermin[];
   termsAndConditions?: string;
   notes?: string;
   additionalNotes?: string;
   tabs: BackendTab[];
+}
+
+interface BackendTermin {
+  sortOrder: number;
+  description: string;
+  percentage: number;
 }
 
 // ── Backend shape (matches SaveQuotationRequest on the API) ───────────────────

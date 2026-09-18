@@ -204,6 +204,13 @@ export interface PaymentTerm {
   percentage: number;
 }
 
+export interface QuotationTermin {
+  id: string;
+  sortOrder: number;
+  description: string;
+  percentage: number;
+}
+
 export interface Quotation {
   id: string;
   no: string;
@@ -222,6 +229,7 @@ export interface Quotation {
   isCivilMeMode: boolean;
   totalAreaSqm?: number | null;
   paymentTerms: string;
+  termins?: QuotationTermin[];
   termsAndConditions: string;
   notes: string;
   additionalNotes: string;

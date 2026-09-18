@@ -126,8 +126,10 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
   }));
 }
 
-// Parses the saved "20% - Deskripsi\n80% - Deskripsi\nNET 30 HARI" string back into
-// structured SyaratPembayaranSection state — the shape buildDto() produces below.
+// Parses PaymentTerms back into { terms, netPayment }. New-style saves only ever put a single
+// "NET 30 HARI" line here (percentages now live in the structured `termins` field sent alongside
+// it — see buildDto() below), but this still parses "20% - Deskripsi\n...\nNET 30 HARI" too, for
+// quotations saved before that split existed.
 function parsePaymentTermsString(str: string): { terms: PaymentTerm[]; netPayment: number } {
   const terms: PaymentTerm[] = [];
   let netPayment = 30;
@@ -248,8 +250,18 @@ export default function BuatPenawaranForm() {
         setApprovedAt(q.approvedAt);
         setApprovedByName(q.approvedByName);
         setSaveLabel(q.revision > 0 ? `Draft · R.${String(q.revision).padStart(2, '0')}` : 'Draft');
-        const { terms, netPayment: net } = parsePaymentTermsString(q.paymentTerms ?? '');
-        setPaymentTerms(terms);
+        // NET days still round-trips through the free-text PaymentTerms field (no dedicated
+        // backend field for it yet — see buildDto() below), but the percentage breakdown itself
+        // now comes from the structured q.termins when the quotation has any, falling back to
+        // parsing the old combined string only for quotations saved before this existed.
+        const { terms: legacyTerms, netPayment: net } = parsePaymentTermsString(q.paymentTerms ?? '');
+        const structuredTerms: PaymentTerm[] = (q.termins ?? []).length
+          ? q.termins!
+              .slice()
+              .sort((a, b) => a.sortOrder - b.sortOrder)
+              .map((t) => ({ id: `pt-${t.id}`, description: t.description, percentage: t.percentage }))
+          : legacyTerms;
+        setPaymentTerms(structuredTerms);
         setNetPayment(net);
         setTermsAndConditions(q.termsAndConditions ?? '');
       })
@@ -380,10 +392,6 @@ export default function BuatPenawaranForm() {
   };
 
   const buildDto = () => {
-    const ptStr = [
-      ...paymentTerms.map((t) => `${t.percentage}% - ${t.description}`),
-      `NET ${netPayment} HARI`,
-    ].join('\n');
     return {
       customerId: infoValues.customerId,
       salesId: infoValues.salesId,
@@ -394,7 +402,15 @@ export default function BuatPenawaranForm() {
       taxRate,
       isCivilMeMode,
       totalAreaSqm: totalAreaSqm ?? undefined,
-      paymentTerms: ptStr,
+      // Percentage breakdown now goes through `termins` (structured) — PaymentTerms is left
+      // holding only the NET-days line, since the backend has no dedicated field for that yet
+      // (see load effect above and the ambiguity noted in the implementation report).
+      paymentTerms: `NET ${netPayment} HARI`,
+      termins: paymentTerms.map((t, i) => ({
+        sortOrder: i + 1,
+        description: t.description,
+        percentage: t.percentage,
+      })),
       termsAndConditions,
       additionalNotes,
       tabs: mapTabsToBackend(tabs),
