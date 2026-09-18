@@ -6,12 +6,15 @@ import { Plus, Edit2, Trash2, KeyRound, Copy } from 'lucide-react';
 import ERPModal from '@/components/ui/ERPModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { userService, UserListItem, CreateUserDto, UpdateUserDto, RoleOption } from '@/services/user.service';
+import { userService, UserListItem, CreateUserDto, UpdateUserDto, RoleOption, SandboxInstance } from '@/services/user.service';
 import { authService } from '@/services/auth.service';
-import { formatDate } from '@/lib/format';
+import { formatDate, formatDateShort } from '@/lib/format';
 import type { ActiveStatus } from '@/types';
 
-const EMPTY_FORM = { name: '', email: '', password: '', roleId: '', isActive: true, isSandbox: false };
+const EMPTY_FORM = {
+  name: '', email: '', password: '', roleId: '', isActive: true,
+  isSandbox: false, sandboxMode: 'new' as 'new' | 'existing', existingSandboxDbName: '',
+};
 
 export default function UsersTab() {
   const [users, setUsers]   = useState<UserListItem[]>([]);
@@ -26,6 +29,8 @@ export default function UsersTab() {
   const [resetTarget, setResetTarget] = useState<UserListItem | null>(null);
   const [resetting, setResetting] = useState(false);
   const [resetLink, setResetLink] = useState<string | null>(null);
+  const [sandboxInstances, setSandboxInstances] = useState<SandboxInstance[]>([]);
+  const [loadingSandboxInstances, setLoadingSandboxInstances] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,22 +58,46 @@ export default function UsersTab() {
 
   const openEdit = (u: UserListItem) => {
     setSelected(u);
-    setForm({ name: u.name, email: u.email, password: '', roleId: u.roleId, isActive: u.isActive, isSandbox: u.isSandbox });
+    setForm({ ...EMPTY_FORM, name: u.name, email: u.email, roleId: u.roleId, isActive: u.isActive, isSandbox: u.isSandbox });
     setModal('edit');
   };
 
   const closeModal = () => { setModal(null); setSelected(null); };
+
+  const loadSandboxInstances = async () => {
+    setLoadingSandboxInstances(true);
+    try {
+      setSandboxInstances(await userService.getSandboxInstances());
+    } catch {
+      toast.error('Gagal memuat daftar database sandbox');
+    } finally {
+      setLoadingSandboxInstances(false);
+    }
+  };
+
+  const handleSandboxToggle = (checked: boolean) => {
+    setForm((p) => ({ ...p, isSandbox: checked, sandboxMode: 'new', existingSandboxDbName: '' }));
+    if (checked && sandboxInstances.length === 0) loadSandboxInstances();
+  };
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Nama wajib diisi'); return; }
     if (!form.email.trim()) { toast.error('Email wajib diisi'); return; }
     if (!form.roleId) { toast.error('Role wajib dipilih'); return; }
     if (modal === 'create' && !form.password) { toast.error('Password wajib diisi'); return; }
+    if (modal === 'create' && form.isSandbox && form.sandboxMode === 'existing' && !form.existingSandboxDbName) {
+      toast.error('Pilih database sandbox yang ingin digabung');
+      return;
+    }
 
     setSaving(true);
     try {
       if (modal === 'create') {
-        const dto: CreateUserDto = { name: form.name, email: form.email, password: form.password, roleId: form.roleId, isSandbox: form.isSandbox };
+        const dto: CreateUserDto = {
+          name: form.name, email: form.email, password: form.password, roleId: form.roleId,
+          isSandbox: form.isSandbox,
+          ...(form.isSandbox && form.sandboxMode === 'existing' ? { existingSandboxDbName: form.existingSandboxDbName } : {}),
+        };
         await userService.create(dto);
         toast.success('User berhasil dibuat');
       } else if (selected) {
@@ -250,15 +279,59 @@ export default function UsersTab() {
                   type="checkbox"
                   className="rounded"
                   checked={form.isSandbox}
-                  onChange={(e) => setForm((p) => ({ ...p, isSandbox: e.target.checked }))}
+                  onChange={(e) => handleSandboxToggle(e.target.checked)}
                 />
                 <span className="text-[13px]">Buat sebagai akun sandbox (database terpisah)</span>
               </label>
-              <p className="text-xs text-muted-foreground mt-1">
-                Akun ini akan mendapat database sendiri yang terisolasi dari data produksi —
-                bisa dihapus kapan saja tanpa memengaruhi data asli. Proses pembuatan database
-                memakan waktu beberapa detik.
-              </p>
+              {!form.isSandbox ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Akun ini akan mendapat database sendiri yang terisolasi dari data produksi —
+                  bisa dihapus kapan saja tanpa memengaruhi data asli. Proses pembuatan database
+                  memakan waktu beberapa detik.
+                </p>
+              ) : (
+                <div className="mt-2 space-y-2 pl-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="sandboxMode"
+                      checked={form.sandboxMode === 'new'}
+                      onChange={() => setForm((p) => ({ ...p, sandboxMode: 'new', existingSandboxDbName: '' }))}
+                    />
+                    <span className="text-[13px]">Buat sandbox baru</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="sandboxMode"
+                      checked={form.sandboxMode === 'existing'}
+                      onChange={() => setForm((p) => ({ ...p, sandboxMode: 'existing' }))}
+                    />
+                    <span className="text-[13px]">Gabung ke sandbox yang sudah ada</span>
+                  </label>
+                  {form.sandboxMode === 'existing' && (
+                    <select
+                      className="erp-input"
+                      value={form.existingSandboxDbName}
+                      onChange={(e) => setForm((p) => ({ ...p, existingSandboxDbName: e.target.value }))}
+                    >
+                      <option value="">
+                        {loadingSandboxInstances ? '— Memuat... —' : '— Pilih database sandbox —'}
+                      </option>
+                      {sandboxInstances.map((s) => (
+                        <option key={s.sandboxDbName} value={s.sandboxDbName}>
+                          {s.sampleNames} ({s.userCount} user, dibuat {formatDateShort(s.createdAt)})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {form.sandboxMode === 'new'
+                      ? 'Akun ini akan mendapat database sendiri yang terisolasi dari data produksi — bisa dihapus kapan saja tanpa memengaruhi data asli. Proses pembuatan database memakan waktu beberapa detik.'
+                      : 'Akun ini akan memakai database sandbox yang sama dengan user lain — tidak ada database baru yang dibuat.'}
+                  </p>
+                </div>
+              )}
             </div>
           )}
           {modal === 'edit' && (

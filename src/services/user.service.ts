@@ -24,6 +24,14 @@ export interface CreateUserDto {
   password: string;
   roleId: string;
   isSandbox: boolean;
+  existingSandboxDbName?: string;
+}
+
+export interface SandboxInstance {
+  sandboxDbName: string;
+  userCount: number;
+  sampleNames: string;
+  createdAt: string;
 }
 
 export interface UpdateUserDto {
@@ -42,6 +50,11 @@ export const userService = {
 
   async listRoles(): Promise<RoleOption[]> {
     const res = await api.get<RoleOption[]>('/users/roles');
+    return res.data ?? [];
+  },
+
+  async getSandboxInstances(): Promise<SandboxInstance[]> {
+    const res = await api.get<SandboxInstance[]>('/users/sandbox-instances');
     return res.data ?? [];
   },
 
