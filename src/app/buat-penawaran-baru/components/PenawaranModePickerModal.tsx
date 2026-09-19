@@ -20,8 +20,8 @@ const options: {
   {
     mode: 'standard',
     icon: FileText,
-    title: 'Penawaran Existing',
-    description: 'Format penawaran standar yang sudah berjalan selama ini — tabel costing per kategori item.',
+    title: 'Penawaran',
+    description: 'Untuk penawaran umum non-konstruksi — dilengkapi tabel costing per kategori item dan struktur termin pembayaran.',
   },
   {
     mode: 'civil-me',
