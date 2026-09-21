@@ -4,13 +4,17 @@ import React, { useRef } from 'react';
 import { toast } from 'sonner';
 import { Plus, Trash2, Upload, X } from 'lucide-react';
 import CurrencyInput from '@/components/ui/CurrencyInput';
+import ERPModal from '@/components/ui/ERPModal';
 import { quotationService } from '@/services/quotation.service';
-import { isGuid } from '@/lib/guid';
 import type { CostingGroup, WorkItem, WorkDetail } from '@/types';
 
 interface Props {
   group: CostingGroup;
   onUpdate: (fields: Partial<CostingGroup>) => void;
+  // Controlled from the parent — the trigger button lives in the Subtotal row (CostingTable),
+  // not here, so this component only owns the modal itself.
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 const MAX_IMAGE_BYTES = 1 * 1024 * 1024;
@@ -19,8 +23,7 @@ function detailPayload(d: WorkDetail) {
   return { name: d.name, spesifikasi: d.spesifikasi, volume: d.volume, unit: d.unit, unitPrice: d.unitPrice, sortOrder: d.sortOrder };
 }
 
-export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
-  const isPersisted = isGuid(group.id);
+export default function GroupWorkItemsPanel({ group, onUpdate, isOpen, onClose }: Props) {
   const workItems = group.workItems ?? [];
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   // Mirrors the latest workItems across renders so a multi-file upload batch (several awaits
@@ -145,18 +148,15 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
     }
   };
 
-  if (!isPersisted) {
-    return (
-      <div className="pt-1.5 text-xs text-muted-foreground italic">
-        Detail RAB/BQ: simpan penawaran dulu
-      </div>
-    );
-  }
-
   return (
-    <div className="pt-2 space-y-2">
-      <span className="text-xs font-600 text-muted-foreground uppercase tracking-wide">Detail RAB/BQ</span>
-
+    <ERPModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Detail RAB/BQ"
+      subtitle={group.name}
+      size="full"
+    >
+      <div className="space-y-2">
       {workItems.map((workItem, wi) => (
         <div key={workItem.id} className="border border-border rounded-lg p-2 space-y-1.5">
           <div className="flex items-center gap-1.5">
@@ -205,13 +205,13 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
                       placeholder="Detail Kerja (mis. Peninggian lantai t.20cm)"
                       className="erp-input text-xs py-1"
                     />
-                    <input
-                      type="text"
+                    <textarea
                       value={detail.spesifikasi}
                       onChange={(e) => updateDetailLocal(workItem.id, detail.id, { spesifikasi: e.target.value })}
                       onBlur={() => handleDetailBlur(detail)}
-                      placeholder="Spesifikasi"
-                      className="erp-input text-xs py-1"
+                      placeholder={'Spesifikasi (mis. - Stop kontak...\n- NYM 3x2.5mm...\n- Broco...)'}
+                      rows={3}
+                      className="erp-input text-xs py-1 resize-y"
                     />
                   </div>
                 </div>
@@ -306,6 +306,7 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
       >
         <Plus size={12} /> Item Pekerjaan
       </button>
-    </div>
+      </div>
+    </ERPModal>
   );
 }
