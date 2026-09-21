@@ -226,7 +226,7 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                       type="text"
                       value={group.name}
                       onChange={(e) => updateGroupName(group.id, e.target.value)}
-                      className="bg-transparent border-none outline-none text-primary font-700 text-base w-full"
+                      className="bg-card border border-border shadow-sm rounded px-1.5 py-0.5 -mx-1.5 outline-none text-primary font-700 text-base w-full transition-colors hover:border-primary/40 focus:border-primary/50"
                     />
                   </td>
                   <td className="erp-table-cell text-right">
@@ -415,7 +415,7 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                 type="text"
                 value={group.name}
                 onChange={(e) => updateGroupName(group.id, e.target.value)}
-                className="flex-1 min-w-0 bg-transparent border-none outline-none text-primary font-700 text-md"
+                className="flex-1 min-w-0 bg-card border border-border shadow-sm rounded px-1.5 py-0.5 -mx-1.5 outline-none text-primary font-700 text-md transition-colors hover:border-primary/40 focus:border-primary/50"
               />
               <button
                 onClick={() => deleteGroup(group.id)}

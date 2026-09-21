@@ -448,6 +448,7 @@ export default function BuatPenawaranForm() {
         setCurrentStatus(q.status);
         setSaveLabel(q.revision > 0 ? `Draft · R.${String(q.revision).padStart(2, '0')}` : 'Draft');
         clearDraftState();
+        router.push('/riwayat-penawaran');
       } else {
         // CREATE new quotation — stay on this page, patch state from the response (real
         // GUIDs for groups/work items), and silently put ?id= in the URL (via the History
@@ -463,6 +464,7 @@ export default function BuatPenawaranForm() {
         window.history.replaceState(null, '', `${window.location.pathname}?id=${q.id}`);
         toast.success('Draft penawaran berhasil disimpan');
         clearDraftState();
+        router.push('/riwayat-penawaran');
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal menyimpan penawaran');
@@ -561,7 +563,7 @@ export default function BuatPenawaranForm() {
                 Menyimpan...
               </span>
             ) : (
-              <><Save size={14} /> Submit Penawaran</>
+              <><Save size={14} /> Simpan Penawaran</>
             )}
           </button>
           <button className="btn-primary min-h-11 flex-shrink-0" onClick={() => router.push('/riwayat-penawaran')}>
