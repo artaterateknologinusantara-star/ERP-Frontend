@@ -67,9 +67,16 @@ const defaultInfo: InfoFormValues = {
   date: today,
   validUntil: thirtyDaysLater,
   salesId: '20000000-0000-0000-0000-000000000001',
-  branch: 'Jakarta Pusat',
   quotationNo: '—',
   revision: 0,
+  facilityId: '',
+  renovPic: '',
+  facilityName: '',
+  scopeOfWork: '',
+  location: '',
+  contractor: '',
+  validityPeriod: '',
+  areaBlockTender: '',
 };
 
 // Maps backend QuotationDto tabs (items) back to frontend CostingTab (rows)
@@ -237,9 +244,16 @@ export default function BuatPenawaranForm() {
           date: q.date,
           validUntil: q.validUntil ?? '',
           salesId: q.salesId,
-          branch: 'Jakarta Pusat',
           quotationNo: q.no,
           revision: q.revision,
+          facilityId: q.facilityId ?? '',
+          renovPic: q.renovPic ?? '',
+          facilityName: q.facilityName ?? '',
+          scopeOfWork: q.scopeOfWork ?? '',
+          location: q.location ?? '',
+          contractor: q.contractor ?? '',
+          validityPeriod: q.validityPeriod ?? '',
+          areaBlockTender: q.areaBlockTender ?? '',
         });
         if (q.tabs?.length) setTabs(mapApiTabs(q.tabs as any[]));
         setDiscount(q.discount);
@@ -402,6 +416,14 @@ export default function BuatPenawaranForm() {
       taxRate,
       isCivilMeMode,
       totalAreaSqm: totalAreaSqm ?? undefined,
+      facilityId: infoValues.facilityId || undefined,
+      renovPic: infoValues.renovPic || undefined,
+      facilityName: infoValues.facilityName || undefined,
+      scopeOfWork: infoValues.scopeOfWork || undefined,
+      location: infoValues.location || undefined,
+      contractor: infoValues.contractor || undefined,
+      validityPeriod: infoValues.validityPeriod || undefined,
+      areaBlockTender: infoValues.areaBlockTender || undefined,
       // Percentage breakdown now goes through `termins` (structured) — PaymentTerms is left
       // holding only the NET-days line, since the backend has no dedicated field for that yet
       // (see load effect above and the ambiguity noted in the implementation report).
@@ -630,6 +652,7 @@ export default function BuatPenawaranForm() {
         values={infoValues}
         onChange={(patch) => setInfoValues((v) => ({ ...v, ...patch }))}
         errors={{}}
+        isCivilMeMode={isCivilMeMode}
       />
 
       {/* Section 2: Costing Tabs */}

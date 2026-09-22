@@ -14,20 +14,27 @@ export interface InfoFormValues {
   date: string;
   validUntil: string;
   salesId: string;
-  branch: string;
   quotationNo: string;
   revision: number;
+  // ── Header RAB khusus mode Civil & ME ──────────────────────────────────────
+  facilityId: string;
+  renovPic: string;
+  facilityName: string;
+  scopeOfWork: string;
+  location: string;
+  contractor: string;
+  validityPeriod: string;
+  areaBlockTender: string;
 }
 
 interface Props {
   values: InfoFormValues;
   onChange: (patch: Partial<InfoFormValues>) => void;
   errors?: Partial<Record<keyof InfoFormValues, string>>;
+  isCivilMeMode?: boolean;
 }
 
-const BRANCH_OPTIONS = ['Jakarta Pusat', 'Jakarta Selatan', 'Surabaya', 'Bandung', 'Medan'];
-
-export default function InformasiPenawaranSection({ values, onChange, errors }: Props) {
+export default function InformasiPenawaranSection({ values, onChange, errors, isCivilMeMode }: Props) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [salesOptions, setSalesOptions] = useState<SelectOption[]>([]);
 
@@ -215,17 +222,6 @@ export default function InformasiPenawaranSection({ values, onChange, errors }: 
         {/* ── Right Column ────────────────────────────────────────────────── */}
         <div className="space-y-4">
 
-          {/* Cabang */}
-          <div>
-            <label className="erp-form-label">Cabang</label>
-            <div className="relative">
-              <select {...field('branch')} className="erp-input appearance-none pr-8">
-                {BRANCH_OPTIONS.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            </div>
-          </div>
-
           {/* Sales Person */}
           <div>
             <label className="erp-form-label">
@@ -281,6 +277,49 @@ export default function InformasiPenawaranSection({ values, onChange, errors }: 
           </div>
         </div>
       </div>
+
+      {/* Header RAB — hanya relevan untuk mode Civil & ME */}
+      {isCivilMeMode && (
+        <div className="mt-5 pt-5 border-t border-border">
+          <h3 className="text-xs font-600 text-muted-foreground uppercase tracking-wider mb-3">
+            Header RAB (Civil &amp; ME)
+          </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <label className="erp-form-label">Facility ID</label>
+              <input type="text" {...field('facilityId')} className="erp-input" />
+            </div>
+            <div>
+              <label className="erp-form-label">Renov PIC</label>
+              <input type="text" {...field('renovPic')} className="erp-input" />
+            </div>
+            <div>
+              <label className="erp-form-label">Facility Name</label>
+              <input type="text" {...field('facilityName')} className="erp-input" />
+            </div>
+            <div>
+              <label className="erp-form-label">Scope of Work</label>
+              <input type="text" {...field('scopeOfWork')} className="erp-input" />
+            </div>
+            <div>
+              <label className="erp-form-label">Location</label>
+              <input type="text" {...field('location')} className="erp-input" />
+            </div>
+            <div>
+              <label className="erp-form-label">Contractor</label>
+              <input type="text" {...field('contractor')} className="erp-input" />
+            </div>
+            <div>
+              <label className="erp-form-label">Validity Period</label>
+              <input type="text" {...field('validityPeriod')} className="erp-input" placeholder="Contoh: 14 hari sejak tanggal penawaran" />
+            </div>
+            <div>
+              <label className="erp-form-label">Area Block Tender</label>
+              <input type="text" {...field('areaBlockTender')} className="erp-input" />
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
