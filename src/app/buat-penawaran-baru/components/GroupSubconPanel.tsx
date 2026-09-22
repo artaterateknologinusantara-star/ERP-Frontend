@@ -11,9 +11,13 @@ import type { CostingGroup } from '@/types';
 interface Props {
   group: CostingGroup;
   onUpdate: (fields: Partial<CostingGroup>) => void;
+  // Rendered at the end of the Subkontraktor row — lets the caller (CostingTable) place its
+  // "Isi Detail RAB/BQ" trigger on the same row as the Subkontraktor label/dropdown instead of
+  // in a separate table cell, without this component needing to know what that action is.
+  actions?: React.ReactNode;
 }
 
-export default function GroupSubconPanel({ group, onUpdate }: Props) {
+export default function GroupSubconPanel({ group, onUpdate, actions }: Props) {
   const { data: subconResult } = useQuery({
     queryKey: ['suppliers-subcontractor'],
     queryFn: () =>
@@ -66,6 +70,8 @@ export default function GroupSubconPanel({ group, onUpdate }: Props) {
             onChange={(v) => onUpdate({ finalSellingPrice: v || null })}
           />
         </div>
+
+        {actions}
       </div>
 
       {hasValues && (

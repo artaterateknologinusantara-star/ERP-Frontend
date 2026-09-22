@@ -5,7 +5,6 @@ import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, ClipboardList } 
 import { formatRp } from '@/lib/format';
 import { getMarginTier, marginTierClasses } from '@/lib/margin';
 import { computeFloorPrice, floorWarningText } from '@/lib/itemMargin';
-import { isGuid } from '@/lib/guid';
 import type { CostingTab, CostingGroup, CostingRow, ItemMaster } from '@/types';
 import ItemAutocomplete from './ItemAutocomplete';
 import CurrencyInput from '@/components/ui/CurrencyInput';
@@ -186,9 +185,11 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
     </datalist>
     <div className="hidden lg:block overflow-x-auto overflow-y-auto max-h-[560px]">
       <table className="w-full text-base border-collapse min-w-[1220px]">
-        {/* Standard mode only — Civil & ME groups have no equipment/material rows to head */}
-        {!isCivilMeMode && (
-        <thead className="sticky top-0 z-10">
+        {/* Always rendered — a Civil & ME category can still get item rows via "Tambah Baris"
+            (that button isn't gated by isCivilMeMode either), so the header must match.
+            Deliberately NOT sticky: sticking it to the viewport made it cut into the row list
+            mid-scroll instead of staying put above row 1 where it belongs. */}
+        <thead>
           <tr className="bg-muted border-b-2 border-border">
             <th className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider w-10">No</th>
             <th className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider min-w-[140px]">Equipment</th>
@@ -205,7 +206,6 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
             <th className="erp-table-cell w-8"></th>
           </tr>
         </thead>
-        )}
         <tbody>
           {tabData.groups.map((group, groupIndex) => {
             const isCollapsed = collapsed.includes(group.id);
@@ -354,7 +354,33 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                         )}
                       </div>
                       {isCivilMeMode && (
-                        <GroupSubconPanel group={group} onUpdate={(fields) => updateGroupFields(group.id, fields)} />
+                        <GroupSubconPanel
+                          group={group}
+                          onUpdate={(fields) => updateGroupFields(group.id, fields)}
+                          actions={
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setActiveWorkItemsGroupId(group.id)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0"
+                              >
+                                <ClipboardList size={13} />
+                                Isi Detail RAB/BQ
+                                {(group.workItems?.length ?? 0) > 0 && (
+                                  <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
+                                    {group.workItems!.length}
+                                  </span>
+                                )}
+                              </button>
+                              <GroupWorkItemsPanel
+                                group={group}
+                                onUpdate={(fields) => updateGroupFields(group.id, fields)}
+                                isOpen={activeWorkItemsGroupId === group.id}
+                                onClose={() => setActiveWorkItemsGroupId(null)}
+                              />
+                            </>
+                          }
+                        />
                       )}
                     </td>
                     <td className="erp-table-cell text-right font-700 font-tabular text-primary text-base" colSpan={2}>
@@ -366,35 +392,7 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                     <td className="erp-table-cell text-right font-700 font-tabular text-primary text-base">
                       {fmtRp(groupTotal(group))}
                     </td>
-                    <td className="erp-table-cell text-right">
-                      {isCivilMeMode && (
-                        isGuid(group.id) ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setActiveWorkItemsGroupId(group.id)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
-                            >
-                              <ClipboardList size={13} />
-                              Isi Detail RAB/BQ
-                              {(group.workItems?.length ?? 0) > 0 && (
-                                <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
-                                  {group.workItems!.length}
-                                </span>
-                              )}
-                            </button>
-                            <GroupWorkItemsPanel
-                              group={group}
-                              onUpdate={(fields) => updateGroupFields(group.id, fields)}
-                              isOpen={activeWorkItemsGroupId === group.id}
-                              onClose={() => setActiveWorkItemsGroupId(null)}
-                            />
-                          </>
-                        ) : (
-                          <span className="text-[11px] text-muted-foreground italic whitespace-nowrap">Simpan dulu</span>
-                        )
-                      )}
-                    </td>
+                    <td className="erp-table-cell text-right" />
                   </tr>
                 )}
               </React.Fragment>
@@ -583,33 +581,6 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-700 text-primary uppercase tracking-wide flex-shrink-0">Subtotal</span>
                   <div className="flex items-center gap-2 min-w-0">
-                    {isCivilMeMode && (
-                      isGuid(group.id) ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => setActiveWorkItemsGroupId(group.id)}
-                            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors flex-shrink-0"
-                          >
-                            <ClipboardList size={12} />
-                            RAB/BQ
-                            {(group.workItems?.length ?? 0) > 0 && (
-                              <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
-                                {group.workItems!.length}
-                              </span>
-                            )}
-                          </button>
-                          <GroupWorkItemsPanel
-                            group={group}
-                            onUpdate={(fields) => updateGroupFields(group.id, fields)}
-                            isOpen={activeWorkItemsGroupId === group.id}
-                            onClose={() => setActiveWorkItemsGroupId(null)}
-                          />
-                        </>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground italic flex-shrink-0">Simpan dulu</span>
-                      )
-                    )}
                     <span className="font-700 font-tabular text-primary text-md">{fmtRp(groupTotal(group))}</span>
                   </div>
                 </div>
@@ -625,7 +596,33 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                   </div>
                 )}
                 {isCivilMeMode && (
-                  <GroupSubconPanel group={group} onUpdate={(fields) => updateGroupFields(group.id, fields)} />
+                  <GroupSubconPanel
+                    group={group}
+                    onUpdate={(fields) => updateGroupFields(group.id, fields)}
+                    actions={
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setActiveWorkItemsGroupId(group.id)}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0"
+                        >
+                          <ClipboardList size={12} />
+                          RAB/BQ
+                          {(group.workItems?.length ?? 0) > 0 && (
+                            <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
+                              {group.workItems!.length}
+                            </span>
+                          )}
+                        </button>
+                        <GroupWorkItemsPanel
+                          group={group}
+                          onUpdate={(fields) => updateGroupFields(group.id, fields)}
+                          isOpen={activeWorkItemsGroupId === group.id}
+                          onClose={() => setActiveWorkItemsGroupId(null)}
+                        />
+                      </>
+                    }
+                  />
                 )}
               </div>
             )}
