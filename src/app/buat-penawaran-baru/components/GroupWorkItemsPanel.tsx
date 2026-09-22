@@ -4,6 +4,7 @@ import React, { useRef } from 'react';
 import { toast } from 'sonner';
 import { Plus, Trash2, Upload, X } from 'lucide-react';
 import CurrencyInput from '@/components/ui/CurrencyInput';
+import ERPModal from '@/components/ui/ERPModal';
 import { quotationService } from '@/services/quotation.service';
 import { isGuid } from '@/lib/guid';
 import type { CostingGroup, WorkItem, WorkDetail } from '@/types';
@@ -11,16 +12,15 @@ import type { CostingGroup, WorkItem, WorkDetail } from '@/types';
 interface Props {
   group: CostingGroup;
   onUpdate: (fields: Partial<CostingGroup>) => void;
+  // Controlled from the parent — the trigger button lives in the Subtotal row (CostingTable),
+  // not here, so this component only owns the modal itself.
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 const MAX_IMAGE_BYTES = 1 * 1024 * 1024;
 
-function detailPayload(d: WorkDetail) {
-  return { name: d.name, spesifikasi: d.spesifikasi, volume: d.volume, unit: d.unit, unitPrice: d.unitPrice, sortOrder: d.sortOrder };
-}
-
-export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
-  const isPersisted = isGuid(group.id);
+export default function GroupWorkItemsPanel({ group, onUpdate, isOpen, onClose }: Props) {
   const workItems = group.workItems ?? [];
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   // Mirrors the latest workItems across renders so a multi-file upload batch (several awaits
@@ -35,46 +35,41 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
     onUpdate({ workItems: next });
   };
 
-  const handleAddWorkItem = async () => {
-    try {
-      const res = await quotationService.createWorkItem(group.id, { name: 'Item Pekerjaan Baru', sortOrder: workItems.length });
-      setWorkItems([...workItems, { ...res.data, workDetails: [] }]);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Gagal menambah Item Pekerjaan');
-    }
+  // WorkItem/WorkDetail rows are pure local state now — no network call until the whole
+  // Quotation form is submitted (buildDto sends the full workItems tree, upsert-by-Id on the
+  // backend). Only uploaded attachments (below) still need a real API round-trip, since a file
+  // has to land on a real, already-saved WorkDetail.Id.
+
+  const handleAddWorkItem = () => {
+    const newWorkItem: WorkItem = {
+      id: `wi-${group.id}-${Date.now()}`,
+      name: 'Item Pekerjaan Baru',
+      sortOrder: workItems.length,
+      workDetails: [],
+    };
+    setWorkItems([...workItems, newWorkItem]);
   };
 
   const handleRenameWorkItem = (workItem: WorkItem, name: string) => {
     setWorkItems(workItems.map((w) => (w.id === workItem.id ? { ...w, name } : w)));
   };
 
-  const handleWorkItemBlur = async (workItem: WorkItem) => {
-    try {
-      await quotationService.updateWorkItem(workItem.id, { name: workItem.name, sortOrder: workItem.sortOrder });
-    } catch {
-      toast.error('Gagal menyimpan nama Item Pekerjaan');
-    }
+  const handleDeleteWorkItem = (workItem: WorkItem) => {
+    setWorkItems(workItems.filter((w) => w.id !== workItem.id));
   };
 
-  const handleDeleteWorkItem = async (workItem: WorkItem) => {
-    try {
-      await quotationService.deleteWorkItem(workItem.id);
-      setWorkItems(workItems.filter((w) => w.id !== workItem.id));
-    } catch {
-      toast.error('Gagal menghapus Item Pekerjaan');
-    }
-  };
-
-  const handleAddWorkDetail = async (workItem: WorkItem) => {
-    try {
-      const res = await quotationService.createWorkDetail(workItem.id, {
-        name: '', spesifikasi: '', volume: 0, unit: '', unitPrice: 0, sortOrder: workItem.workDetails.length,
-      });
-      const detail: WorkDetail = { ...res.data, attachments: [] };
-      setWorkItems(workItems.map((w) => (w.id === workItem.id ? { ...w, workDetails: [...w.workDetails, detail] } : w)));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Gagal menambah Detail Kerja');
-    }
+  const handleAddWorkDetail = (workItem: WorkItem) => {
+    const newDetail: WorkDetail = {
+      id: `wd-${workItem.id}-${Date.now()}`,
+      name: '',
+      spesifikasi: '',
+      volume: 0,
+      unit: '',
+      unitPrice: 0,
+      sortOrder: workItem.workDetails.length,
+      attachments: [],
+    };
+    setWorkItems(workItems.map((w) => (w.id === workItem.id ? { ...w, workDetails: [...w.workDetails, newDetail] } : w)));
   };
 
   const updateDetailLocal = (workItemId: string, detailId: string, patch: Partial<WorkDetail>) => {
@@ -86,23 +81,10 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
     )));
   };
 
-  const handleDetailBlur = async (detail: WorkDetail) => {
-    try {
-      await quotationService.updateWorkDetail(detail.id, detailPayload(detail));
-    } catch {
-      toast.error('Gagal menyimpan Detail Kerja');
-    }
-  };
-
-  const handleDeleteWorkDetail = async (workItem: WorkItem, detail: WorkDetail) => {
-    try {
-      await quotationService.deleteWorkDetail(detail.id);
-      setWorkItems(workItems.map((w) => (
-        w.id !== workItem.id ? w : { ...w, workDetails: w.workDetails.filter((d) => d.id !== detail.id) }
-      )));
-    } catch {
-      toast.error('Gagal menghapus Detail Kerja');
-    }
+  const handleDeleteWorkDetail = (workItem: WorkItem, detail: WorkDetail) => {
+    setWorkItems(workItems.map((w) => (
+      w.id !== workItem.id ? w : { ...w, workDetails: w.workDetails.filter((d) => d.id !== detail.id) }
+    )));
   };
 
   const handleUploadImage = async (workItem: WorkItem, detail: WorkDetail, file: File) => {
@@ -145,34 +127,32 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
     }
   };
 
-  if (!isPersisted) {
-    return (
-      <div className="pt-1.5 text-xs text-muted-foreground italic">
-        Detail RAB/BQ: simpan penawaran dulu
-      </div>
-    );
-  }
-
   return (
-    <div className="pt-2 space-y-2">
-      <span className="text-xs font-600 text-muted-foreground uppercase tracking-wide">Detail RAB/BQ</span>
-
+    <ERPModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Detail RAB/BQ"
+      subtitle={group.name}
+      size="full"
+    >
+      <div className="space-y-2">
       {workItems.map((workItem, wi) => (
-        <div key={workItem.id} className="border border-border rounded-lg p-2 space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground font-tabular flex-shrink-0">{wi + 1}.</span>
+        <div key={workItem.id} className="erp-card !p-3 space-y-2">
+          <div className="flex items-center gap-1.5 pb-2 border-b border-border">
+            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary text-[11px] font-700 flex-shrink-0">
+              {wi + 1}
+            </span>
             <input
               type="text"
               value={workItem.name}
               onChange={(e) => handleRenameWorkItem(workItem, e.target.value)}
-              onBlur={() => handleWorkItemBlur(workItem)}
               placeholder="Nama Item Pekerjaan"
               className="erp-input flex-1 text-xs font-600 py-1"
             />
             <button
               type="button"
               onClick={() => handleAddWorkDetail(workItem)}
-              className="p-1 rounded hover:bg-primary/10 text-primary transition-colors flex-shrink-0"
+              className="p-1.5 rounded hover:bg-primary/10 text-primary transition-colors flex-shrink-0"
               title="Tambah Detail Kerja"
             >
               <Plus size={13} />
@@ -180,101 +160,122 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
             <button
               type="button"
               onClick={() => handleDeleteWorkItem(workItem)}
-              className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
+              className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
               title="Hapus Item Pekerjaan"
             >
               <Trash2 size={13} />
             </button>
           </div>
 
+          <div className="space-y-1.5">
           {workItem.workDetails.map((detail, di) => {
             const totalHarga = detail.volume * detail.unitPrice;
             const inputKey = `${workItem.id}:${detail.id}`;
+            const canUpload = isGuid(detail.id);
             return (
-              <div key={detail.id} className="ml-4 pl-2 border-l-2 border-border space-y-1">
-                <div className="flex items-start gap-1.5">
-                  <span className="text-[11px] text-muted-foreground font-tabular flex-shrink-0 pt-1.5">
-                    {wi + 1}.{di + 1}
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 flex-1 min-w-0">
+              <div key={detail.id} className="bg-muted/30 border border-border/60 rounded-md p-2 space-y-1.5">
+                <span className="text-[10px] font-600 text-muted-foreground uppercase tracking-wide">
+                  Detail {wi + 1}.{di + 1}
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  <div>
+                    <label className="erp-form-label">Nama Item/Deskripsi</label>
                     <input
                       type="text"
                       value={detail.name}
                       onChange={(e) => updateDetailLocal(workItem.id, detail.id, { name: e.target.value })}
-                      onBlur={() => handleDetailBlur(detail)}
-                      placeholder="Detail Kerja (mis. Peninggian lantai t.20cm)"
+                      placeholder="mis. Peninggian lantai t.20cm"
                       className="erp-input text-xs py-1"
                     />
-                    <input
-                      type="text"
+                  </div>
+                  <div>
+                    <label className="erp-form-label">Spesifikasi</label>
+                    <textarea
                       value={detail.spesifikasi}
                       onChange={(e) => updateDetailLocal(workItem.id, detail.id, { spesifikasi: e.target.value })}
-                      onBlur={() => handleDetailBlur(detail)}
-                      placeholder="Spesifikasi"
-                      className="erp-input text-xs py-1"
+                      placeholder={'mis. - Stop kontak...\n- NYM 3x2.5mm...\n- Broco...'}
+                      rows={3}
+                      className="erp-input text-xs py-1 resize-y"
                     />
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <input
-                    type="number"
-                    value={detail.volume}
-                    onChange={(e) => updateDetailLocal(workItem.id, detail.id, { volume: parseFloat(e.target.value) || 0 })}
-                    onBlur={() => handleDetailBlur(detail)}
-                    placeholder="Vol for Con +/-"
-                    className="erp-input w-28 text-xs text-right font-tabular py-1"
-                  />
-                  <input
-                    type="text"
-                    value={detail.unit}
-                    onChange={(e) => updateDetailLocal(workItem.id, detail.id, { unit: e.target.value })}
-                    onBlur={() => handleDetailBlur(detail)}
-                    placeholder="Sat"
-                    className="erp-input w-16 text-xs py-1"
-                  />
-                  <div className="w-32">
-                    <CurrencyInput
-                      value={detail.unitPrice}
-                      prefix=""
-                      onChange={(v) => updateDetailLocal(workItem.id, detail.id, { unitPrice: v })}
-                      onBlur={() => handleDetailBlur(detail)}
-                    />
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    Total: <span className="font-600 text-foreground font-tabular">
-                      {totalHarga.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })}
-                    </span>
-                  </span>
 
-                  <input
-                    ref={(el) => { fileInputRefs.current[inputKey] = el; }}
-                    type="file"
-                    accept="image/jpeg,image/png"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      // Snapshot to a plain array BEFORE clearing value — `e.target.files` is a
-                      // live FileList tied to the input, so resetting `.value` empties it too if
-                      // read afterwards, silently dropping every file in the batch.
-                      const files = e.target.files ? Array.from(e.target.files) : [];
-                      e.target.value = '';
-                      if (files.length > 0) handleUploadImages(workItem, detail, files);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRefs.current[inputKey]?.click()}
-                    className="flex items-center gap-1 px-1.5 py-1 text-xs text-primary bg-primary/10 hover:bg-primary/20 rounded transition-colors"
-                  >
-                    <Upload size={11} /> Gambar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteWorkDetail(workItem, detail)}
-                    className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 size={12} />
-                  </button>
+                <div className="flex flex-col sm:flex-row sm:items-end gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1">
+                    <div>
+                      <label className="erp-form-label">Volume</label>
+                      <input
+                        type="number"
+                        value={detail.volume === 0 ? '' : detail.volume}
+                        onChange={(e) => updateDetailLocal(workItem.id, detail.id, { volume: parseFloat(e.target.value) || 0 })}
+                        placeholder="0"
+                        className="erp-input text-xs text-right font-tabular py-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="erp-form-label">Satuan</label>
+                      <input
+                        type="text"
+                        value={detail.unit}
+                        onChange={(e) => updateDetailLocal(workItem.id, detail.id, { unit: e.target.value })}
+                        placeholder="Sat"
+                        className="erp-input text-xs py-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="erp-form-label">Harga Satuan</label>
+                      <CurrencyInput
+                        value={detail.unitPrice}
+                        prefix=""
+                        onChange={(v) => updateDetailLocal(workItem.id, detail.id, { unitPrice: v })}
+                        className="text-xs py-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="erp-form-label">Total</label>
+                      <div className="erp-input text-xs text-right font-tabular py-1 bg-muted/60 border-transparent font-600 text-foreground">
+                        {totalHarga.toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <span className="erp-form-label opacity-0 hidden sm:block">&nbsp;</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        ref={(el) => { fileInputRefs.current[inputKey] = el; }}
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          // Snapshot to a plain array BEFORE clearing value — `e.target.files` is a
+                          // live FileList tied to the input, so resetting `.value` empties it too if
+                          // read afterwards, silently dropping every file in the batch.
+                          const files = e.target.files ? Array.from(e.target.files) : [];
+                          e.target.value = '';
+                          if (files.length > 0) handleUploadImages(workItem, detail, files);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={!canUpload}
+                        onClick={() => fileInputRefs.current[inputKey]?.click()}
+                        title={canUpload ? 'Upload Gambar' : 'Simpan penawaran dulu untuk upload gambar'}
+                        className="p-1.5 rounded hover:bg-primary/10 text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                      >
+                        <Upload size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteWorkDetail(workItem, detail)}
+                        title="Hapus Detail Kerja"
+                        className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {detail.attachments.length > 0 && (
@@ -296,6 +297,7 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
               </div>
             );
           })}
+          </div>
         </div>
       ))}
 
@@ -306,6 +308,7 @@ export default function GroupWorkItemsPanel({ group, onUpdate }: Props) {
       >
         <Plus size={12} /> Item Pekerjaan
       </button>
-    </div>
+      </div>
+    </ERPModal>
   );
 }

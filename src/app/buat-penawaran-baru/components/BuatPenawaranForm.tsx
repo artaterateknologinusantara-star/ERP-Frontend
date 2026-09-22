@@ -67,9 +67,16 @@ const defaultInfo: InfoFormValues = {
   date: today,
   validUntil: thirtyDaysLater,
   salesId: '20000000-0000-0000-0000-000000000001',
-  branch: 'Jakarta Pusat',
   quotationNo: '—',
   revision: 0,
+  facilityId: '',
+  renovPic: '',
+  facilityName: '',
+  scopeOfWork: '',
+  location: '',
+  contractor: '',
+  validityPeriod: '',
+  areaBlockTender: '',
 };
 
 // Maps backend QuotationDto tabs (items) back to frontend CostingTab (rows)
@@ -126,8 +133,10 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
   }));
 }
 
-// Parses the saved "20% - Deskripsi\n80% - Deskripsi\nNET 30 HARI" string back into
-// structured SyaratPembayaranSection state — the shape buildDto() produces below.
+// Parses PaymentTerms back into { terms, netPayment }. New-style saves only ever put a single
+// "NET 30 HARI" line here (percentages now live in the structured `termins` field sent alongside
+// it — see buildDto() below), but this still parses "20% - Deskripsi\n...\nNET 30 HARI" too, for
+// quotations saved before that split existed.
 function parsePaymentTermsString(str: string): { terms: PaymentTerm[]; netPayment: number } {
   const terms: PaymentTerm[] = [];
   let netPayment = 30;
@@ -235,9 +244,16 @@ export default function BuatPenawaranForm() {
           date: q.date,
           validUntil: q.validUntil ?? '',
           salesId: q.salesId,
-          branch: 'Jakarta Pusat',
           quotationNo: q.no,
           revision: q.revision,
+          facilityId: q.facilityId ?? '',
+          renovPic: q.renovPic ?? '',
+          facilityName: q.facilityName ?? '',
+          scopeOfWork: q.scopeOfWork ?? '',
+          location: q.location ?? '',
+          contractor: q.contractor ?? '',
+          validityPeriod: q.validityPeriod ?? '',
+          areaBlockTender: q.areaBlockTender ?? '',
         });
         if (q.tabs?.length) setTabs(mapApiTabs(q.tabs as any[]));
         setDiscount(q.discount);
@@ -248,8 +264,18 @@ export default function BuatPenawaranForm() {
         setApprovedAt(q.approvedAt);
         setApprovedByName(q.approvedByName);
         setSaveLabel(q.revision > 0 ? `Draft · R.${String(q.revision).padStart(2, '0')}` : 'Draft');
-        const { terms, netPayment: net } = parsePaymentTermsString(q.paymentTerms ?? '');
-        setPaymentTerms(terms);
+        // NET days still round-trips through the free-text PaymentTerms field (no dedicated
+        // backend field for it yet — see buildDto() below), but the percentage breakdown itself
+        // now comes from the structured q.termins when the quotation has any, falling back to
+        // parsing the old combined string only for quotations saved before this existed.
+        const { terms: legacyTerms, netPayment: net } = parsePaymentTermsString(q.paymentTerms ?? '');
+        const structuredTerms: PaymentTerm[] = (q.termins ?? []).length
+          ? q.termins!
+              .slice()
+              .sort((a, b) => a.sortOrder - b.sortOrder)
+              .map((t) => ({ id: `pt-${t.id}`, description: t.description, percentage: t.percentage }))
+          : legacyTerms;
+        setPaymentTerms(structuredTerms);
         setNetPayment(net);
         setTermsAndConditions(q.termsAndConditions ?? '');
       })
@@ -380,10 +406,6 @@ export default function BuatPenawaranForm() {
   };
 
   const buildDto = () => {
-    const ptStr = [
-      ...paymentTerms.map((t) => `${t.percentage}% - ${t.description}`),
-      `NET ${netPayment} HARI`,
-    ].join('\n');
     return {
       customerId: infoValues.customerId,
       salesId: infoValues.salesId,
@@ -394,7 +416,23 @@ export default function BuatPenawaranForm() {
       taxRate,
       isCivilMeMode,
       totalAreaSqm: totalAreaSqm ?? undefined,
-      paymentTerms: ptStr,
+      facilityId: infoValues.facilityId || undefined,
+      renovPic: infoValues.renovPic || undefined,
+      facilityName: infoValues.facilityName || undefined,
+      scopeOfWork: infoValues.scopeOfWork || undefined,
+      location: infoValues.location || undefined,
+      contractor: infoValues.contractor || undefined,
+      validityPeriod: infoValues.validityPeriod || undefined,
+      areaBlockTender: infoValues.areaBlockTender || undefined,
+      // Percentage breakdown now goes through `termins` (structured) — PaymentTerms is left
+      // holding only the NET-days line, since the backend has no dedicated field for that yet
+      // (see load effect above and the ambiguity noted in the implementation report).
+      paymentTerms: `NET ${netPayment} HARI`,
+      termins: paymentTerms.map((t, i) => ({
+        sortOrder: i + 1,
+        description: t.description,
+        percentage: t.percentage,
+      })),
       termsAndConditions,
       additionalNotes,
       tabs: mapTabsToBackend(tabs),
@@ -432,6 +470,7 @@ export default function BuatPenawaranForm() {
         setCurrentStatus(q.status);
         setSaveLabel(q.revision > 0 ? `Draft · R.${String(q.revision).padStart(2, '0')}` : 'Draft');
         clearDraftState();
+        router.push('/riwayat-penawaran');
       } else {
         // CREATE new quotation — stay on this page, patch state from the response (real
         // GUIDs for groups/work items), and silently put ?id= in the URL (via the History
@@ -447,6 +486,7 @@ export default function BuatPenawaranForm() {
         window.history.replaceState(null, '', `${window.location.pathname}?id=${q.id}`);
         toast.success('Draft penawaran berhasil disimpan');
         clearDraftState();
+        router.push('/riwayat-penawaran');
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal menyimpan penawaran');
@@ -545,7 +585,7 @@ export default function BuatPenawaranForm() {
                 Menyimpan...
               </span>
             ) : (
-              <><Save size={14} /> Submit Penawaran</>
+              <><Save size={14} /> Simpan Penawaran</>
             )}
           </button>
           <button className="btn-primary min-h-11 flex-shrink-0" onClick={() => router.push('/riwayat-penawaran')}>
@@ -612,6 +652,7 @@ export default function BuatPenawaranForm() {
         values={infoValues}
         onChange={(patch) => setInfoValues((v) => ({ ...v, ...patch }))}
         errors={{}}
+        isCivilMeMode={isCivilMeMode}
       />
 
       {/* Section 2: Costing Tabs */}

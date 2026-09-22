@@ -9,7 +9,7 @@ interface ERPModalProps {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   footer?: React.ReactNode;
 }
 
@@ -18,6 +18,7 @@ const sizeClasses = {
   md: 'max-w-xl',
   lg: 'max-w-3xl',
   xl: 'max-w-5xl',
+  full: 'max-w-none w-[calc(100vw-2rem)] h-[calc(100vh-2rem)]',
 };
 
 export default function ERPModal({ isOpen, onClose, title, subtitle, children, size = 'md', footer }: ERPModalProps) {
@@ -35,14 +36,14 @@ export default function ERPModal({ isOpen, onClose, title, subtitle, children, s
 
   return (
     <div
-      className="modal-backdrop animate-fade-in"
+      className="modal-backdrop animate-fade-in text-left"
       ref={overlayRef}
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
-      <div className={`bg-card rounded-xl shadow-modal w-full mx-4 ${sizeClasses[size]} animate-slide-up flex flex-col max-h-[90vh]`}>
+      <div className={`bg-card rounded-xl shadow-modal w-full mx-4 ${sizeClasses[size]} animate-slide-up flex flex-col ${size === 'full' ? '' : 'max-h-[90vh]'}`}>
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-border flex-shrink-0">
           <div>

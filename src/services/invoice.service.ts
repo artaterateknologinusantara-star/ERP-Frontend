@@ -13,8 +13,9 @@ export interface InvoiceListParams {
 
 export interface CreateInvoiceDto {
   salesOrderId?: string;
+  salesOrderTerminId?: string;
   customerId: string;
-  invoiceDate: string;
+  date: string;
   dueDate: string;
   amount: number;
   nomorFakturPajak?: string;
@@ -184,7 +185,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail> {
   };
   const res = await api.get<BackendDetail>(`/invoices/${id}`);
   const d = res.data;
-  const subTotal  = d.subTotal  ?? Math.round(d.amount / 1.11);
+  const subTotal = d.subTotal ?? Math.round(d.amount / 1.11);
   const taxAmount = d.taxAmount ?? Math.round(d.amount - subTotal);
   return {
     ...d,

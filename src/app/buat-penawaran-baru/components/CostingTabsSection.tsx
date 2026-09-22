@@ -7,6 +7,10 @@ import type { CostingTab } from '@/types';
 import CostingTable from './CostingTable';
 import TemplateLibraryModal from './TemplateLibraryModal';
 
+// Template library belum terhubung ke backend (data masih hardcoded, tabs selalu kosong —
+// lihat TODO di TemplateLibraryModal.tsx) — disembunyikan dari UI sampai fiturnya jadi.
+const TEMPLATE_FEATURE_ENABLED = false;
+
 interface Props {
   tabs: CostingTab[];
   setTabs: React.Dispatch<React.SetStateAction<CostingTab[]>>;
@@ -48,20 +52,22 @@ export default function CostingTabsSection({ tabs, setTabs, activeTab, setActive
         </div>
 
         {/* Template Actions */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <button
-            className="btn-secondary text-xs justify-center min-h-11 lg:min-h-0"
-            onClick={() => setTemplateModalOpen(true)}
-          >
-            <BookTemplate size={13} /> Gunakan Template
-          </button>
-          <button
-            className="btn-secondary text-xs justify-center min-h-11 lg:min-h-0"
-            onClick={() => toast.success('Struktur costing disimpan sebagai template baru')}
-          >
-            <Save size={13} /> Simpan Sebagai Template
-          </button>
-        </div>
+        {TEMPLATE_FEATURE_ENABLED && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <button
+              className="btn-secondary text-xs justify-center min-h-11 lg:min-h-0"
+              onClick={() => setTemplateModalOpen(true)}
+            >
+              <BookTemplate size={13} /> Gunakan Template
+            </button>
+            <button
+              className="btn-secondary text-xs justify-center min-h-11 lg:min-h-0"
+              onClick={() => toast.success('Struktur costing disimpan sebagai template baru')}
+            >
+              <Save size={13} /> Simpan Sebagai Template
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Active Tab Content */}
