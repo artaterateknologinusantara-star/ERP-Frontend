@@ -110,6 +110,15 @@ export interface PaymentRecord {
   notes?: string;
 }
 
+export interface DownPaymentApplicationRecord {
+  id: string;
+  appliedAt: string;
+  amountApplied: number;
+  paymentDate: string;
+  method: string;
+  reference?: string;
+}
+
 export interface InvoiceItemDetail {
   id: string;
   description: string;
@@ -144,6 +153,7 @@ export interface InvoiceDetail {
   notes?: string;
   agingDays: number;
   payments: PaymentRecord[];
+  downPaymentApplications: DownPaymentApplicationRecord[];
   items: InvoiceItemDetail[];
 }
 
@@ -178,10 +188,11 @@ export async function getInvoices(params: {
 }
 
 export async function getInvoiceDetail(id: string): Promise<InvoiceDetail> {
-  type BackendDetail = Omit<InvoiceDetail, 'subTotal' | 'taxAmount' | 'items'> & {
+  type BackendDetail = Omit<InvoiceDetail, 'subTotal' | 'taxAmount' | 'items' | 'downPaymentApplications'> & {
     subTotal?: number;
     taxAmount?: number;
     items?: InvoiceItemDetail[];
+    downPaymentApplications?: DownPaymentApplicationRecord[];
   };
   const res = await api.get<BackendDetail>(`/invoices/${id}`);
   const d = res.data;
@@ -192,6 +203,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail> {
     subTotal,
     taxAmount,
     items: d.items ?? [],
+    downPaymentApplications: d.downPaymentApplications ?? [],
   };
 }
 

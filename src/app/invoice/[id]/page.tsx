@@ -561,6 +561,44 @@ export default function InvoiceDetailPage() {
           )}
         </div>
 
+        {/* ── DP Diterapkan ── */}
+        {inv.downPaymentApplications.length > 0 && (
+          <div className="erp-card">
+            <div className="flex items-center gap-2 mb-4">
+              <h3 className="text-xs font-600 text-muted-foreground uppercase tracking-wider">DP Diterapkan</h3>
+              <span className="text-xs bg-muted px-2 py-0.5 rounded-full font-600 text-muted-foreground">
+                {inv.downPaymentApplications.length} DP
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px] border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-border bg-muted/40">
+                    {['Tanggal', 'Metode', 'Referensi', 'Jumlah'].map((h) => (
+                      <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {inv.downPaymentApplications.map((dp) => (
+                    <tr key={dp.id} className="border-b border-border hover:bg-muted/20 transition-colors">
+                      <td className="erp-table-cell text-muted-foreground">{formatDate(dp.appliedAt)}</td>
+                      <td className="erp-table-cell">
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-600 ${methodBadge[dp.method] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {dp.method}
+                        </span>
+                      </td>
+                      <td className="erp-table-cell text-muted-foreground">{dp.reference || '—'}</td>
+                      <td className="erp-table-cell font-700 font-tabular text-emerald-600 text-right">{formatRp(dp.amountApplied)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* ── Notes ── */}
         {inv.notes && (
           <div className="border-l-4 border-blue-400 bg-blue-50 p-4 rounded-r-lg">
