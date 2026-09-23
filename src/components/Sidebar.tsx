@@ -8,7 +8,7 @@ import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { companySettingsService } from '@/services/companySettings.service';
 import { hasModuleAccess, hasAnyApprovePermission } from '@/lib/permissions';
 import { usePendingApprovals } from '@/hooks/usePendingApprovals';
-import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database, Calculator, X, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database, Calculator, X, ClipboardCheck, Link2 } from 'lucide-react';
 
 interface NavItem {
   id: string;
@@ -64,7 +64,7 @@ const navGroups: NavGroup[] = [
     items: [
       { id: 'nav-purchase-request', label: 'Purchase Request', icon: <ClipboardList size={15} />, href: '/purchase-request' },
       { id: 'nav-purchase-order', label: 'Purchase Order', icon: <ShoppingBag size={15} />, href: '/purchase-order' },
-      { id: 'nav-supplier-invoice', label: 'Supplier Invoice', icon: <FileCheck size={15} />, href: '/supplier-invoice' },
+      { id: 'nav-supplier-invoice', label: 'Bill', icon: <FileCheck size={15} />, href: '/supplier-invoice' },
       { id: 'nav-vendor', label: 'Vendor', icon: <Truck size={15} />, href: '/vendor' },
     ],
   },
@@ -156,6 +156,7 @@ const navGroups: NavGroup[] = [
       { id: 'nav-numbering', label: 'Numbering Format', icon: <Hash size={15} />, href: '/settings/numbering' },
       { id: 'nav-preferences', label: 'ERP Preferences', icon: <Sliders size={15} />, href: '/settings/preferences' },
       { id: 'nav-system-admin', label: 'System Administration', icon: <Database size={15} />, href: '/settings/system-admin' },
+      { id: 'nav-item-master-links', label: 'Item Belum Terhubung', icon: <Link2 size={15} />, href: '/settings/item-master-links' },
     ],
   },
 ];

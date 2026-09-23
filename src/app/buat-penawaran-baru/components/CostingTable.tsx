@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, ClipboardList } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, ClipboardList, Link2, Link2Off } from 'lucide-react';
 import { formatRp } from '@/lib/format';
 import { getMarginTier, marginTierClasses } from '@/lib/margin';
 import { computeFloorPrice, floorWarningText } from '@/lib/itemMargin';
@@ -75,6 +75,8 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
               materialPrice: item.sellingPrice,
               costPrice: item.purchasePrice ?? item.lastPurchasePrice ?? 0,
               itemMasterId: item.id,
+              itemMasterCode: item.code,
+              itemMasterName: item.name,
               marginType: item.marginType,
               marginMinimum: item.marginMinimum,
               sellingPriceFloor: computeFloorPrice(item.purchasePrice, item.marginType, item.marginMinimum) ?? undefined,
@@ -82,6 +84,19 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
           ),
         }
       ),
+    });
+  };
+
+  // Lepas link Item Master — baris kembali jadi free-text biasa, nama tidak lagi dikunci.
+  // Tidak menghapus nama/harga yang sudah terisi, hanya memutus link-nya.
+  const clearItemMasterLink = (groupId: string, rowId: string) => {
+    updateRowFields(groupId, rowId, {
+      itemMasterId: undefined,
+      itemMasterCode: undefined,
+      itemMasterName: undefined,
+      marginType: undefined,
+      marginMinimum: undefined,
+      sellingPriceFloor: undefined,
     });
   };
 
@@ -251,11 +266,31 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                       </span>
                     </td>
                     <td className="erp-table-cell">
-                      <ItemAutocomplete
-                        value={row.equipment}
-                        onChange={(v) => updateRow(group.id, row.id, 'equipment', v)}
-                        onSelect={(item) => fillRowFromItem(group.id, row.id, item)}
-                      />
+                      {row.itemMasterId ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="erp-input flex-1 flex items-center gap-1.5 bg-muted/30 text-[13px] truncate">
+                            <Link2 size={12} className="text-primary shrink-0" />
+                            <span className="truncate">
+                              {row.itemMasterCode && <span className="font-700 mr-1">{row.itemMasterCode}</span>}
+                              {row.itemMasterName ?? row.equipment}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            title="Lepas link Item Master"
+                            onClick={() => clearItemMasterLink(group.id, row.id)}
+                            className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                          >
+                            <Link2Off size={13} />
+                          </button>
+                        </div>
+                      ) : (
+                        <ItemAutocomplete
+                          value={row.equipment}
+                          onChange={(v) => updateRow(group.id, row.id, 'equipment', v)}
+                          onSelect={(item) => fillRowFromItem(group.id, row.id, item)}
+                        />
+                      )}
                     </td>
                     <td className="erp-table-cell">
                       <input type="text" value={row.description}
@@ -489,11 +524,31 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                         <div className="px-3 pb-3 space-y-2.5 border-t border-border pt-3">
                           <div>
                             <label className="tooltip-label block mb-1">Equipment</label>
-                            <ItemAutocomplete
-                              value={row.equipment}
-                              onChange={(v) => updateRow(group.id, row.id, 'equipment', v)}
-                              onSelect={(item) => fillRowFromItem(group.id, row.id, item)}
-                            />
+                            {row.itemMasterId ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="erp-input flex-1 flex items-center gap-1.5 bg-muted/30 text-md truncate">
+                                  <Link2 size={13} className="text-primary shrink-0" />
+                                  <span className="truncate">
+                                    {row.itemMasterCode && <span className="font-700 mr-1">{row.itemMasterCode}</span>}
+                                    {row.itemMasterName ?? row.equipment}
+                                  </span>
+                                </span>
+                                <button
+                                  type="button"
+                                  title="Lepas link Item Master"
+                                  onClick={() => clearItemMasterLink(group.id, row.id)}
+                                  className="p-2 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                                >
+                                  <Link2Off size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <ItemAutocomplete
+                                value={row.equipment}
+                                onChange={(v) => updateRow(group.id, row.id, 'equipment', v)}
+                                onSelect={(item) => fillRowFromItem(group.id, row.id, item)}
+                              />
+                            )}
                           </div>
                           <div className="grid grid-cols-2 gap-2.5">
                             <div>

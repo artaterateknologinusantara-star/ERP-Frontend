@@ -102,6 +102,21 @@ export interface ShippableSoItem {
   stockAvailable: number;
 }
 
+/** Baris SO yang belum ada Item Master eksplisit (SKU tidak match apa pun) — tidak lagi
+ * ditebak dari nama, harus di-link manual lewat linkSoItemToItemMaster(). */
+export interface UnmatchedSoItem {
+  soItemId: string;
+  description: string;
+  sku?: string;
+  qty: number;
+  uom: string;
+}
+
+export interface ShippableItemsResult {
+  matched: ShippableSoItem[];
+  unmatched: UnmatchedSoItem[];
+}
+
 export interface RecordStockInRequest {
   itemMasterId: string;
   qty: number;
@@ -170,9 +185,13 @@ export async function deleteDeliveryOrder(id: string): Promise<void> {
   await api.delete(`/inventory/delivery-orders/${id}`);
 }
 
-export async function getShippableItemsForSO(soId: string): Promise<ShippableSoItem[]> {
-  const res = await api.get<ShippableSoItem[]>(`/inventory/delivery-orders/shippable-items/${soId}`);
-  return res.data ?? [];
+export async function getShippableItemsForSO(soId: string): Promise<ShippableItemsResult> {
+  const res = await api.get<ShippableItemsResult>(`/inventory/delivery-orders/shippable-items/${soId}`);
+  return res.data ?? { matched: [], unmatched: [] };
+}
+
+export async function linkSoItemToItemMaster(soItemId: string, itemMasterId: string): Promise<void> {
+  await api.post(`/inventory/delivery-orders/so-items/${soItemId}/link-item-master`, { itemMasterId });
 }
 
 export async function createDOFromSO(soId: string): Promise<DeliveryOrderDetail> {

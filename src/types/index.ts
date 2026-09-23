@@ -143,8 +143,14 @@ export interface CostingRow {
   width?: number | null;
   height?: number | null;
   sortOrder: number;
-  /** Snapshot dari Item Master saat baris diisi — dipakai untuk warning margin di form. Tidak dikirim/disimpan ke backend. */
+  /** Link eksplisit ke Item Master — diisi hanya kalau user memilih dari autocomplete katalog
+   * (ItemAutocomplete), tidak pernah ditebak dari nama. Dikirim & disimpan ke backend
+   * (QuotationItem.ItemMasterId) dan ikut menentukan warning margin di form. Saat terisi, field
+   * nama baris dikunci di CostingTable — user harus "Lepas link" dulu untuk mengedit bebas lagi. */
   itemMasterId?: string;
+  /** Code + nama Item Master yang ditautkan — dipakai untuk badge "🔗 Code Nama" di CostingTable. */
+  itemMasterCode?: string;
+  itemMasterName?: string;
   marginType?: 'percent' | 'nominal';
   marginMinimum?: number;
   sellingPriceFloor?: number;
