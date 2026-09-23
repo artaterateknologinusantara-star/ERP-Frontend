@@ -24,6 +24,7 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
   const [activeWorkItemsGroupId, setActiveWorkItemsGroupId] = useState<string | null>(null);
+  const activeWorkItemsGroup = tabData.groups.find((g) => g.id === activeWorkItemsGroupId);
 
   const toggleCollapse = (groupId: string) =>
     setCollapsed((prev) =>
@@ -393,27 +394,19 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                           group={group}
                           onUpdate={(fields) => updateGroupFields(group.id, fields)}
                           actions={
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setActiveWorkItemsGroupId(group.id)}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0"
-                              >
-                                <ClipboardList size={13} />
-                                Isi Detail RAB/BQ
-                                {(group.workItems?.length ?? 0) > 0 && (
-                                  <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
-                                    {group.workItems!.length}
-                                  </span>
-                                )}
-                              </button>
-                              <GroupWorkItemsPanel
-                                group={group}
-                                onUpdate={(fields) => updateGroupFields(group.id, fields)}
-                                isOpen={activeWorkItemsGroupId === group.id}
-                                onClose={() => setActiveWorkItemsGroupId(null)}
-                              />
-                            </>
+                            <button
+                              type="button"
+                              onClick={() => setActiveWorkItemsGroupId(group.id)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0"
+                            >
+                              <ClipboardList size={13} />
+                              Isi Detail RAB/BQ
+                              {(group.workItems?.length ?? 0) > 0 && (
+                                <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
+                                  {group.workItems!.length}
+                                </span>
+                              )}
+                            </button>
                           }
                         />
                       )}
@@ -655,27 +648,19 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                     group={group}
                     onUpdate={(fields) => updateGroupFields(group.id, fields)}
                     actions={
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setActiveWorkItemsGroupId(group.id)}
-                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0"
-                        >
-                          <ClipboardList size={12} />
-                          RAB/BQ
-                          {(group.workItems?.length ?? 0) > 0 && (
-                            <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
-                              {group.workItems!.length}
-                            </span>
-                          )}
-                        </button>
-                        <GroupWorkItemsPanel
-                          group={group}
-                          onUpdate={(fields) => updateGroupFields(group.id, fields)}
-                          isOpen={activeWorkItemsGroupId === group.id}
-                          onClose={() => setActiveWorkItemsGroupId(null)}
-                        />
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => setActiveWorkItemsGroupId(group.id)}
+                        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0"
+                      >
+                        <ClipboardList size={12} />
+                        RAB/BQ
+                        {(group.workItems?.length ?? 0) > 0 && (
+                          <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
+                            {group.workItems!.length}
+                          </span>
+                        )}
+                      </button>
                     }
                   />
                 )}
@@ -700,6 +685,22 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
         <Plus size={14} /> Tambah Kategori Baru
       </button>
     </div>
+
+    {/* Single shared instance — the trigger button above is duplicated per responsive layout
+        (desktop table row + mobile card), but the panel itself must only ever mount once. Two
+        mounted instances both listening on the same activeWorkItemsGroupId used to be harmless
+        only because ERPModal rendered in place: the desktop/mobile wrapper's `hidden lg:block` /
+        `lg:hidden` classes hid whichever copy didn't match the viewport. Now that ERPModal
+        portals to document.body, it escapes that hidden ancestor, so a duplicated instance would
+        render two full-screen modals stacked on top of each other regardless of viewport. */}
+    {activeWorkItemsGroup && (
+      <GroupWorkItemsPanel
+        group={activeWorkItemsGroup}
+        onUpdate={(fields) => updateGroupFields(activeWorkItemsGroup.id, fields)}
+        isOpen
+        onClose={() => setActiveWorkItemsGroupId(null)}
+      />
+    )}
     </div>
   );
 }

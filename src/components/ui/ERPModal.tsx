@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ERPModalProps {
@@ -34,7 +35,13 @@ export default function ERPModal({ isOpen, onClose, title, subtitle, children, s
 
   if (!isOpen) return null;
 
-  return (
+  // Portalled straight to <body> — a `position: fixed` backdrop only anchors to the viewport
+  // when there's no ancestor with `transform`/`filter`/`will-change` establishing a new
+  // containing block (e.g. `.animate-fade-in`'s keyframe leaves a permanent identity `transform`
+  // via `animation-fill-mode: forwards`). Rendering in place made the RAB/BQ modal inherit
+  // whatever containing block its deeply-nested call site happened to sit under. Same pattern as
+  // RowActionMenu.tsx / DimensionCalculatorPopover.tsx.
+  const modal = (
     <div
       className="modal-backdrop animate-fade-in text-left"
       ref={overlayRef}
@@ -69,4 +76,6 @@ export default function ERPModal({ isOpen, onClose, title, subtitle, children, s
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modal, document.body) : null;
 }
