@@ -70,7 +70,10 @@ export const invoiceService = {
   exportPdf(id: string): Promise<Blob> {
     return fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices/${id}/pdf`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('syntera_token')}` },
-    }).then((r) => r.blob());
+    }).then((r) => {
+      if (!r.ok) throw new Error(`PDF export failed: ${r.status}`);
+      return r.blob();
+    });
   },
 };
 

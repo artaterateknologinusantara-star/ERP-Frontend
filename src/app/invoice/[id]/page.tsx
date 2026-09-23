@@ -10,13 +10,14 @@ import ERPModal from '@/components/ui/ERPModal';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import WorkflowStepper from '@/components/ui/WorkflowStepper';
 import { formatRp, formatDate } from '@/lib/format';
-import { AlertTriangle, CreditCard, DollarSign, Send } from 'lucide-react';
+import { AlertTriangle, CreditCard, DollarSign, FileText, Send, XCircle } from 'lucide-react';
 import {
   getInvoiceDetail,
   markInvoiceAsSent,
   recordPayment,
   applyDownPaymentToInvoice,
   releaseRetention,
+  invoiceService,
   InvoiceDetail,
   RecordPaymentRequest,
 } from '@/services/invoice.service';
@@ -101,6 +102,10 @@ export default function InvoiceDetailPage() {
     notes: '',
   });
   const [releasing, setReleasing] = useState(false);
+
+  // PDF preview
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -208,6 +213,32 @@ export default function InvoiceDetailPage() {
     } finally {
       setSending(false);
     }
+  };
+
+  const handleOpenPdfPreview = async () => {
+    if (!inv) return;
+    setPdfPreviewLoading(true);
+    try {
+      const blob = await invoiceService.exportPdf(inv.id);
+      setPdfPreviewUrl(URL.createObjectURL(blob));
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal memuat PDF');
+    } finally {
+      setPdfPreviewLoading(false);
+    }
+  };
+
+  const handleClosePdfPreview = () => {
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    setPdfPreviewUrl(null);
+  };
+
+  const handleDownloadPdf = () => {
+    if (!inv || !pdfPreviewUrl) return;
+    const a = document.createElement('a');
+    a.href = pdfPreviewUrl;
+    a.download = `Invoice_${inv.no.replace(/\//g, '-')}.pdf`;
+    a.click();
   };
 
   const openPayModal = () => {
@@ -334,8 +365,12 @@ export default function InvoiceDetailPage() {
               >
                 <CreditCard size={14} /> Record Payment
               </button>
-              <button className="btn-secondary opacity-50 cursor-not-allowed" title="Segera hadir" disabled>
-                Download PDF
+              <button
+                onClick={handleOpenPdfPreview}
+                disabled={pdfPreviewLoading}
+                className="btn-secondary flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileText size={14} /> {pdfPreviewLoading ? 'Memuat...' : 'Lihat PDF'}
               </button>
             </div>
           </div>
@@ -798,6 +833,44 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
       </ERPModal>
+
+      {/* ── Preview Modal (PDF) ── */}
+      {pdfPreviewUrl && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={handleClosePdfPreview}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden"
+            style={{ width: '90vw', maxWidth: 900, height: '92vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <h3 className="text-base font-700 text-foreground">{inv.no}</h3>
+                <StatusBadge status={inv.status as InvoiceStatus} />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadPdf}
+                  className="btn-secondary flex items-center gap-1.5"
+                >
+                  <FileText size={14} /> Download PDF
+                </button>
+                <button onClick={handleClosePdfPreview} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <XCircle size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal body */}
+            <div className="flex-1 bg-slate-200 overflow-hidden">
+              <iframe src={pdfPreviewUrl} className="w-full h-full" title={`Invoice ${inv.no}`} />
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
