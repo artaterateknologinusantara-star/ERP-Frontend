@@ -349,6 +349,8 @@ export interface QuotationListItem {
   isLatestRevision: boolean;
   sentAt?: string;
   hasCustomerPO: boolean;
+  /** Null kalau status bukan Disetujui atau sudah ada SalesOrder aktif — monitoring read-only. */
+  daysApprovedWithoutSalesOrder?: number | null;
 }
 
 // ─── Customer PO ──────────────────────────────────────────────────────────────
