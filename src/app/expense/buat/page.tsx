@@ -12,6 +12,7 @@ import { getExpenseCategoryList, ExpenseCategory } from '@/services/expenseCateg
 import { getFlatAccounts, Account } from '@/services/account.service';
 import { supplierService } from '@/services/supplier.service';
 import type { Supplier } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 const PAYMENT_METHODS = ['Transfer', 'Tunai', 'Giro', 'Cek'];
 
@@ -19,6 +20,7 @@ const today = new Date().toISOString().slice(0, 10);
 
 export default function BuatExpensePage() {
   const router = useRouter();
+  const canCreateExpense = hasPermission('Finance', 'canCreate');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -201,7 +203,12 @@ export default function BuatExpensePage() {
 
           <div className="flex items-center justify-between pt-2 pb-6">
             <Link href="/expense" className="btn-secondary">Batal</Link>
-            <button type="submit" disabled={submitting} className="btn-primary flex items-center gap-2 min-w-[160px] justify-center">
+            <button
+              type="submit"
+              disabled={submitting || !canCreateExpense}
+              title={!canCreateExpense ? 'Anda tidak memiliki izin membuat Expense' : undefined}
+              className="btn-primary flex items-center gap-2 min-w-[160px] justify-center"
+            >
               {submitting ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />

@@ -7,12 +7,14 @@ import AppLayout from '@/components/AppLayout';
 import ItemAutocomplete from '@/app/buat-penawaran-baru/components/ItemAutocomplete';
 import { catalogLinkService, UnlinkedCatalogItem } from '@/services/catalogLink.service';
 import type { ItemMaster } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 // Layar admin sederhana untuk beres-beres data lama: baris Quotation/Sales Order yang belum ada
 // ItemMasterId (dari sebelum field ini ada, atau dari SO lama sebelum fallback tebak-nama
 // dihapus — lihat insiden "Server Blade 2U"). TIDAK ADA auto-backfill fuzzy — admin pilih link
 // yang benar satu-satu, kapan pun mereka mau. Bukan proses otomatis.
 export default function ItemMasterLinksPage() {
+  const canLink = hasPermission('Inventory', 'canEdit');
   const [items, setItems] = useState<UnlinkedCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState<Record<string, string>>({});
@@ -85,11 +87,15 @@ export default function ItemMasterLinksPage() {
                   </span>
                 </div>
                 <div className="w-72">
-                  <ItemAutocomplete
-                    value={search[item.itemRowId] ?? ''}
-                    onChange={(v) => setSearch((prev) => ({ ...prev, [item.itemRowId]: v }))}
-                    onSelect={(master) => handleLink(item, master)}
-                  />
+                  {canLink ? (
+                    <ItemAutocomplete
+                      value={search[item.itemRowId] ?? ''}
+                      onChange={(v) => setSearch((prev) => ({ ...prev, [item.itemRowId]: v }))}
+                      onSelect={(master) => handleLink(item, master)}
+                    />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Anda tidak memiliki izin menautkan item</p>
+                  )}
                 </div>
                 {linkingId === item.itemRowId && (
                   <span className="text-xs text-muted-foreground flex items-center gap-1">

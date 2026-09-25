@@ -20,6 +20,7 @@ import {
   DeliveryOrderDetail,
 } from '@/services/inventory.service';
 import { SALES_ORDERS_QUERY_KEY } from '@/app/sales-order/components/SalesOrderTable';
+import { hasPermission } from '@/lib/permissions';
 
 // ── Stepper ───────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,8 @@ export default function DeliveryOrderDetailPage() {
   const router = useRouter();
   const id = params.id as string;
   const queryClient = useQueryClient();
+  const canEditDO = hasPermission('Inventory', 'canEdit');
+  const canDeleteDO = hasPermission('Inventory', 'canDelete');
 
   const [do_, setDO] = useState<DeliveryOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -170,15 +173,19 @@ export default function DeliveryOrderDetailPage() {
                   <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-md font-500">
                     ⚠ Stok akan dikurangi saat dikonfirmasi
                   </p>
-                  <button className="btn-primary flex items-center gap-1.5" onClick={() => setConfirmAction('confirm')} disabled={actioning}>
-                    <CheckCircle2 size={14} /> Konfirmasi DO
-                  </button>
-                  <button className="btn-secondary text-red-600 border-red-200 hover:bg-red-50" onClick={() => setConfirmAction('delete')} disabled={actioning}>
-                    <Trash2 size={14} /> Hapus
-                  </button>
+                  {canEditDO && (
+                    <button className="btn-primary flex items-center gap-1.5" onClick={() => setConfirmAction('confirm')} disabled={actioning}>
+                      <CheckCircle2 size={14} /> Konfirmasi DO
+                    </button>
+                  )}
+                  {canDeleteDO && (
+                    <button className="btn-secondary text-red-600 border-red-200 hover:bg-red-50" onClick={() => setConfirmAction('delete')} disabled={actioning}>
+                      <Trash2 size={14} /> Hapus
+                    </button>
+                  )}
                 </>
               )}
-              {do_.status === 'Confirmed' && (
+              {do_.status === 'Confirmed' && canEditDO && (
                 <button className="btn-primary flex items-center gap-1.5" onClick={() => setConfirmAction('deliver')} disabled={actioning}>
                   <Truck size={14} /> Tandai Terkirim
                 </button>

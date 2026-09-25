@@ -18,8 +18,10 @@ import {
 } from '@/services/inventory.service';
 import { itemMasterService } from '@/services/itemmaster.service';
 import type { ItemMaster } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 export default function WarehousePage() {
+  const canCreateStockIn = hasPermission('Inventory', 'canCreate');
   const router = useRouter();
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = () => setRefreshKey((k) => k + 1);
@@ -143,9 +145,11 @@ export default function WarehousePage() {
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">{lowStock.length} item di bawah stok minimum</p>
             </div>
-            <button className="btn-primary flex items-center gap-1.5" onClick={() => openStockIn()}>
-              <Plus size={13} /> Stock In Manual
-            </button>
+            {canCreateStockIn && (
+              <button className="btn-primary flex items-center gap-1.5" onClick={() => openStockIn()}>
+                <Plus size={13} /> Stock In Manual
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -180,12 +184,14 @@ export default function WarehousePage() {
                         −{item.shortage.toLocaleString('id-ID')}
                       </td>
                       <td className="erp-table-cell">
-                        <button
-                          className="text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 font-600"
-                          onClick={() => openStockIn(item)}
-                        >
-                          Stock In
-                        </button>
+                        {canCreateStockIn && (
+                          <button
+                            className="text-xs px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 font-600"
+                            onClick={() => openStockIn(item)}
+                          >
+                            Stock In
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

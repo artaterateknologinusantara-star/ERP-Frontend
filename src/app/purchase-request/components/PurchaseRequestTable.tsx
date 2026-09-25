@@ -9,7 +9,7 @@ import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { formatRp, formatDate } from '@/lib/format';
-import { canApprove } from '@/lib/permissions';
+import { canApprove, hasPermission } from '@/lib/permissions';
 import { Eye, Plus, Send, CheckCircle, XCircle, ShoppingBag, RotateCcw, Trash2 } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
 import {
@@ -34,6 +34,9 @@ const PURCHASE_REQUESTS_QUERY_KEY = 'purchase-requests';
 export default function PurchaseRequestTable() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const canCreatePR = hasPermission('Purchasing', 'canCreate');
+  const canEditPR = hasPermission('Purchasing', 'canEdit');
+  const canDeletePR = hasPermission('Purchasing', 'canDelete');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
@@ -119,9 +122,11 @@ export default function PurchaseRequestTable() {
         onStatusFilter={handleStatusFilter}
         statusOptions={STATUS_OPTIONS}
         actions={
-          <button className="btn-primary" onClick={() => router.push('/purchase-request/buat')}>
-            <Plus size={14} /> Buat PR Manual
-          </button>
+          canCreatePR ? (
+            <button className="btn-primary" onClick={() => router.push('/purchase-request/buat')}>
+              <Plus size={14} /> Buat PR Manual
+            </button>
+          ) : undefined
         }
       />
 
@@ -174,8 +179,10 @@ export default function PurchaseRequestTable() {
                   <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />, label: 'Lihat Detail', onClick: () => router.push(`/purchase-request/${row.id}`) },
-                      ...(row.status === 'Draft' ? [
+                      ...(row.status === 'Draft' && canEditPR ? [
                         { icon: <Send size={13} />,    label: 'Submit PR',  onClick: () => handleStatusAction(row.id, 'Submitted', 'PR berhasil diajukan'), separator: true },
+                      ] : []),
+                      ...(row.status === 'Draft' && canDeletePR ? [
                         { icon: <Trash2 size={13} />,  label: 'Hapus PR',   onClick: () => setDeleteTarget({ id: row.id, no: row.no }) },
                       ] : []),
                       ...(row.status === 'Submitted' && canApprove('Purchasing') ? [
@@ -185,11 +192,13 @@ export default function PurchaseRequestTable() {
                       ...(row.status === 'Approved' ? [
                         { icon: <ShoppingBag size={13} />, label: 'Buat PO', onClick: () => router.push(`/purchase-request/${row.id}`), separator: true },
                       ] : []),
-                      ...(row.status === 'Rejected' ? [
+                      ...(row.status === 'Rejected' && canEditPR ? [
                         { icon: <RotateCcw size={13} />, label: 'Reset ke Draft', onClick: () => handleStatusAction(row.id, 'Draft', 'PR di-reset ke Draft'), separator: true },
+                      ] : []),
+                      ...(row.status === 'Rejected' && canDeletePR ? [
                         { icon: <Trash2 size={13} />,    label: 'Hapus PR',       onClick: () => setDeleteTarget({ id: row.id, no: row.no }) },
                       ] : []),
-                      ...(row.status === 'Ordered' ? [
+                      ...(row.status === 'Ordered' && canDeletePR ? [
                         { icon: <Trash2 size={13} />, label: 'Hapus PR', onClick: () => setDeleteTarget({ id: row.id, no: row.no }), danger: true, separator: true },
                       ] : []),
                     ]} />

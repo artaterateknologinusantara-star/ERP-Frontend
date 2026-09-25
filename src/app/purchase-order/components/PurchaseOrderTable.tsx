@@ -17,6 +17,7 @@ import {
   deletePO,
 } from '@/services/purchase.service';
 import { PurchaseOrderStatus } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 const STATUS_OPTIONS = [
   { value: 'Semua', label: 'Semua Status' },
@@ -32,6 +33,8 @@ export const PURCHASE_ORDERS_QUERY_KEY = 'purchase-orders';
 export default function PurchaseOrderTable() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const canEditPO = hasPermission('Purchasing', 'canEdit');
+  const canDeletePO = hasPermission('Purchasing', 'canDelete');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
@@ -169,8 +172,10 @@ export default function PurchaseOrderTable() {
                   <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />,   label: 'Lihat Detail', onClick: () => router.push(`/purchase-order/${row.id}`) },
-                      ...(row.status === 'Draft' ? [
+                      ...(row.status === 'Draft' && canEditPO ? [
                         { icon: <CheckCircle size={13} />, label: 'Konfirmasi Order', onClick: () => handleConfirmOrder(row.id, row.no), separator: true },
+                      ] : []),
+                      ...(row.status === 'Draft' && canDeletePO ? [
                         { icon: <Trash2 size={13} />,      label: 'Hapus PO',         onClick: () => setDeleteTarget({ id: row.id, no: row.no }), danger: true },
                       ] : []),
                       ...(row.status === 'Ordered' ? [

@@ -9,7 +9,7 @@ import RowActionMenu from '@/components/ui/RowActionMenu';
 import StatusBadge from '@/components/ui/StatusBadge';
 import TablePagination from '@/components/ui/TablePagination';
 import { formatRp, formatDate } from '@/lib/format';
-import { canApprove } from '@/lib/permissions';
+import { canApprove, hasPermission } from '@/lib/permissions';
 import { getExpenseList, submitExpense, approveExpense } from '@/services/expense.service';
 import { getExpenseCategoryList } from '@/services/expenseCategory.service';
 import { ExpenseStatus } from '@/types';
@@ -29,6 +29,8 @@ const EXPENSE_CATEGORIES_QUERY_KEY = 'expense-categories';
 export default function ExpenseTable() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const canCreateExpense = hasPermission('Finance', 'canCreate');
+  const canEditExpense = hasPermission('Finance', 'canEdit');
   const [statusFilter, setStatusFilter] = useState('Semua');
   const [categoryFilter, setCategoryFilter] = useState('Semua');
   const [dateFrom, setDateFrom] = useState('');
@@ -136,9 +138,11 @@ export default function ExpenseTable() {
               Reset
             </button>
           )}
-          <button className="btn-primary" onClick={() => router.push('/expense/buat')}>
-            <Plus size={14} /> Buat Expense
-          </button>
+          {canCreateExpense && (
+            <button className="btn-primary" onClick={() => router.push('/expense/buat')}>
+              <Plus size={14} /> Buat Expense
+            </button>
+          )}
         </div>
       </div>
 
@@ -178,7 +182,7 @@ export default function ExpenseTable() {
                   <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />, label: 'Lihat Detail', onClick: () => router.push(`/expense/${row.id}`) },
-                      ...(row.status === 'Draft' ? [
+                      ...(row.status === 'Draft' && canEditExpense ? [
                         { icon: <Send size={13} />, label: 'Submit', onClick: () => handleSubmit(row.id, row.expenseNo), separator: true },
                       ] : []),
                       ...(row.status === 'Submitted' && canApprove('Finance') ? [

@@ -9,7 +9,7 @@ import AppLayout from '@/components/AppLayout';
 import StatusBadge from '@/components/ui/StatusBadge';
 import ERPModal from '@/components/ui/ERPModal';
 import { formatRp, formatDate } from '@/lib/format';
-import { canApprove } from '@/lib/permissions';
+import { canApprove, hasPermission } from '@/lib/permissions';
 import { Download, Loader2, AlertTriangle, CheckCircle2, FileX } from 'lucide-react';
 import {
   getExpenseDetail,
@@ -26,6 +26,7 @@ export default function ExpenseDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const queryClient = useQueryClient();
+  const canEditExpense = hasPermission('Finance', 'canEdit');
 
   const [expense, setExpense] = useState<ExpenseDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -175,7 +176,7 @@ export default function ExpenseDetailPage() {
               <StatusBadge status={expense.status as ExpenseStatus} />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              {expense.status === 'Draft' && (
+              {expense.status === 'Draft' && canEditExpense && (
                 <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
                   {saving ? 'Memproses...' : 'Submit'}
                 </button>

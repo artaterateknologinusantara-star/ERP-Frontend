@@ -12,7 +12,7 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import WorkflowStepper from '@/components/ui/WorkflowStepper';
 import WorkflowBanner, { BannerTone } from '@/components/ui/WorkflowBanner';
 import { formatRp, formatDate } from '@/lib/format';
-import { canApprove } from '@/lib/permissions';
+import { canApprove, hasPermission } from '@/lib/permissions';
 import { ChevronDown, X, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import {
   getPRDetail,
@@ -104,6 +104,9 @@ export default function PurchaseRequestDetailPage() {
   const router = useRouter();
   const id = params.id as string;
   const queryClient = useQueryClient();
+  const canEditPR = hasPermission('Purchasing', 'canEdit');
+  const canDeletePR = hasPermission('Purchasing', 'canDelete');
+  const canCreatePO = hasPermission('Purchasing', 'canCreate');
 
   const [pr, setPr] = useState<PurchaseRequestDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -359,20 +362,24 @@ export default function PurchaseRequestDetailPage() {
             <div className="flex items-center gap-2 flex-wrap">
               {pr.status === 'Draft' && (
                 <>
-                  <button
-                    className="btn-primary flex items-center gap-1.5"
-                    onClick={() => handleStatusAction('Submitted', 'PR berhasil diajukan')}
-                    disabled={saving}
-                  >
-                    Submit PR
-                  </button>
-                  <button
-                    className="btn-secondary text-red-500 hover:bg-red-50"
-                    onClick={() => setDeleteModal(true)}
-                    disabled={saving}
-                  >
-                    Hapus
-                  </button>
+                  {canEditPR && (
+                    <button
+                      className="btn-primary flex items-center gap-1.5"
+                      onClick={() => handleStatusAction('Submitted', 'PR berhasil diajukan')}
+                      disabled={saving}
+                    >
+                      Submit PR
+                    </button>
+                  )}
+                  {canDeletePR && (
+                    <button
+                      className="btn-secondary text-red-500 hover:bg-red-50"
+                      onClick={() => setDeleteModal(true)}
+                      disabled={saving}
+                    >
+                      Hapus
+                    </button>
+                  )}
                 </>
               )}
               {pr.status === 'Submitted' && canApprove('Purchasing') && (
@@ -393,7 +400,7 @@ export default function PurchaseRequestDetailPage() {
                   </button>
                 </>
               )}
-              {(pr.status === 'Approved' || pr.status === 'PartiallyOrdered') && (
+              {(pr.status === 'Approved' || pr.status === 'PartiallyOrdered') && canCreatePO && (
                 <button
                   className="btn-primary flex items-center gap-1.5"
                   onClick={openPoModal}
@@ -401,7 +408,7 @@ export default function PurchaseRequestDetailPage() {
                   Buat PO dari PR ini
                 </button>
               )}
-              {pr.status === 'Rejected' && (
+              {pr.status === 'Rejected' && canEditPR && (
                 <button
                   className="btn-secondary flex items-center gap-1.5"
                   onClick={() => handleStatusAction('Draft', 'PR di-reset ke Draft')}
@@ -410,7 +417,7 @@ export default function PurchaseRequestDetailPage() {
                   Reset ke Draft
                 </button>
               )}
-              {pr.status === 'Ordered' && (
+              {pr.status === 'Ordered' && canDeletePR && (
                 <button
                   className="btn-secondary text-red-500 hover:bg-red-50 border-red-200"
                   onClick={handleDelete}

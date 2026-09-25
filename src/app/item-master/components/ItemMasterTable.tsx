@@ -15,6 +15,7 @@ import CurrencyInput from '@/components/ui/CurrencyInput';
 import type { ItemMaster } from '@/types';
 import { formatRp } from '@/lib/format';
 import { computeAutoSellingPrice, computeFloorPrice, marginWarningText, isBelowMinimumMargin, type ItemMarginType } from '@/lib/itemMargin';
+import { hasPermission } from '@/lib/permissions';
 
 const PER_PAGE = 10;
 
@@ -32,6 +33,9 @@ const EMPTY_FORM: CreateItemMasterDto = {
 const ITEM_MASTERS_QUERY_KEY = 'item-masters';
 
 export default function ItemMasterTable() {
+  const canCreateItem = hasPermission('Inventory', 'canCreate');
+  const canEditItem = hasPermission('Inventory', 'canEdit');
+  const canDeleteItem = hasPermission('Inventory', 'canDelete');
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(PER_PAGE);
@@ -299,10 +303,14 @@ export default function ItemMasterTable() {
                 <input type="checkbox" checked={belowMinMarginOnly} onChange={(e) => { setBelowMinMarginOnly(e.target.checked); setPage(1); }} />
                 Margin di bawah minimum
               </label>
-              <button className="btn-secondary" onClick={() => setBulkMarginConfirm(true)}>
-                <Sparkles size={14} /> Set Margin Otomatis (Massal)
-              </button>
-              <button className="btn-primary" onClick={openCreate}><Plus size={14} /> Tambah Item</button>
+              {canEditItem && (
+                <button className="btn-secondary" onClick={() => setBulkMarginConfirm(true)}>
+                  <Sparkles size={14} /> Set Margin Otomatis (Massal)
+                </button>
+              )}
+              {canCreateItem && (
+                <button className="btn-primary" onClick={openCreate}><Plus size={14} /> Tambah Item</button>
+              )}
             </>
           }
         />
@@ -358,8 +366,8 @@ export default function ItemMasterTable() {
                     <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                       <RowActionMenu items={[
                         { icon: <Eye size={13} />,   label: 'Detail Item', onClick: () => openDetail(row) },
-                        { icon: <Edit2 size={13} />, label: 'Edit Item',   onClick: () => openEdit(row) },
-                        { icon: <Trash2 size={13} />, label: 'Hapus Item', onClick: () => setDeleteTarget(row), danger: true, separator: true },
+                        ...(canEditItem ? [{ icon: <Edit2 size={13} />, label: 'Edit Item', onClick: () => openEdit(row) }] : []),
+                        ...(canDeleteItem ? [{ icon: <Trash2 size={13} />, label: 'Hapus Item', onClick: () => setDeleteTarget(row), danger: true, separator: true }] : []),
                       ]} />
                     </td>
                   </tr>
@@ -432,7 +440,9 @@ export default function ItemMasterTable() {
         footer={
           <>
             <button className="btn-secondary" onClick={closeModal}>Tutup</button>
-            <button className="btn-primary" onClick={() => { closeModal(); if (selected) openEdit(selected); }}>Edit</button>
+            {canEditItem && (
+              <button className="btn-primary" onClick={() => { closeModal(); if (selected) openEdit(selected); }}>Edit</button>
+            )}
           </>
         }
       >
@@ -471,12 +481,14 @@ export default function ItemMasterTable() {
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 ${selected.isActive ? 'bg-green-50 text-green-700' : 'bg-muted text-muted-foreground'}`}>
                 {selected.isActive ? 'Aktif' : 'Nonaktif'}
               </span>
-              <button
-                className={`text-xs px-3 py-1.5 rounded-md font-600 transition-colors ${selected.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
-                onClick={() => { handleToggleStatus(selected); closeModal(); }}
-              >
-                {selected.isActive ? 'Nonaktifkan' : 'Aktifkan'}
-              </button>
+              {canEditItem && (
+                <button
+                  className={`text-xs px-3 py-1.5 rounded-md font-600 transition-colors ${selected.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                  onClick={() => { handleToggleStatus(selected); closeModal(); }}
+                >
+                  {selected.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                </button>
+              )}
             </div>
           </div>
         )}

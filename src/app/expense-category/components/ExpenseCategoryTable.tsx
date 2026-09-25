@@ -14,6 +14,7 @@ import {
   CreateExpenseCategoryRequest,
 } from '@/services/expenseCategory.service';
 import { getFlatAccounts, Account } from '@/services/account.service';
+import { hasPermission } from '@/lib/permissions';
 
 const STATUS_OPTIONS = [
   { value: 'Semua', label: 'Semua Status' },
@@ -24,6 +25,8 @@ const STATUS_OPTIONS = [
 const EMPTY_FORM: CreateExpenseCategoryRequest = { code: '', name: '', description: '', accountId: '' };
 
 export default function ExpenseCategoryTable() {
+  const canCreateCategory = hasPermission('Finance', 'canCreate');
+  const canEditCategory = hasPermission('Finance', 'canEdit');
   const [items, setItems] = useState<ExpenseCategory[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,7 +129,9 @@ export default function ExpenseCategoryTable() {
         onStatusFilter={setStatusFilter}
         statusOptions={STATUS_OPTIONS}
         actions={
-          <button className="btn-primary" onClick={openCreate}><Plus size={14} /> Tambah Kategori</button>
+          canCreateCategory ? (
+            <button className="btn-primary" onClick={openCreate}><Plus size={14} /> Tambah Kategori</button>
+          ) : undefined
         }
       />
 
@@ -164,7 +169,7 @@ export default function ExpenseCategoryTable() {
                 <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                   <RowActionMenu items={[
                     { icon: <Eye size={13} />, label: 'Detail', onClick: () => openDetail(row) },
-                    { icon: <Edit2 size={13} />, label: 'Edit', onClick: () => openEdit(row) },
+                    ...(canEditCategory ? [{ icon: <Edit2 size={13} />, label: 'Edit', onClick: () => openEdit(row) }] : []),
                   ]} />
                 </td>
               </tr>
@@ -253,7 +258,9 @@ export default function ExpenseCategoryTable() {
         footer={
           <>
             <button className="btn-secondary" onClick={closeModal}>Tutup</button>
-            <button className="btn-primary" onClick={() => { closeModal(); if (selected) openEdit(selected); }}>Edit</button>
+            {canEditCategory && (
+              <button className="btn-primary" onClick={() => { closeModal(); if (selected) openEdit(selected); }}>Edit</button>
+            )}
           </>
         }
       >
@@ -280,12 +287,14 @@ export default function ExpenseCategoryTable() {
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-600 ${selected.isActive ? 'bg-green-50 text-green-700' : 'bg-muted text-muted-foreground'}`}>
                 {selected.isActive ? 'Aktif' : 'Nonaktif'}
               </span>
-              <button
-                className={`text-xs px-3 py-1.5 rounded-md font-600 transition-colors ${selected.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
-                onClick={() => { handleToggleStatus(selected); closeModal(); }}
-              >
-                {selected.isActive ? 'Nonaktifkan' : 'Aktifkan'}
-              </button>
+              {canEditCategory && (
+                <button
+                  className={`text-xs px-3 py-1.5 rounded-md font-600 transition-colors ${selected.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                  onClick={() => { handleToggleStatus(selected); closeModal(); }}
+                >
+                  {selected.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                </button>
+              )}
             </div>
           </div>
         )}
