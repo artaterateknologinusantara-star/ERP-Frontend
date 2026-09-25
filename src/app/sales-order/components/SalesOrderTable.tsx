@@ -13,6 +13,7 @@ import { Eye, Trash2, FileText, FileDown, X } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
 import { getSalesOrders, SalesOrderListItem, salesOrderService } from '@/services/salesorder.service';
 import { SalesOrderStatus } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 // ── PDF Preview Modal ──────────────────────────────────────────────────────────
 function PdfPreviewModal({ row, url, onClose }: {
@@ -79,6 +80,7 @@ export const SALES_ORDERS_QUERY_KEY = 'sales-orders';
 export default function SalesOrderTable() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const canDeleteSO = hasPermission('Sales', 'canDelete');
 
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -211,7 +213,7 @@ export default function SalesOrderTable() {
                         onClick: () => handleOpenPdfPreview(row),
                         disabled: pdfPreviewLoading === row.id,
                       },
-                      { icon: <Trash2 size={13} />, label: 'Hapus SO',    onClick: () => { setDeleteTarget(row); setDeleteModal(true); }, danger: true, separator: true },
+                      ...(canDeleteSO ? [{ icon: <Trash2 size={13} />, label: 'Hapus SO', onClick: () => { setDeleteTarget(row); setDeleteModal(true); }, danger: true, separator: true }] : []),
                     ]} />
                   </td>
                 </tr>

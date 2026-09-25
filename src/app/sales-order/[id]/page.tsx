@@ -26,6 +26,7 @@ import { api } from '@/lib/api';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import { SalesOrderStatus } from '@/types';
 import { SALES_ORDERS_QUERY_KEY } from '../components/SalesOrderTable';
+import { hasPermission } from '@/lib/permissions';
 
 const DP_METHODS = ['Transfer', 'Tunai', 'Giro', 'Cek'];
 
@@ -159,6 +160,8 @@ export default function SalesOrderDetailPage() {
   const router = useRouter();
   const id     = params.id as string;
   const queryClient = useQueryClient();
+  const canEditSalesOrder = hasPermission('Sales', 'canEdit');
+  const canCreateInvoice  = hasPermission('Sales', 'canCreate');
 
   const [so, setSo]                         = useState<SalesOrderDetail | null>(null);
   const [loading, setLoading]               = useState(true);
@@ -559,7 +562,7 @@ export default function SalesOrderDetailPage() {
             <div className="flex items-center gap-2 flex-wrap">
 
               {/* Draft: activate */}
-              {so.status === 'Draft' && (
+              {so.status === 'Draft' && canEditSalesOrder && (
                 <button
                   onClick={() => triggerStatusChange('Aktifkan Sales Order', `Aktifkan SO ${so.no} menjadi Open?`, 'Open', 'Aktifkan')}
                   disabled={saving}
@@ -605,7 +608,7 @@ export default function SalesOrderDetailPage() {
 
               {/* Buat Invoice — SO tanpa termin saja; SO dengan termin pakai daftar per-termin
                   di kartu Invoice (sidebar), bukan tombol tunggal ini. */}
-              {canBuatInvoice && so.termins.length === 0 && (
+              {canBuatInvoice && so.termins.length === 0 && canCreateInvoice && (
                 <button
                   onClick={() => openInvoiceModal(null)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-purple-300 text-purple-700 rounded-md hover:bg-purple-50 transition-colors font-600"
@@ -615,7 +618,7 @@ export default function SalesOrderDetailPage() {
               )}
 
               {/* Selesaikan SO (Delivered → Completed) */}
-              {so.status === 'Delivered' && (
+              {so.status === 'Delivered' && canEditSalesOrder && (
                 <button
                   onClick={() => triggerStatusChange(
                     'Selesaikan Sales Order',
@@ -761,14 +764,16 @@ export default function SalesOrderDetailPage() {
                 {downPayments.length} DP
               </span>
             </div>
-            <button
-              onClick={openDpModal}
-              disabled={totalDpReceived >= so.grandTotal}
-              title={totalDpReceived >= so.grandTotal ? 'Total DP sudah mencapai Grand Total SO' : undefined}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-emerald-300 text-emerald-700 rounded-md hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-600"
-            >
-              <Receipt size={14} /> Terima DP
-            </button>
+            {canEditSalesOrder && (
+              <button
+                onClick={openDpModal}
+                disabled={totalDpReceived >= so.grandTotal}
+                title={totalDpReceived >= so.grandTotal ? 'Total DP sudah mencapai Grand Total SO' : undefined}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-emerald-300 text-emerald-700 rounded-md hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-600"
+              >
+                <Receipt size={14} /> Terima DP
+              </button>
+            )}
           </div>
 
           {loadingDp ? (
@@ -926,7 +931,7 @@ export default function SalesOrderDetailPage() {
                           ) : (
                             <span className="text-xs text-green-600 font-500 flex-shrink-0">Sudah ditagih</span>
                           )
-                        ) : canBuatInvoice ? (
+                        ) : canBuatInvoice && canCreateInvoice ? (
                           <button onClick={() => openInvoiceModal(t.id)}
                             className="text-xs text-purple-600 hover:underline font-500 flex-shrink-0">
                             Buat Invoice
@@ -938,7 +943,7 @@ export default function SalesOrderDetailPage() {
                     ))}
                   </div>
                 ) : (
-                  canBuatInvoice && (
+                  canBuatInvoice && canCreateInvoice && (
                     <button onClick={() => openInvoiceModal(null)}
                       className="text-xs text-purple-600 hover:underline font-500">
                       + Buat Invoice

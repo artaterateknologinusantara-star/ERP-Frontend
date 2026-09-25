@@ -11,9 +11,11 @@ import { FileCheck, Download, Loader2, Search, ShoppingBag, History, Pencil } fr
 import type { CustomerPO } from '@/types';
 import PoHistoryModal from './components/PoHistoryModal';
 import EditPoNoModal from '../riwayat-penawaran/components/EditPoNoModal';
+import { hasPermission } from '@/lib/permissions';
 
 export default function CustomerPoPage() {
   const router = useRouter();
+  const canCreateSO = hasPermission('Sales', 'canCreate');
   const [data,     setData]     = useState<CustomerPO[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [search,   setSearch]   = useState('');
@@ -184,8 +186,14 @@ export default function CustomerPoPage() {
                                 ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
                                 : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
                             }`}
-                            title={cpo.salesOrderId ? `SO ${cpo.salesOrderNo}` : 'Buat Sales Order dari Quotation ini'}
-                            disabled={soLoadingId === cpo.id}
+                            title={
+                              cpo.salesOrderId
+                                ? `SO ${cpo.salesOrderNo}`
+                                : canCreateSO
+                                ? 'Buat Sales Order dari Quotation ini'
+                                : 'Anda tidak memiliki izin membuat Sales Order'
+                            }
+                            disabled={soLoadingId === cpo.id || (!cpo.salesOrderId && !canCreateSO)}
                             onClick={() => handleBuatSO(cpo)}
                           >
                             {soLoadingId === cpo.id
