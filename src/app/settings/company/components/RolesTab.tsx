@@ -75,20 +75,18 @@ export default function RolesTab() {
 
     setSaving(true);
     try {
-      const activePermissions = permMatrix.filter(
-        (p) => p.canView || p.canCreate || p.canEdit || p.canDelete || p.canApprove
-      );
-
+      // Always submit the full module matrix (one row per Modules.All entry, including
+      // all-false rows) — the backend treats any module missing from this payload as an
+      // explicit "clear access" and deletes its Permission row. Sending a partial list here
+      // previously caused modules with no checked action to silently vanish from the role.
       if (modal === 'create') {
         const created = await roleService.create({ name: form.name, description: form.description || undefined });
-        if (activePermissions.length > 0) {
-          await roleService.updatePermissions(created.data.id, activePermissions);
-        }
+        await roleService.updatePermissions(created.data.id, permMatrix);
         toast.success('Role berhasil dibuat');
       } else if (selected) {
         await roleService.update(selected.id, { name: form.name, description: form.description || undefined, isActive: form.isActive });
         if (!isAdminRole) {
-          await roleService.updatePermissions(selected.id, activePermissions);
+          await roleService.updatePermissions(selected.id, permMatrix);
         }
         toast.success('Role berhasil diperbarui');
       }
