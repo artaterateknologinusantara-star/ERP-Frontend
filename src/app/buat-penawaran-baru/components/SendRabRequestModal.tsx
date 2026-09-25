@@ -8,6 +8,7 @@ import ERPModal from '@/components/ui/ERPModal';
 import { supplierService } from '@/services/supplier.service';
 import { vendorRabRequestInternalService, CreateVendorRabRequestLineDto } from '@/services/vendorRabRequest.internal.service';
 import type { CostingGroup } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 interface Props {
   group: CostingGroup;
@@ -29,6 +30,7 @@ const emptyLine = (sortOrder: number): DraftLine => ({
 });
 
 export default function SendRabRequestModal({ group, isOpen, onClose }: Props) {
+  const canSendRabRequest = hasPermission('Sales', 'canCreate');
   const queryClient = useQueryClient();
   const [supplierId, setSupplierId] = useState('');
   const [name, setName] = useState(`RAB — ${group.name}`);
@@ -104,7 +106,12 @@ export default function SendRabRequestModal({ group, isOpen, onClose }: Props) {
       footer={
         <>
           <button className="btn-secondary" onClick={handleClose} disabled={saving}>Batal</button>
-          <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
+          <button
+            className="btn-primary"
+            onClick={handleSubmit}
+            disabled={saving || !canSendRabRequest}
+            title={!canSendRabRequest ? 'Anda tidak memiliki izin mengirim permintaan RAB' : undefined}
+          >
             {saving ? 'Mengirim...' : 'Kirim ke Vendor'}
           </button>
         </>

@@ -8,6 +8,7 @@ import EditPoNoModal from './EditPoNoModal';
 import type { CustomerPO, QuotationListItem } from '@/types';
 import { customerPoService } from '@/services/customerpo.service';
 import CurrencyInput from '@/components/ui/CurrencyInput';
+import { hasPermission } from '@/lib/permissions';
 
 interface Props {
   isOpen: boolean;
@@ -18,6 +19,8 @@ interface Props {
 }
 
 export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, onRequestRevision }: Props) {
+  const canCreateCustomerPo = hasPermission('Sales', 'canCreate');
+  const canEditCustomerPo = hasPermission('Sales', 'canEdit');
   const [existing, setExisting] = useState<CustomerPO | null>(null);
   const [fetching, setFetching] = useState(false);
 
@@ -170,9 +173,11 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
                   {existing.attachmentName ?? 'Unduh Lampiran'}
                 </button>
               )}
-              <div className="flex justify-end">
-                <button className="btn-secondary text-[13px]" onClick={() => setEditOpen(true)}>Edit Nomor / Lampiran PO</button>
-              </div>
+              {canEditCustomerPo && (
+                <div className="flex justify-end">
+                  <button className="btn-secondary text-[13px]" onClick={() => setEditOpen(true)}>Edit Nomor / Lampiran PO</button>
+                </div>
+              )}
               <EditPoNoModal isOpen={editOpen} onClose={() => setEditOpen(false)} customerPo={existing} onUpdated={() => { refetchExisting(); onSuccess(); }} />
             </div>
           ) : (
@@ -334,8 +339,14 @@ export default function RecordPoModal({ isOpen, onClose, quotation, onSuccess, o
                 <button
                   type="submit"
                   className="btn-primary"
-                  disabled={submitting || isOver}
-                  title={isOver ? 'Nilai PO melebihi penawaran yang disetujui' : undefined}
+                  disabled={submitting || isOver || !canCreateCustomerPo}
+                  title={
+                    !canCreateCustomerPo
+                      ? 'Anda tidak memiliki izin menginput Customer PO'
+                      : isOver
+                      ? 'Nilai PO melebihi penawaran yang disetujui'
+                      : undefined
+                  }
                 >
                   {submitting
                     ? <><Loader2 size={13} className="animate-spin" /> Menyimpan...</>

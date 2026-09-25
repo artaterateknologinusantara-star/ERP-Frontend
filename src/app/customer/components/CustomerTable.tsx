@@ -13,6 +13,7 @@ import { customerService, CreateCustomerDto } from '@/services/customer.service'
 import { downloadCsv } from '@/lib/export';
 import { Eye, Edit2, Plus, Trash2 } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
+import { hasPermission } from '@/lib/permissions';
 
 interface CustomerRow {
   id: string;
@@ -44,6 +45,9 @@ const EMPTY_FORM: CreateCustomerDto = {
 
 export default function CustomerTable() {
   const queryClient = useQueryClient();
+  const canCreateCustomer = hasPermission('Sales', 'canCreate');
+  const canEditCustomer = hasPermission('Sales', 'canEdit');
+  const canDeleteCustomer = hasPermission('Sales', 'canDelete');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(PER_PAGE);
   const [searchInput, setSearchInput] = useState('');
@@ -179,9 +183,11 @@ export default function CustomerTable() {
           statusOptions={STATUS_OPTIONS}
           onExport={handleExport}
           actions={
-            <button className="btn-primary" onClick={openCreate}>
-              <Plus size={14} /> Tambah Customer
-            </button>
+            canCreateCustomer ? (
+              <button className="btn-primary" onClick={openCreate}>
+                <Plus size={14} /> Tambah Customer
+              </button>
+            ) : undefined
           }
         />
 
@@ -218,8 +224,8 @@ export default function CustomerTable() {
                   <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />,    label: 'Detail Customer', onClick: () => openDetail(row) },
-                      { icon: <Edit2 size={13} />,  label: 'Edit Customer',   onClick: () => openEdit(row) },
-                      { icon: <Trash2 size={13} />, label: 'Hapus Customer',  onClick: () => setDeleteTarget(row), danger: true, separator: true },
+                      ...(canEditCustomer ? [{ icon: <Edit2 size={13} />, label: 'Edit Customer', onClick: () => openEdit(row) }] : []),
+                      ...(canDeleteCustomer ? [{ icon: <Trash2 size={13} />, label: 'Hapus Customer', onClick: () => setDeleteTarget(row), danger: true, separator: true }] : []),
                     ]} />
                   </td>
                 </tr>
@@ -271,7 +277,9 @@ export default function CustomerTable() {
         footer={
           <>
             <button className="btn-secondary" onClick={closeModal}>Tutup</button>
-            <button className="btn-primary" onClick={() => { closeModal(); if (selected) openEdit(selected); }}>Edit</button>
+            {canEditCustomer && (
+              <button className="btn-primary" onClick={() => { closeModal(); if (selected) openEdit(selected); }}>Edit</button>
+            )}
           </>
         }
       >
@@ -297,12 +305,14 @@ export default function CustomerTable() {
             )}
             <div className="flex items-center justify-between pt-2 border-t border-border">
               <StatusBadge status={(selected.isActive ? 'Aktif' : 'Tidak Aktif') as ActiveStatus} />
-              <button
-                className={`text-xs px-3 py-1.5 rounded-md font-600 transition-colors ${selected.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
-                onClick={() => { handleToggleStatus(selected); closeModal(); }}
-              >
-                {selected.isActive ? 'Nonaktifkan' : 'Aktifkan'}
-              </button>
+              {canEditCustomer && (
+                <button
+                  className={`text-xs px-3 py-1.5 rounded-md font-600 transition-colors ${selected.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                  onClick={() => { handleToggleStatus(selected); closeModal(); }}
+                >
+                  {selected.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                </button>
+              )}
             </div>
           </div>
         )}

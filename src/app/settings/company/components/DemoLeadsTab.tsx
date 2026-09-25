@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { demoLeadService, DemoLeadItem } from '@/services/demoLead.service';
+import { hasPermission } from '@/lib/permissions';
 
 const STATUS_OPTIONS = ['New', 'Contacted', 'Converted', 'Rejected'] as const;
 
@@ -14,6 +15,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function DemoLeadsTab() {
+  const canEditDemoLead = hasPermission('Sales', 'canEdit');
   const [leads, setLeads] = useState<DemoLeadItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -85,7 +87,8 @@ export default function DemoLeadsTab() {
                   <select
                     className={`text-xs font-600 rounded-full border px-2 py-1 ${STATUS_STYLES[lead.status] ?? ''}`}
                     value={lead.status}
-                    disabled={updatingId === lead.id}
+                    disabled={updatingId === lead.id || !canEditDemoLead}
+                    title={!canEditDemoLead ? 'Anda tidak memiliki izin mengubah status demo lead' : undefined}
                     onChange={(e) => handleStatusChange(lead.id, e.target.value)}
                   >
                     {STATUS_OPTIONS.map((s) => (

@@ -16,6 +16,7 @@ import { hasPermission } from '@/lib/permissions';
 export default function CustomerPoPage() {
   const router = useRouter();
   const canCreateSO = hasPermission('Sales', 'canCreate');
+  const canEditCustomerPo = hasPermission('Sales', 'canEdit');
   const [data,     setData]     = useState<CustomerPO[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [search,   setSearch]   = useState('');
@@ -202,14 +203,16 @@ export default function CustomerPoPage() {
                             }
                             {cpo.salesOrderId ? 'Lihat SO' : 'Buat SO'}
                           </button>
-                          <button
-                            className="inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"
-                            title="Edit Nomor / Lampiran PO"
-                            onClick={() => setEditCpo(cpo)}
-                          >
-                            <Pencil size={11} />
-                            Edit No. PO
-                          </button>
+                          {canEditCustomerPo && (
+                            <button
+                              className="inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"
+                              title="Edit Nomor / Lampiran PO"
+                              onClick={() => setEditCpo(cpo)}
+                            >
+                              <Pencil size={11} />
+                              Edit No. PO
+                            </button>
+                          )}
                           {cpo.hasHistory && (
                             <button
                               className="inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"

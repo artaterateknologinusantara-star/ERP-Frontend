@@ -14,6 +14,7 @@ import GroupSubconPanel from './GroupSubconPanel';
 import GroupWorkItemsPanel from './GroupWorkItemsPanel';
 import SendRabRequestModal from './SendRabRequestModal';
 import RabRequestsReviewPanel from './RabRequestsReviewPanel';
+import { hasPermission } from '@/lib/permissions';
 
 interface Props {
   tabData: CostingTab;
@@ -24,6 +25,7 @@ interface Props {
 const uomOptions = ['Unit', 'Meter', 'Box', 'Pack', 'Set', 'Batang', 'Titik', 'Ls', 'Buah', 'Roll'];
 
 export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props) {
+  const canSendRabRequest = hasPermission('Sales', 'canCreate');
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
   const [activeWorkItemsGroupId, setActiveWorkItemsGroupId] = useState<string | null>(null);
@@ -415,16 +417,18 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                                   </span>
                                 )}
                               </button>
-                              <button
-                                type="button"
-                                disabled={!isGuid(group.id)}
-                                title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
-                                onClick={() => setActiveSendRabGroupId(group.id)}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                              >
-                                <Send size={13} />
-                                Kirim RAB ke Vendor
-                              </button>
+                              {canSendRabRequest && (
+                                <button
+                                  type="button"
+                                  disabled={!isGuid(group.id)}
+                                  title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
+                                  onClick={() => setActiveSendRabGroupId(group.id)}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  <Send size={13} />
+                                  Kirim RAB ke Vendor
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 disabled={!isGuid(group.id)}
@@ -691,16 +695,18 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                             </span>
                           )}
                         </button>
-                        <button
-                          type="button"
-                          disabled={!isGuid(group.id)}
-                          title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
-                          onClick={() => setActiveSendRabGroupId(group.id)}
-                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <Send size={12} />
-                          Kirim RAB
-                        </button>
+                        {canSendRabRequest && (
+                          <button
+                            type="button"
+                            disabled={!isGuid(group.id)}
+                            title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
+                            onClick={() => setActiveSendRabGroupId(group.id)}
+                            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Send size={12} />
+                            Kirim RAB
+                          </button>
+                        )}
                         <button
                           type="button"
                           disabled={!isGuid(group.id)}

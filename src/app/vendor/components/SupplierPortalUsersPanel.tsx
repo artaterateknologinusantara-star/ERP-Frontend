@@ -10,6 +10,7 @@ import RowActionMenu from '@/components/ui/RowActionMenu';
 import { supplierPortalUserService } from '@/services/supplierPortalUser.service';
 import { formatDate } from '@/lib/format';
 import type { ActiveStatus } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 interface Props {
   supplierId: string;
@@ -18,6 +19,8 @@ interface Props {
 const EMPTY_FORM = { name: '', email: '', password: '' };
 
 export default function SupplierPortalUsersPanel({ supplierId }: Props) {
+  const canCreatePortalUser = hasPermission('Purchasing', 'canCreate');
+  const canEditPortalUser = hasPermission('Purchasing', 'canEdit');
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -69,13 +72,15 @@ export default function SupplierPortalUsersPanel({ supplierId }: Props) {
     <div className="pt-3 border-t border-border space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-xs font-600 text-muted-foreground uppercase tracking-wide">Akun Portal Vendor</p>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1 text-xs font-600 text-primary hover:underline"
-        >
-          <Plus size={12} /> Tambah Akun
-        </button>
+        {canCreatePortalUser && (
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-1 text-xs font-600 text-primary hover:underline"
+          >
+            <Plus size={12} /> Tambah Akun
+          </button>
+        )}
       </div>
 
       {isLoading ? (
@@ -96,11 +101,11 @@ export default function SupplierPortalUsersPanel({ supplierId }: Props) {
               <div className="flex items-center gap-2">
                 <StatusBadge status={(u.isActive ? 'Aktif' : 'Tidak Aktif') as ActiveStatus} size="sm" />
                 <RowActionMenu items={[
-                  {
+                  ...(canEditPortalUser ? [{
                     label: u.isActive ? 'Nonaktifkan' : 'Aktifkan',
                     onClick: () => handleToggle(u.id, u.isActive),
                     danger: u.isActive,
-                  },
+                  }] : []),
                 ]} />
               </div>
             </div>
