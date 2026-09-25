@@ -138,9 +138,12 @@ export interface VendorRabSubmissionLine {
   spesifikasi?: string | null;
   volume: number;
   unit: string;
-  unitPrice: number;
-  markupAmount: number;
-  finalUnitPrice: number;
+  servicePrice: number;
+  materialPrice: number;
+  serviceMarkup: number;
+  materialMarkup: number;
+  finalServicePrice: number;
+  finalMaterialPrice: number;
   totalHarga: number;
 }
 
@@ -262,7 +265,8 @@ export interface WorkDetail {
   spesifikasi: string;
   volume: number;
   unit: string;
-  unitPrice: number;
+  servicePrice: number;
+  materialPrice: number;
   sortOrder: number;
   attachments: WorkDetailAttachment[];
 }

@@ -113,7 +113,8 @@ interface BackendWorkDetail {
   spesifikasi?: string;
   volume: number;
   unit: string;
-  unitPrice: number;
+  servicePrice: number;
+  materialPrice: number;
   sortOrder: number;
 }
 
@@ -157,7 +158,8 @@ export function mapTabsToBackend(tabs: CostingTab[]): BackendTab[] {
           spesifikasi: d.spesifikasi || undefined,
           volume: d.volume,
           unit: d.unit,
-          unitPrice: d.unitPrice,
+          servicePrice: d.servicePrice,
+          materialPrice: d.materialPrice,
           sortOrder: d.sortOrder ?? di,
         })),
       })),

@@ -65,7 +65,8 @@ export default function GroupWorkItemsPanel({ group, onUpdate, isOpen, onClose }
       spesifikasi: '',
       volume: 0,
       unit: '',
-      unitPrice: 0,
+      servicePrice: 0,
+      materialPrice: 0,
       sortOrder: workItem.workDetails.length,
       attachments: [],
     };
@@ -169,7 +170,7 @@ export default function GroupWorkItemsPanel({ group, onUpdate, isOpen, onClose }
 
           <div className="space-y-1.5">
           {workItem.workDetails.map((detail, di) => {
-            const totalHarga = detail.volume * detail.unitPrice;
+            const totalHarga = detail.volume * (detail.servicePrice + detail.materialPrice);
             const inputKey = `${workItem.id}:${detail.id}`;
             const canUpload = isGuid(detail.id);
             return (
@@ -202,7 +203,7 @@ export default function GroupWorkItemsPanel({ group, onUpdate, isOpen, onClose }
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-end gap-1.5">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 flex-1">
                     <div>
                       <label className="erp-form-label">Volume</label>
                       <input
@@ -224,11 +225,20 @@ export default function GroupWorkItemsPanel({ group, onUpdate, isOpen, onClose }
                       />
                     </div>
                     <div>
-                      <label className="erp-form-label">Harga Satuan</label>
+                      <label className="erp-form-label">Jasa / Satuan</label>
                       <CurrencyInput
-                        value={detail.unitPrice}
+                        value={detail.servicePrice}
                         prefix=""
-                        onChange={(v) => updateDetailLocal(workItem.id, detail.id, { unitPrice: v })}
+                        onChange={(v) => updateDetailLocal(workItem.id, detail.id, { servicePrice: v })}
+                        className="text-xs py-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="erp-form-label">Material / Satuan</label>
+                      <CurrencyInput
+                        value={detail.materialPrice}
+                        prefix=""
+                        onChange={(v) => updateDetailLocal(workItem.id, detail.id, { materialPrice: v })}
                         className="text-xs py-1"
                       />
                     </div>

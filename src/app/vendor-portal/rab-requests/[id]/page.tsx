@@ -17,7 +17,8 @@ function VendorRabRequestDetail() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { loading: authLoading } = useVendorAuth();
-  const [prices, setPrices] = useState<Record<string, number>>({});
+  const [servicePrices, setServicePrices] = useState<Record<string, number>>({});
+  const [materialPrices, setMaterialPrices] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -34,7 +35,14 @@ function VendorRabRequestDetail() {
 
   useEffect(() => {
     if (request && canSubmit) {
-      setPrices((prev) => {
+      setServicePrices((prev) => {
+        const next = { ...prev };
+        for (const line of request.lines) {
+          if (!(line.id in next)) next[line.id] = 0;
+        }
+        return next;
+      });
+      setMaterialPrices((prev) => {
         const next = { ...prev };
         for (const line of request.lines) {
           if (!(line.id in next)) next[line.id] = 0;
@@ -53,7 +61,11 @@ function VendorRabRequestDetail() {
   }
 
   const handleSubmit = async () => {
-    const missingOrInvalid = request.lines.filter((l) => !prices[l.id] || prices[l.id] <= 0);
+    // Total (Jasa+Material) harus > 0 — salah satu boleh legitimately 0 (baris murni jasa atau
+    // murni material), tapi tidak boleh keduanya kosong.
+    const missingOrInvalid = request.lines.filter(
+      (l) => (servicePrices[l.id] ?? 0) + (materialPrices[l.id] ?? 0) <= 0,
+    );
     if (missingOrInvalid.length > 0) {
       toast.error(`Ada ${missingOrInvalid.length} baris yang harganya belum diisi.`);
       return;
@@ -62,7 +74,11 @@ function VendorRabRequestDetail() {
     try {
       await vendorRabRequestService.submit(
         request.id,
-        request.lines.map((l) => ({ vendorRabRequestLineId: l.id, unitPrice: prices[l.id] })),
+        request.lines.map((l) => ({
+          vendorRabRequestLineId: l.id,
+          servicePrice: servicePrices[l.id] ?? 0,
+          materialPrice: materialPrices[l.id] ?? 0,
+        })),
       );
       toast.success('Submission berhasil dikirim, menunggu review.');
       queryClient.invalidateQueries({ queryKey: ['vendor-rab-request', params.id] });
@@ -124,31 +140,45 @@ function VendorRabRequestDetail() {
 
       {canSubmit && (
         <div className="erp-card space-y-3">
-          <p className="text-xs font-600 text-muted-foreground uppercase tracking-wide">Isi Harga Satuan</p>
+          <p className="text-xs font-600 text-muted-foreground uppercase tracking-wide">Isi Harga Jasa &amp; Material</p>
           <div className="space-y-2">
-            {request.lines.map((line) => (
-              <div key={line.id} className="border border-border rounded-md p-3 space-y-2">
-                <div>
-                  <p className="font-600 text-sm">{line.name}</p>
-                  {line.spesifikasi && <p className="text-xs text-muted-foreground whitespace-pre-line">{line.spesifikasi}</p>}
-                  <p className="text-xs text-muted-foreground mt-1">{line.volume} {line.unit}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="erp-form-label flex-shrink-0 mb-0">Harga Satuan</label>
-                  <div className="w-40">
-                    <CurrencyInput
-                      value={prices[line.id] ?? 0}
-                      onChange={(v) => setPrices((prev) => ({ ...prev, [line.id]: v }))}
-                    />
+            {request.lines.map((line) => {
+              const total = (servicePrices[line.id] ?? 0) + (materialPrices[line.id] ?? 0);
+              return (
+                <div key={line.id} className="border border-border rounded-md p-3 space-y-2">
+                  <div>
+                    <p className="font-600 text-sm">{line.name}</p>
+                    {line.spesifikasi && <p className="text-xs text-muted-foreground whitespace-pre-line">{line.spesifikasi}</p>}
+                    <p className="text-xs text-muted-foreground mt-1">{line.volume} {line.unit}</p>
                   </div>
-                  {(prices[line.id] ?? 0) > 0 && (
-                    <span className="text-xs text-muted-foreground font-tabular">
-                      = {formatRp(line.volume * (prices[line.id] ?? 0))}
-                    </span>
-                  )}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <label className="erp-form-label flex-shrink-0 mb-0">Harga Jasa</label>
+                      <div className="w-40">
+                        <CurrencyInput
+                          value={servicePrices[line.id] ?? 0}
+                          onChange={(v) => setServicePrices((prev) => ({ ...prev, [line.id]: v }))}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="erp-form-label flex-shrink-0 mb-0">Harga Material</label>
+                      <div className="w-40">
+                        <CurrencyInput
+                          value={materialPrices[line.id] ?? 0}
+                          onChange={(v) => setMaterialPrices((prev) => ({ ...prev, [line.id]: v }))}
+                        />
+                      </div>
+                    </div>
+                    {total > 0 && (
+                      <span className="text-xs text-muted-foreground font-tabular">
+                        = {formatRp(line.volume * total)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <button className="btn-primary w-full justify-center" onClick={handleSubmit} disabled={submitting}>
             {submitting ? 'Mengirim...' : 'Kirim Submission'}

@@ -103,7 +103,8 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
           spesifikasi: d.spesifikasi ?? '',
           volume: d.volume,
           unit: d.unit,
-          unitPrice: d.unitPrice,
+          servicePrice: d.servicePrice,
+          materialPrice: d.materialPrice,
           sortOrder: d.sortOrder ?? 0,
           attachments: (d.attachments ?? []).map((a: any) => ({
             id: a.id,

@@ -31,19 +31,22 @@ function SubmissionReview({ submissionId, onDecided }: { submissionId: string; o
 
   // Local editable copy, keyed by line id — synced from the fetched data whenever it changes
   // (e.g. after a save), edited via onChange, persisted on blur.
-  const [markups, setMarkups] = useState<Record<string, number>>({});
+  const [serviceMarkups, setServiceMarkups] = useState<Record<string, number>>({});
+  const [materialMarkups, setMaterialMarkups] = useState<Record<string, number>>({});
   useEffect(() => {
     if (submission) {
-      setMarkups(Object.fromEntries(submission.lines.map((l) => [l.id, l.markupAmount])));
+      setServiceMarkups(Object.fromEntries(submission.lines.map((l) => [l.id, l.serviceMarkup])));
+      setMaterialMarkups(Object.fromEntries(submission.lines.map((l) => [l.id, l.materialMarkup])));
     }
   }, [submission]);
 
   const handleMarkupBlur = async (lineId: string) => {
-    const original = submission?.lines.find((l) => l.id === lineId)?.markupAmount;
-    const value = markups[lineId] ?? 0;
-    if (value === original) return;
+    const original = submission?.lines.find((l) => l.id === lineId);
+    const serviceValue = serviceMarkups[lineId] ?? 0;
+    const materialValue = materialMarkups[lineId] ?? 0;
+    if (original && serviceValue === original.serviceMarkup && materialValue === original.materialMarkup) return;
     try {
-      await vendorRabSubmissionService.setLineMarkup(submissionId, lineId, value);
+      await vendorRabSubmissionService.setLineMarkup(submissionId, lineId, serviceValue, materialValue);
       queryClient.invalidateQueries({ queryKey: ['vendor-submission', submissionId] });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan markup');
@@ -86,21 +89,42 @@ function SubmissionReview({ submissionId, onDecided }: { submissionId: string; o
 
   return (
     <div className="space-y-2 pt-2 border-t border-border/60">
+      <div className="hidden sm:grid grid-cols-7 gap-2 text-[10px] text-muted-foreground uppercase tracking-wide">
+        <span className="col-span-2">Nama</span>
+        <span>Jasa (vendor)</span>
+        <span>Markup Jasa</span>
+        <span>Material (vendor)</span>
+        <span>Markup Material</span>
+        <span>Final / Total</span>
+      </div>
       {submission.lines.map((line) => (
-        <div key={line.id} className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-center text-xs">
+        <div key={line.id} className="grid grid-cols-1 sm:grid-cols-7 gap-2 items-center text-xs">
           <span className="sm:col-span-2 truncate" title={line.name}>{line.name}</span>
-          <span className="text-muted-foreground font-tabular">{formatRp(line.unitPrice)}</span>
+          <span className="text-muted-foreground font-tabular">{formatRp(line.servicePrice)}</span>
           <div className="w-28">
             <CurrencyInput
-              value={markups[line.id] ?? line.markupAmount}
+              value={serviceMarkups[line.id] ?? line.serviceMarkup}
               prefix=""
               disabled={!isPending || !allowApprove}
-              onChange={(v) => setMarkups((prev) => ({ ...prev, [line.id]: v }))}
+              onChange={(v) => setServiceMarkups((prev) => ({ ...prev, [line.id]: v }))}
               onBlur={() => handleMarkupBlur(line.id)}
               className="text-xs py-1"
             />
           </div>
-          <span className="font-600 font-tabular">{formatRp(line.finalUnitPrice)} / {formatRp(line.totalHarga)}</span>
+          <span className="text-muted-foreground font-tabular">{formatRp(line.materialPrice)}</span>
+          <div className="w-28">
+            <CurrencyInput
+              value={materialMarkups[line.id] ?? line.materialMarkup}
+              prefix=""
+              disabled={!isPending || !allowApprove}
+              onChange={(v) => setMaterialMarkups((prev) => ({ ...prev, [line.id]: v }))}
+              onBlur={() => handleMarkupBlur(line.id)}
+              className="text-xs py-1"
+            />
+          </div>
+          <span className="font-600 font-tabular">
+            {formatRp(line.finalServicePrice)} + {formatRp(line.finalMaterialPrice)} / {formatRp(line.totalHarga)}
+          </span>
         </div>
       ))}
       <div className="flex items-center justify-between pt-1">

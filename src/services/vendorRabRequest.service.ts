@@ -3,7 +3,8 @@ import type { VendorRabRequest } from '@/types';
 
 export interface SubmitVendorRabLine {
   vendorRabRequestLineId: string;
-  unitPrice: number;
+  servicePrice: number;
+  materialPrice: number;
 }
 
 // Vendor-facing — scoped server-side to the logged-in vendor's SupplierId via the JWT claim.

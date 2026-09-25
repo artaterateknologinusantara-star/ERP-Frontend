@@ -36,8 +36,8 @@ export const vendorRabSubmissionService = {
     return api.get<VendorRabSubmission>(`/vendor-submissions/${id}`);
   },
 
-  setLineMarkup(submissionId: string, lineId: string, markupAmount: number) {
-    return api.put(`/vendor-submissions/${submissionId}/lines/${lineId}/markup`, { markupAmount });
+  setLineMarkup(submissionId: string, lineId: string, serviceMarkup: number, materialMarkup: number) {
+    return api.put(`/vendor-submissions/${submissionId}/lines/${lineId}/markup`, { serviceMarkup, materialMarkup });
   },
 
   approve(submissionId: string) {
