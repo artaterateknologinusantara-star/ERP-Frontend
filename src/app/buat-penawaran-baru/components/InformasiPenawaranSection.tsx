@@ -24,7 +24,6 @@ export interface InfoFormValues {
   location: string;
   contractor: string;
   validityPeriod: string;
-  areaBlockTender: string;
 }
 
 interface Props {
@@ -312,10 +311,6 @@ export default function InformasiPenawaranSection({ values, onChange, errors, is
             <div>
               <label className="erp-form-label">Validity Period</label>
               <input type="text" {...field('validityPeriod')} className="erp-input" placeholder="Contoh: 14 hari sejak tanggal penawaran" />
-            </div>
-            <div>
-              <label className="erp-form-label">Area Block Tender</label>
-              <input type="text" {...field('areaBlockTender')} className="erp-input" />
             </div>
           </div>
         </div>

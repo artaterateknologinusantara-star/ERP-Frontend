@@ -45,7 +45,6 @@ export interface CreateQuotationDto {
   location?: string;
   contractor?: string;
   validityPeriod?: string;
-  areaBlockTender?: string;
   paymentTerms?: string;
   termins?: BackendTermin[];
   termsAndConditions?: string;

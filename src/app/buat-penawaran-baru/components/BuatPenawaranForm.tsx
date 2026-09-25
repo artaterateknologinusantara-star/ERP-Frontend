@@ -76,7 +76,6 @@ const defaultInfo: InfoFormValues = {
   location: '',
   contractor: '',
   validityPeriod: '',
-  areaBlockTender: '',
 };
 
 // Maps backend QuotationDto tabs (items) back to frontend CostingTab (rows)
@@ -289,7 +288,6 @@ export default function BuatPenawaranForm() {
           location: q.location ?? '',
           contractor: q.contractor ?? '',
           validityPeriod: q.validityPeriod ?? '',
-          areaBlockTender: q.areaBlockTender ?? '',
         });
         if (q.tabs?.length) setTabs(mapApiTabs(q.tabs as any[]));
         setDiscount(q.discount);
@@ -518,7 +516,6 @@ export default function BuatPenawaranForm() {
       location: infoValues.location || undefined,
       contractor: infoValues.contractor || undefined,
       validityPeriod: infoValues.validityPeriod || undefined,
-      areaBlockTender: infoValues.areaBlockTender || undefined,
       // Percentage breakdown now goes through `termins` (structured) — PaymentTerms is left
       // holding only the NET-days line, since the backend has no dedicated field for that yet
       // (see load effect above and the ambiguity noted in the implementation report).

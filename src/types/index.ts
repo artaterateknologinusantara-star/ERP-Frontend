@@ -318,7 +318,6 @@ export interface Quotation {
   location?: string | null;
   contractor?: string | null;
   validityPeriod?: string | null;
-  areaBlockTender?: string | null;
   paymentTerms: string;
   termins?: QuotationTermin[];
   termsAndConditions: string;
