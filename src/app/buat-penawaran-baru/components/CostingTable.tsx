@@ -1,16 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, ClipboardList, Link2, Link2Off } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, ClipboardList, Link2, Link2Off, Send, ListChecks } from 'lucide-react';
 import { formatRp } from '@/lib/format';
 import { getMarginTier, marginTierClasses } from '@/lib/margin';
 import { computeFloorPrice, floorWarningText } from '@/lib/itemMargin';
+import { isGuid } from '@/lib/guid';
 import type { CostingTab, CostingGroup, CostingRow, ItemMaster } from '@/types';
 import ItemAutocomplete from './ItemAutocomplete';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import DimensionCalculatorPopover from './DimensionCalculatorPopover';
 import GroupSubconPanel from './GroupSubconPanel';
 import GroupWorkItemsPanel from './GroupWorkItemsPanel';
+import SendRabRequestModal from './SendRabRequestModal';
+import RabRequestsReviewPanel from './RabRequestsReviewPanel';
 
 interface Props {
   tabData: CostingTab;
@@ -25,6 +28,10 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
   const [activeWorkItemsGroupId, setActiveWorkItemsGroupId] = useState<string | null>(null);
   const activeWorkItemsGroup = tabData.groups.find((g) => g.id === activeWorkItemsGroupId);
+  const [activeSendRabGroupId, setActiveSendRabGroupId] = useState<string | null>(null);
+  const activeSendRabGroup = tabData.groups.find((g) => g.id === activeSendRabGroupId);
+  const [activeReviewRabGroupId, setActiveReviewRabGroupId] = useState<string | null>(null);
+  const activeReviewRabGroup = tabData.groups.find((g) => g.id === activeReviewRabGroupId);
 
   const toggleCollapse = (groupId: string) =>
     setCollapsed((prev) =>
@@ -394,19 +401,41 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                           group={group}
                           onUpdate={(fields) => updateGroupFields(group.id, fields)}
                           actions={
-                            <button
-                              type="button"
-                              onClick={() => setActiveWorkItemsGroupId(group.id)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0"
-                            >
-                              <ClipboardList size={13} />
-                              Isi Detail RAB/BQ
-                              {(group.workItems?.length ?? 0) > 0 && (
-                                <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
-                                  {group.workItems!.length}
-                                </span>
-                              )}
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setActiveWorkItemsGroupId(group.id)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0"
+                              >
+                                <ClipboardList size={13} />
+                                Isi Detail RAB/BQ
+                                {(group.workItems?.length ?? 0) > 0 && (
+                                  <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
+                                    {group.workItems!.length}
+                                  </span>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={!isGuid(group.id)}
+                                title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
+                                onClick={() => setActiveSendRabGroupId(group.id)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <Send size={13} />
+                                Kirim RAB ke Vendor
+                              </button>
+                              <button
+                                type="button"
+                                disabled={!isGuid(group.id)}
+                                title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
+                                onClick={() => setActiveReviewRabGroupId(group.id)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <ListChecks size={13} />
+                                Review RAB
+                              </button>
+                            </>
                           }
                         />
                       )}
@@ -648,19 +677,41 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                     group={group}
                     onUpdate={(fields) => updateGroupFields(group.id, fields)}
                     actions={
-                      <button
-                        type="button"
-                        onClick={() => setActiveWorkItemsGroupId(group.id)}
-                        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0"
-                      >
-                        <ClipboardList size={12} />
-                        RAB/BQ
-                        {(group.workItems?.length ?? 0) > 0 && (
-                          <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
-                            {group.workItems!.length}
-                          </span>
-                        )}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setActiveWorkItemsGroupId(group.id)}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0"
+                        >
+                          <ClipboardList size={12} />
+                          RAB/BQ
+                          {(group.workItems?.length ?? 0) > 0 && (
+                            <span className="text-[10px] font-700 bg-primary/20 rounded-full px-1.5 py-0.5">
+                              {group.workItems!.length}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!isGuid(group.id)}
+                          title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
+                          onClick={() => setActiveSendRabGroupId(group.id)}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Send size={12} />
+                          Kirim RAB
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!isGuid(group.id)}
+                          title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
+                          onClick={() => setActiveReviewRabGroupId(group.id)}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <ListChecks size={12} />
+                          Review RAB
+                        </button>
+                      </>
                     }
                   />
                 )}
@@ -699,6 +750,21 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
         onUpdate={(fields) => updateGroupFields(activeWorkItemsGroup.id, fields)}
         isOpen
         onClose={() => setActiveWorkItemsGroupId(null)}
+      />
+    )}
+    {activeSendRabGroup && (
+      <SendRabRequestModal
+        group={activeSendRabGroup}
+        isOpen
+        onClose={() => setActiveSendRabGroupId(null)}
+      />
+    )}
+    {activeReviewRabGroup && (
+      <RabRequestsReviewPanel
+        groupId={activeReviewRabGroup.id}
+        groupName={activeReviewRabGroup.name}
+        isOpen
+        onClose={() => setActiveReviewRabGroupId(null)}
       />
     )}
     </div>

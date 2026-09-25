@@ -13,6 +13,7 @@ import { supplierService, CreateSupplierDto } from '@/services/supplier.service'
 import { downloadCsv } from '@/lib/export';
 import { Eye, Edit2, Plus, Trash2 } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
+import SupplierPortalUsersPanel from './SupplierPortalUsersPanel';
 
 interface SupplierRow {
   id: string;
@@ -331,6 +332,9 @@ export default function VendorTable() {
                 {selected.isActive ? 'Nonaktifkan' : 'Aktifkan'}
               </button>
             </div>
+            {(selected.supplierType === 'Subcontractor' || selected.supplierType === 'Both') && (
+              <SupplierPortalUsersPanel supplierId={selected.id} />
+            )}
           </div>
         )}
       </ERPModal>
