@@ -79,6 +79,83 @@ export interface Supplier {
   updatedAt: string;
 }
 
+// ─── Vendor Portal RAB Self-Input ────────────────────────────────────────────
+
+export interface SupplierPortalUser {
+  id: string;
+  supplierId: string;
+  name: string;
+  email: string;
+  isActive: boolean;
+  lastLoginAt?: string | null;
+  createdAt: string;
+}
+
+export interface VendorUser {
+  name: string;
+  email: string;
+  supplierId: string;
+  supplierName: string;
+}
+
+export interface VendorRabRequestLine {
+  id: string;
+  name: string;
+  spesifikasi?: string | null;
+  volume: number;
+  unit: string;
+  sortOrder: number;
+}
+
+export type VendorRabRequestStatus = 'Draft' | 'Sent' | 'Approved' | 'Cancelled';
+export type VendorRabSubmissionStatus = 'PendingReview' | 'Approved' | 'Rejected';
+
+export interface VendorRabSubmissionSummary {
+  id: string;
+  attemptNumber: number;
+  status: VendorRabSubmissionStatus;
+  submittedAt: string;
+}
+
+export interface VendorRabRequest {
+  id: string;
+  quotationGroupId: string;
+  supplierId: string;
+  supplierName: string;
+  name: string;
+  status: VendorRabRequestStatus;
+  sentAt?: string | null;
+  dueDate?: string | null;
+  approvedWorkItemId?: string | null;
+  lines: VendorRabRequestLine[];
+  submissions: VendorRabSubmissionSummary[];
+}
+
+export interface VendorRabSubmissionLine {
+  id: string;
+  vendorRabRequestLineId: string;
+  name: string;
+  spesifikasi?: string | null;
+  volume: number;
+  unit: string;
+  unitPrice: number;
+  markupAmount: number;
+  finalUnitPrice: number;
+  totalHarga: number;
+}
+
+export interface VendorRabSubmission {
+  id: string;
+  vendorRabRequestId: string;
+  attemptNumber: number;
+  status: VendorRabSubmissionStatus;
+  submittedAt: string;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
+  lines: VendorRabSubmissionLine[];
+}
+
 export interface ItemMaster {
   id: string;
   code: string;
@@ -143,8 +220,14 @@ export interface CostingRow {
   width?: number | null;
   height?: number | null;
   sortOrder: number;
-  /** Snapshot dari Item Master saat baris diisi — dipakai untuk warning margin di form. Tidak dikirim/disimpan ke backend. */
+  /** Link eksplisit ke Item Master — diisi hanya kalau user memilih dari autocomplete katalog
+   * (ItemAutocomplete), tidak pernah ditebak dari nama. Dikirim & disimpan ke backend
+   * (QuotationItem.ItemMasterId) dan ikut menentukan warning margin di form. Saat terisi, field
+   * nama baris dikunci di CostingTable — user harus "Lepas link" dulu untuk mengedit bebas lagi. */
   itemMasterId?: string;
+  /** Code + nama Item Master yang ditautkan — dipakai untuk badge "🔗 Code Nama" di CostingTable. */
+  itemMasterCode?: string;
+  itemMasterName?: string;
   marginType?: 'percent' | 'nominal';
   marginMinimum?: number;
   sellingPriceFloor?: number;

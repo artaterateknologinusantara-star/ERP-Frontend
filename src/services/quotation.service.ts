@@ -6,8 +6,6 @@ import {
   QuotationListItem,
   QuotationStatus,
   PaginatedResponse,
-  WorkItem,
-  WorkDetail,
   WorkDetailAttachment,
 } from '@/types';
 
@@ -40,6 +38,14 @@ export interface CreateQuotationDto {
   taxRate: number;
   isCivilMeMode: boolean;
   totalAreaSqm?: number | null;
+  facilityId?: string;
+  renovPic?: string;
+  facilityName?: string;
+  scopeOfWork?: string;
+  location?: string;
+  contractor?: string;
+  validityPeriod?: string;
+  areaBlockTender?: string;
   paymentTerms?: string;
   termins?: BackendTermin[];
   termsAndConditions?: string;
@@ -72,6 +78,11 @@ interface BackendGroup {
   finalSubconCost?: number | null;
   finalSellingPrice?: number | null;
   items: BackendItem[];
+  // Always sent as a full array (never omitted) once a group has RAB/BQ data — the backend
+  // treats an omitted field as "leave WorkItems untouched" but an explicit array (even []) as
+  // the complete, authoritative set: anything not listed here gets deleted, attachments
+  // included. See mapTabsToBackend below.
+  workItems: BackendWorkItem[];
 }
 
 interface BackendItem {
@@ -86,6 +97,24 @@ interface BackendItem {
   length?: number | null;
   width?: number | null;
   height?: number | null;
+  sortOrder: number;
+  itemMasterId?: string;
+}
+
+interface BackendWorkItem {
+  id?: string;
+  name: string;
+  sortOrder: number;
+  workDetails: BackendWorkDetail[];
+}
+
+interface BackendWorkDetail {
+  id?: string;
+  name: string;
+  spesifikasi?: string;
+  volume: number;
+  unit: string;
+  unitPrice: number;
   sortOrder: number;
 }
 
@@ -117,6 +146,21 @@ export function mapTabsToBackend(tabs: CostingTab[]): BackendTab[] {
         width: row.width ?? undefined,
         height: row.height ?? undefined,
         sortOrder: row.sortOrder ?? ri,
+        itemMasterId: row.itemMasterId || undefined,
+      })),
+      workItems: (group.workItems ?? []).map((w, wi) => ({
+        id: GUID_RE.test(w.id) ? w.id : undefined,
+        name: w.name,
+        sortOrder: w.sortOrder ?? wi,
+        workDetails: w.workDetails.map((d, di) => ({
+          id: GUID_RE.test(d.id) ? d.id : undefined,
+          name: d.name,
+          spesifikasi: d.spesifikasi || undefined,
+          volume: d.volume,
+          unit: d.unit,
+          unitPrice: d.unitPrice,
+          sortOrder: d.sortOrder ?? di,
+        })),
       })),
     })),
   }));
@@ -189,51 +233,10 @@ export const quotationService = {
     });
   },
 
-  // ── Item Pekerjaan / Detail Kerja (RAB/BQ) — auto-save per baris ────────────
-  createWorkItem(groupId: string, dto: { name: string; sortOrder: number }) {
-    return api.post<WorkItem>(`/quotations/groups/${groupId}/work-items`, dto);
-  },
-
-  updateWorkItem(id: string, dto: { name: string; sortOrder: number }) {
-    return api.put<void>(`/quotations/work-items/${id}`, dto);
-  },
-
-  deleteWorkItem(id: string) {
-    return api.delete(`/quotations/work-items/${id}`);
-  },
-
-  createWorkDetail(
-    workItemId: string,
-    dto: {
-      name: string;
-      spesifikasi?: string;
-      volume: number;
-      unit: string;
-      unitPrice: number;
-      sortOrder: number;
-    }
-  ) {
-    return api.post<WorkDetail>(`/quotations/work-items/${workItemId}/work-details`, dto);
-  },
-
-  updateWorkDetail(
-    id: string,
-    dto: {
-      name: string;
-      spesifikasi?: string;
-      volume: number;
-      unit: string;
-      unitPrice: number;
-      sortOrder: number;
-    }
-  ) {
-    return api.put<void>(`/quotations/work-details/${id}`, dto);
-  },
-
-  deleteWorkDetail(id: string) {
-    return api.delete(`/quotations/work-details/${id}`);
-  },
-
+  // ── Item Pekerjaan / Detail Kerja (RAB/BQ) — WorkItem/WorkDetail rows themselves are now
+  // state-local in the form and only persisted via the main create/update payload (see
+  // mapTabsToBackend above); only the attachment endpoints below still hit the API directly,
+  // since an uploaded file has to exist on a real, already-saved WorkDetail.Id.
   async uploadWorkDetailAttachment(
     workDetailId: string,
     file: File

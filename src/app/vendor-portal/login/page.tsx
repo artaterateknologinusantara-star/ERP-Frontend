@@ -4,21 +4,21 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
-import { api } from '@/lib/api';
+import { vendorApi } from '@/lib/vendorApi';
 import { usePublicCompanySettings } from '@/hooks/useCompanySettings';
 import AnonymousLogo from '@/components/AnonymousLogo';
-import type { ModulePermission } from '@/services/role.service';
+import type { VendorUser } from '@/types';
 
-interface LoginResponse {
+interface VendorLoginResponse {
   token: string;
   name: string;
   email: string;
-  role: string;
+  supplierId: string;
+  supplierName: string;
   expiresAt: string;
-  permissions: ModulePermission[];
 }
 
-export default function LoginPage() {
+export default function VendorLoginPage() {
   const router = useRouter();
   const { data: publicSettings } = usePublicCompanySettings();
   const companyName = publicSettings?.companyName || 'ERP System';
@@ -28,8 +28,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && localStorage.getItem('syntera_token')) {
-      router.replace('/');
+    if (typeof window !== 'undefined' && localStorage.getItem('vendor_token')) {
+      router.replace('/vendor-portal/rab-requests');
     }
   }, [router]);
 
@@ -38,16 +38,17 @@ export default function LoginPage() {
     if (!email || !password) { toast.error('Email dan password wajib diisi'); return; }
     setLoading(true);
     try {
-      const res = await api.post<LoginResponse>('/auth/login', { email, password });
-      localStorage.setItem('syntera_token', res.data.token);
-      localStorage.setItem('syntera_user', JSON.stringify({
+      const res = await vendorApi.post<VendorLoginResponse>('/vendor/auth/login', { email, password });
+      localStorage.setItem('vendor_token', res.data.token);
+      const vendorUser: VendorUser = {
         name: res.data.name,
         email: res.data.email,
-        role: res.data.role,
-        permissions: res.data.permissions,
-      }));
+        supplierId: res.data.supplierId,
+        supplierName: res.data.supplierName,
+      };
+      localStorage.setItem('vendor_user', JSON.stringify(vendorUser));
       toast.success(`Selamat datang, ${res.data.name}`);
-      router.replace('/');
+      router.replace('/vendor-portal/rab-requests');
     } catch {
       toast.error('Email atau password salah');
     } finally {
@@ -58,14 +59,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        {/* Logo / Brand */}
         <div className="text-center mb-8">
           <AnonymousLogo hasLogo={publicSettings?.hasLogo} className="w-12 h-12 mx-auto mb-4" />
           <h1 className="text-2xl font-700 text-foreground">{companyName}</h1>
-          <p className="text-sm text-muted-foreground mt-1">Masuk ke akun Anda</p>
+          <p className="text-sm text-muted-foreground mt-1">Portal Vendor — Masuk ke akun Anda</p>
         </div>
 
-        {/* Card */}
         <form onSubmit={handleSubmit} className="erp-card shadow-card space-y-4">
           <div>
             <label className="erp-form-label">Email</label>
@@ -73,7 +72,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@perusahaan.id"
+              placeholder="email@vendor.id"
               className="erp-input"
               autoComplete="username"
             />

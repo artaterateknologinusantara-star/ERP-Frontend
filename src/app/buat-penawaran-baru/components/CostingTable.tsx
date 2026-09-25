@@ -1,16 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, ClipboardList } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, ClipboardList, Link2, Link2Off, Send, ListChecks } from 'lucide-react';
 import { formatRp } from '@/lib/format';
 import { getMarginTier, marginTierClasses } from '@/lib/margin';
 import { computeFloorPrice, floorWarningText } from '@/lib/itemMargin';
+import { isGuid } from '@/lib/guid';
 import type { CostingTab, CostingGroup, CostingRow, ItemMaster } from '@/types';
 import ItemAutocomplete from './ItemAutocomplete';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import DimensionCalculatorPopover from './DimensionCalculatorPopover';
 import GroupSubconPanel from './GroupSubconPanel';
 import GroupWorkItemsPanel from './GroupWorkItemsPanel';
+import SendRabRequestModal from './SendRabRequestModal';
+import RabRequestsReviewPanel from './RabRequestsReviewPanel';
 
 interface Props {
   tabData: CostingTab;
@@ -24,6 +27,11 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
   const [activeWorkItemsGroupId, setActiveWorkItemsGroupId] = useState<string | null>(null);
+  const activeWorkItemsGroup = tabData.groups.find((g) => g.id === activeWorkItemsGroupId);
+  const [activeSendRabGroupId, setActiveSendRabGroupId] = useState<string | null>(null);
+  const activeSendRabGroup = tabData.groups.find((g) => g.id === activeSendRabGroupId);
+  const [activeReviewRabGroupId, setActiveReviewRabGroupId] = useState<string | null>(null);
+  const activeReviewRabGroup = tabData.groups.find((g) => g.id === activeReviewRabGroupId);
 
   const toggleCollapse = (groupId: string) =>
     setCollapsed((prev) =>
@@ -75,6 +83,8 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
               materialPrice: item.sellingPrice,
               costPrice: item.purchasePrice ?? item.lastPurchasePrice ?? 0,
               itemMasterId: item.id,
+              itemMasterCode: item.code,
+              itemMasterName: item.name,
               marginType: item.marginType,
               marginMinimum: item.marginMinimum,
               sellingPriceFloor: computeFloorPrice(item.purchasePrice, item.marginType, item.marginMinimum) ?? undefined,
@@ -82,6 +92,19 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
           ),
         }
       ),
+    });
+  };
+
+  // Lepas link Item Master — baris kembali jadi free-text biasa, nama tidak lagi dikunci.
+  // Tidak menghapus nama/harga yang sudah terisi, hanya memutus link-nya.
+  const clearItemMasterLink = (groupId: string, rowId: string) => {
+    updateRowFields(groupId, rowId, {
+      itemMasterId: undefined,
+      itemMasterCode: undefined,
+      itemMasterName: undefined,
+      marginType: undefined,
+      marginMinimum: undefined,
+      sellingPriceFloor: undefined,
     });
   };
 
@@ -251,11 +274,31 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                       </span>
                     </td>
                     <td className="erp-table-cell">
-                      <ItemAutocomplete
-                        value={row.equipment}
-                        onChange={(v) => updateRow(group.id, row.id, 'equipment', v)}
-                        onSelect={(item) => fillRowFromItem(group.id, row.id, item)}
-                      />
+                      {row.itemMasterId ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="erp-input flex-1 flex items-center gap-1.5 bg-muted/30 text-[13px] truncate">
+                            <Link2 size={12} className="text-primary shrink-0" />
+                            <span className="truncate">
+                              {row.itemMasterCode && <span className="font-700 mr-1">{row.itemMasterCode}</span>}
+                              {row.itemMasterName ?? row.equipment}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            title="Lepas link Item Master"
+                            onClick={() => clearItemMasterLink(group.id, row.id)}
+                            className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                          >
+                            <Link2Off size={13} />
+                          </button>
+                        </div>
+                      ) : (
+                        <ItemAutocomplete
+                          value={row.equipment}
+                          onChange={(v) => updateRow(group.id, row.id, 'equipment', v)}
+                          onSelect={(item) => fillRowFromItem(group.id, row.id, item)}
+                        />
+                      )}
                     </td>
                     <td className="erp-table-cell">
                       <input type="text" value={row.description}
@@ -372,12 +415,26 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                                   </span>
                                 )}
                               </button>
-                              <GroupWorkItemsPanel
-                                group={group}
-                                onUpdate={(fields) => updateGroupFields(group.id, fields)}
-                                isOpen={activeWorkItemsGroupId === group.id}
-                                onClose={() => setActiveWorkItemsGroupId(null)}
-                              />
+                              <button
+                                type="button"
+                                disabled={!isGuid(group.id)}
+                                title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
+                                onClick={() => setActiveSendRabGroupId(group.id)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <Send size={13} />
+                                Kirim RAB ke Vendor
+                              </button>
+                              <button
+                                type="button"
+                                disabled={!isGuid(group.id)}
+                                title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
+                                onClick={() => setActiveReviewRabGroupId(group.id)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <ListChecks size={13} />
+                                Review RAB
+                              </button>
                             </>
                           }
                         />
@@ -489,11 +546,31 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                         <div className="px-3 pb-3 space-y-2.5 border-t border-border pt-3">
                           <div>
                             <label className="tooltip-label block mb-1">Equipment</label>
-                            <ItemAutocomplete
-                              value={row.equipment}
-                              onChange={(v) => updateRow(group.id, row.id, 'equipment', v)}
-                              onSelect={(item) => fillRowFromItem(group.id, row.id, item)}
-                            />
+                            {row.itemMasterId ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="erp-input flex-1 flex items-center gap-1.5 bg-muted/30 text-md truncate">
+                                  <Link2 size={13} className="text-primary shrink-0" />
+                                  <span className="truncate">
+                                    {row.itemMasterCode && <span className="font-700 mr-1">{row.itemMasterCode}</span>}
+                                    {row.itemMasterName ?? row.equipment}
+                                  </span>
+                                </span>
+                                <button
+                                  type="button"
+                                  title="Lepas link Item Master"
+                                  onClick={() => clearItemMasterLink(group.id, row.id)}
+                                  className="p-2 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                                >
+                                  <Link2Off size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <ItemAutocomplete
+                                value={row.equipment}
+                                onChange={(v) => updateRow(group.id, row.id, 'equipment', v)}
+                                onSelect={(item) => fillRowFromItem(group.id, row.id, item)}
+                              />
+                            )}
                           </div>
                           <div className="grid grid-cols-2 gap-2.5">
                             <div>
@@ -614,12 +691,26 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
                             </span>
                           )}
                         </button>
-                        <GroupWorkItemsPanel
-                          group={group}
-                          onUpdate={(fields) => updateGroupFields(group.id, fields)}
-                          isOpen={activeWorkItemsGroupId === group.id}
-                          onClose={() => setActiveWorkItemsGroupId(null)}
-                        />
+                        <button
+                          type="button"
+                          disabled={!isGuid(group.id)}
+                          title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
+                          onClick={() => setActiveSendRabGroupId(group.id)}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Send size={12} />
+                          Kirim RAB
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!isGuid(group.id)}
+                          title={isGuid(group.id) ? undefined : 'Simpan penawaran terlebih dahulu'}
+                          onClick={() => setActiveReviewRabGroupId(group.id)}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-600 text-primary bg-card border border-primary/30 shadow-sm hover:bg-primary/10 hover:border-primary/50 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <ListChecks size={12} />
+                          Review RAB
+                        </button>
                       </>
                     }
                   />
@@ -645,6 +736,37 @@ export default function CostingTable({ tabData, onUpdate, isCivilMeMode }: Props
         <Plus size={14} /> Tambah Kategori Baru
       </button>
     </div>
+
+    {/* Single shared instance — the trigger button above is duplicated per responsive layout
+        (desktop table row + mobile card), but the panel itself must only ever mount once. Two
+        mounted instances both listening on the same activeWorkItemsGroupId used to be harmless
+        only because ERPModal rendered in place: the desktop/mobile wrapper's `hidden lg:block` /
+        `lg:hidden` classes hid whichever copy didn't match the viewport. Now that ERPModal
+        portals to document.body, it escapes that hidden ancestor, so a duplicated instance would
+        render two full-screen modals stacked on top of each other regardless of viewport. */}
+    {activeWorkItemsGroup && (
+      <GroupWorkItemsPanel
+        group={activeWorkItemsGroup}
+        onUpdate={(fields) => updateGroupFields(activeWorkItemsGroup.id, fields)}
+        isOpen
+        onClose={() => setActiveWorkItemsGroupId(null)}
+      />
+    )}
+    {activeSendRabGroup && (
+      <SendRabRequestModal
+        group={activeSendRabGroup}
+        isOpen
+        onClose={() => setActiveSendRabGroupId(null)}
+      />
+    )}
+    {activeReviewRabGroup && (
+      <RabRequestsReviewPanel
+        groupId={activeReviewRabGroup.id}
+        groupName={activeReviewRabGroup.name}
+        isOpen
+        onClose={() => setActiveReviewRabGroupId(null)}
+      />
+    )}
     </div>
   );
 }

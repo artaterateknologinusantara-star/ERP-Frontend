@@ -10,6 +10,14 @@ import { PageHeaderProvider, useCurrentPageHeader } from '@/hooks/usePageHeader'
 // Routes that render outside the authenticated shell (no Sidebar/Topbar, no auth check).
 const PUBLIC_PATHS = new Set(['/login', '/reset-password', '/demo']);
 
+// The vendor portal (/vendor-portal/*) is a separate app with its own auth (vendor_token, not
+// syntera_token) and its own shell (VendorShell) — it must never render the internal
+// Sidebar/Topbar or run the internal auth check. Each vendor page does its own auth gate via
+// useVendorAuth(), so this only needs to bypass AuthenticatedShell, not replace it with anything.
+function isVendorPortalPath(pathname: string): boolean {
+  return pathname === '/vendor-portal' || pathname.startsWith('/vendor-portal/');
+}
+
 function ShellSkeleton() {
   return (
     <div className="min-h-screen bg-background animate-pulse">
@@ -87,7 +95,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  if (PUBLIC_PATHS.has(pathname)) {
+  if (PUBLIC_PATHS.has(pathname) || isVendorPortalPath(pathname)) {
     return <>{children}</>;
   }
 

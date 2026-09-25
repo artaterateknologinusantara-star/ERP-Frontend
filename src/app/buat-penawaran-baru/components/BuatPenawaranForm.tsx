@@ -128,6 +128,9 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
         width: i.width ?? null,
         height: i.height ?? null,
         sortOrder: i.sortOrder ?? 0,
+        itemMasterId: i.itemMasterId ?? undefined,
+        itemMasterCode: i.itemMasterCode ?? undefined,
+        itemMasterName: i.itemMasterName ?? undefined,
       })),
     })),
   }));
@@ -140,12 +143,24 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
 function parsePaymentTermsString(str: string): { terms: PaymentTerm[]; netPayment: number } {
   const terms: PaymentTerm[] = [];
   let netPayment = 30;
-  (str ?? '').split('\n').map((l) => l.trim()).filter(Boolean).forEach((line, i) => {
-    const netMatch = line.match(/^NET\s+(\d+(?:\.\d+)?)\s+HARI$/i);
-    if (netMatch) { netPayment = Number(netMatch[1]); return; }
-    const termMatch = line.match(/^(\d+(?:\.\d+)?)%\s*-\s*(.*)$/);
-    if (termMatch) terms.push({ id: `pt-${i}-${Date.now()}`, percentage: Number(termMatch[1]), description: termMatch[2].trim() });
-  });
+  (str ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .forEach((line, i) => {
+      const netMatch = line.match(/^NET\s+(\d+(?:\.\d+)?)\s+HARI$/i);
+      if (netMatch) {
+        netPayment = Number(netMatch[1]);
+        return;
+      }
+      const termMatch = line.match(/^(\d+(?:\.\d+)?)%\s*-\s*(.*)$/);
+      if (termMatch)
+        terms.push({
+          id: `pt-${i}-${Date.now()}`,
+          percentage: Number(termMatch[1]),
+          description: termMatch[2].trim(),
+        });
+    });
   return { terms, netPayment };
 }
 
@@ -224,16 +239,37 @@ export default function BuatPenawaranForm() {
   // Kept fresh every render so the beforeunload listener (registered once) can still
   // flush the latest values without needing to re-subscribe on every keystroke.
   const latestDraftStateRef = useRef<Omit<QuotationDraft, 'savedAt'>>({
-    infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+    infoValues,
+    tabs,
+    activeTab,
+    discount,
+    taxRate,
+    isCivilMeMode,
+    totalAreaSqm,
+    paymentTerms,
+    netPayment,
+    termsAndConditions,
+    additionalNotes,
   });
   latestDraftStateRef.current = {
-    infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+    infoValues,
+    tabs,
+    activeTab,
+    discount,
+    taxRate,
+    isCivilMeMode,
+    totalAreaSqm,
+    paymentTerms,
+    netPayment,
+    termsAndConditions,
+    additionalNotes,
   };
 
   // Load existing quotation for edit mode
   useEffect(() => {
     if (!editId) return;
-    quotationService.getById(editId)
+    quotationService
+      .getById(editId)
       .then((res) => {
         const q = res.data;
         setInfoValues({
@@ -268,12 +304,18 @@ export default function BuatPenawaranForm() {
         // backend field for it yet — see buildDto() below), but the percentage breakdown itself
         // now comes from the structured q.termins when the quotation has any, falling back to
         // parsing the old combined string only for quotations saved before this existed.
-        const { terms: legacyTerms, netPayment: net } = parsePaymentTermsString(q.paymentTerms ?? '');
+        const { terms: legacyTerms, netPayment: net } = parsePaymentTermsString(
+          q.paymentTerms ?? ''
+        );
         const structuredTerms: PaymentTerm[] = (q.termins ?? []).length
-          ? q.termins!
-              .slice()
+          ? q
+              .termins!.slice()
               .sort((a, b) => a.sortOrder - b.sortOrder)
-              .map((t) => ({ id: `pt-${t.id}`, description: t.description, percentage: t.percentage }))
+              .map((t) => ({
+                id: `pt-${t.id}`,
+                description: t.description,
+                percentage: t.percentage,
+              }))
           : legacyTerms;
         setPaymentTerms(structuredTerms);
         setNetPayment(net);
@@ -322,7 +364,17 @@ export default function BuatPenawaranForm() {
   useEffect(() => {
     if (!hydrated) return;
     const snapshot = JSON.stringify({
-      infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+      infoValues,
+      tabs,
+      activeTab,
+      discount,
+      taxRate,
+      isCivilMeMode,
+      totalAreaSqm,
+      paymentTerms,
+      netPayment,
+      termsAndConditions,
+      additionalNotes,
     });
     if (baselineRef.current === null) {
       baselineRef.current = snapshot;
@@ -334,7 +386,18 @@ export default function BuatPenawaranForm() {
     saveTimerRef.current = setTimeout(() => {
       const savedAt = new Date().toISOString();
       const payload: QuotationDraft = {
-        infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes, savedAt,
+        infoValues,
+        tabs,
+        activeTab,
+        discount,
+        taxRate,
+        isCivilMeMode,
+        totalAreaSqm,
+        paymentTerms,
+        netPayment,
+        termsAndConditions,
+        additionalNotes,
+        savedAt,
       };
       try {
         localStorage.setItem(draftKey, JSON.stringify(payload));
@@ -347,7 +410,21 @@ export default function BuatPenawaranForm() {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [hydrated, draftKey, infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes]);
+  }, [
+    hydrated,
+    draftKey,
+    infoValues,
+    tabs,
+    activeTab,
+    discount,
+    taxRate,
+    isCivilMeMode,
+    totalAreaSqm,
+    paymentTerms,
+    netPayment,
+    termsAndConditions,
+    additionalNotes,
+  ]);
 
   // Last-resort flush: if the tab closes mid-debounce, save whatever is pending immediately.
   useEffect(() => {
@@ -386,7 +463,11 @@ export default function BuatPenawaranForm() {
   };
 
   const handleDiscardDraft = () => {
-    try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      /* ignore */
+    }
     setPendingDraft(null);
   };
 
@@ -397,10 +478,24 @@ export default function BuatPenawaranForm() {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
-    try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      /* ignore */
+    }
     isDirtyRef.current = false;
     baselineRef.current = JSON.stringify({
-      infoValues, tabs, activeTab, discount, taxRate, isCivilMeMode, totalAreaSqm, paymentTerms, netPayment, termsAndConditions, additionalNotes,
+      infoValues,
+      tabs,
+      activeTab,
+      discount,
+      taxRate,
+      isCivilMeMode,
+      totalAreaSqm,
+      paymentTerms,
+      netPayment,
+      termsAndConditions,
+      additionalNotes,
     });
     setLastAutosaveAt(null);
   };
@@ -496,8 +591,12 @@ export default function BuatPenawaranForm() {
   };
 
   const handleExportPdf = () => {
-    if (!targetId) { toast.info('Simpan penawaran terlebih dahulu sebelum export PDF'); return; }
-    quotationService.exportPdf(targetId)
+    if (!targetId) {
+      toast.info('Simpan penawaran terlebih dahulu sebelum export PDF');
+      return;
+    }
+    quotationService
+      .exportPdf(targetId)
       .then((blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -550,160 +649,182 @@ export default function BuatPenawaranForm() {
   return (
     <React.Fragment>
       <div className="space-y-5 animate-fade-in pb-28 lg:pb-0">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sticky-action-bar px-3 sm:px-5 py-3 -mx-3 sm:-mx-5 -mt-3 sm:-mt-5">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <FileText size={16} className="text-primary" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-700 text-foreground">{infoValues.quotationNo}</h2>
-              <StatusBadge status={currentStatus} size="sm" />
-              {isCivilMeMode && (
-                <span className="text-xs font-600 px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                  Civil & ME
-                </span>
-              )}
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sticky-action-bar px-3 sm:px-5 py-3 -mx-3 sm:-mx-5 -mt-3 sm:-mt-5">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <FileText size={16} className="text-primary" />
             </div>
-            <p className="text-xs text-muted-foreground">{saveLabel}</p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-700 text-foreground">{infoValues.quotationNo}</h2>
+                <StatusBadge status={currentStatus} size="sm" />
+                {isCivilMeMode && (
+                  <span className="text-xs font-600 px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                    Civil & ME
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">{saveLabel}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
+            <button className="btn-secondary min-h-11 flex-shrink-0" onClick={handleExportPdf}>
+              <Download size={14} /> Export PDF
+            </button>
+            {lastAutosaveAt && (
+              <span className="text-xs text-muted-foreground flex-shrink-0 hidden sm:inline">
+                Tersimpan otomatis pukul {formatSavedAtTime(lastAutosaveAt)}
+              </span>
+            )}
+            <button
+              className="btn-secondary min-h-11 flex-shrink-0"
+              onClick={handleSaveDraft}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <span className="flex items-center gap-1.5 w-28 justify-center">
+                  <span className="w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                  Menyimpan...
+                </span>
+              ) : (
+                <>
+                  <Save size={14} /> Simpan Penawaran
+                </>
+              )}
+            </button>
+            <button
+              className="btn-primary min-h-11 flex-shrink-0"
+              onClick={() => router.push('/riwayat-penawaran')}
+            >
+              <ArrowLeft size={14} /> Kembali ke Riwayat
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
-          <button className="btn-secondary min-h-11 flex-shrink-0" onClick={handleExportPdf}>
-            <Download size={14} /> Export PDF
-          </button>
-          {lastAutosaveAt && (
-            <span className="text-xs text-muted-foreground flex-shrink-0 hidden sm:inline">
-              Tersimpan otomatis pukul {formatSavedAtTime(lastAutosaveAt)}
-            </span>
-          )}
-          <button className="btn-secondary min-h-11 flex-shrink-0" onClick={handleSaveDraft} disabled={isSaving}>
-            {isSaving ? (
-              <span className="flex items-center gap-1.5 w-28 justify-center">
-                <span className="w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                Menyimpan...
-              </span>
-            ) : (
-              <><Save size={14} /> Simpan Penawaran</>
-            )}
-          </button>
-          <button className="btn-primary min-h-11 flex-shrink-0" onClick={() => router.push('/riwayat-penawaran')}>
-            <ArrowLeft size={14} /> Kembali ke Riwayat
-          </button>
-        </div>
-      </div>
 
-      {/* Total Area — hanya relevan untuk mode Civil & ME */}
-      {isCivilMeMode && (
-        <div className="flex flex-wrap items-center gap-4 px-3 sm:px-5">
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-muted-foreground whitespace-nowrap">Total Area (m²)</label>
-            <input
-              type="number"
-              min={0}
-              value={totalAreaSqm ?? ''}
-              onChange={(e) => setTotalAreaSqm(e.target.value === '' ? null : parseFloat(e.target.value) || 0)}
-              className="erp-input w-28 text-right font-tabular"
-              placeholder="0"
+        {/* Total Area — hanya relevan untuk mode Civil & ME */}
+        {isCivilMeMode && (
+          <div className="flex flex-wrap items-center gap-4 px-3 sm:px-5">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground whitespace-nowrap">
+                Total Area (m²)
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={totalAreaSqm ?? ''}
+                onChange={(e) =>
+                  setTotalAreaSqm(e.target.value === '' ? null : parseFloat(e.target.value) || 0)
+                }
+                className="erp-input w-28 text-right font-tabular"
+                placeholder="0"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Status Approval — hanya tampil untuk penawaran yang sudah Disetujui/Ditolak */}
+        {(currentStatus === 'Disetujui' || currentStatus === 'Ditolak') && (
+          <div className="erp-card">
+            <h3 className="text-xs font-600 text-muted-foreground uppercase tracking-wider mb-3">
+              Status Approval
+            </h3>
+            <dl className="space-y-2 text-sm">
+              <div className="flex gap-2">
+                <dt className="w-36 text-muted-foreground flex-shrink-0">Disetujui Tgl</dt>
+                <dd className="font-500 text-foreground">
+                  {approvedAt ? formatDate(approvedAt) : '—'}
+                </dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-36 text-muted-foreground flex-shrink-0">Disetujui Oleh</dt>
+                <dd className="font-500 text-foreground">{approvedByName || '—'}</dd>
+              </div>
+            </dl>
+          </div>
+        )}
+
+        {/* Autosave restore banner */}
+        {pendingDraft && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 animate-slide-up">
+            <p className="text-sm text-foreground">
+              Ada draft tersimpan otomatis (terakhir {formatSavedAtTime(pendingDraft.savedAt)}).
+              Lanjutkan draft ini atau mulai dari data terbaru?
+            </p>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button className="btn-secondary text-xs" onClick={handleDiscardDraft}>
+                {editId ? 'Pakai Data Terbaru' : 'Buang'}
+              </button>
+              <button className="btn-primary text-xs" onClick={handleRestoreDraft}>
+                Lanjutkan Draft
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Section 1: Informasi Penawaran */}
+        <InformasiPenawaranSection
+          values={infoValues}
+          onChange={(patch) => setInfoValues((v) => ({ ...v, ...patch }))}
+          errors={{}}
+          isCivilMeMode={isCivilMeMode}
+        />
+
+        {/* Section 2: Costing Tabs */}
+        <CostingTabsSection
+          tabs={tabs}
+          setTabs={setTabs}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          isCivilMeMode={isCivilMeMode}
+        />
+
+        {/* Section 3: Bottom panel */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          <div className="xl:col-span-2 space-y-5">
+            <TotalMarginSection tabs={tabs} discount={discount} isCivilMeMode={isCivilMeMode} />
+            <SyaratPembayaranSection
+              terms={paymentTerms}
+              onChange={setPaymentTerms}
+              netPayment={netPayment}
+              setNetPayment={setNetPayment}
+            />
+            <SyaratKetentuanSection value={termsAndConditions} onChange={setTermsAndConditions} />
+            <CatatanTambahanSection value={additionalNotes} onChange={setAdditionalNotes} />
+          </div>
+          <div className="xl:col-span-1">
+            <GrandTotalPanel
+              tabs={tabs}
+              discount={discount}
+              setDiscount={setDiscount}
+              taxRate={taxRate}
+              setTaxRate={setTaxRate}
+              isCivilMeMode={isCivilMeMode}
             />
           </div>
         </div>
-      )}
-
-      {/* Status Approval — hanya tampil untuk penawaran yang sudah Disetujui/Ditolak */}
-      {(currentStatus === 'Disetujui' || currentStatus === 'Ditolak') && (
-        <div className="erp-card">
-          <h3 className="text-xs font-600 text-muted-foreground uppercase tracking-wider mb-3">
-            Status Approval
-          </h3>
-          <dl className="space-y-2 text-sm">
-            <div className="flex gap-2">
-              <dt className="w-36 text-muted-foreground flex-shrink-0">Disetujui Tgl</dt>
-              <dd className="font-500 text-foreground">{approvedAt ? formatDate(approvedAt) : '—'}</dd>
-            </div>
-            <div className="flex gap-2">
-              <dt className="w-36 text-muted-foreground flex-shrink-0">Disetujui Oleh</dt>
-              <dd className="font-500 text-foreground">{approvedByName || '—'}</dd>
-            </div>
-          </dl>
-        </div>
-      )}
-
-      {/* Autosave restore banner */}
-      {pendingDraft && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 animate-slide-up">
-          <p className="text-sm text-foreground">
-            Ada draft tersimpan otomatis (terakhir {formatSavedAtTime(pendingDraft.savedAt)}). Lanjutkan draft ini atau mulai dari data terbaru?
-          </p>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button className="btn-secondary text-xs" onClick={handleDiscardDraft}>
-              {editId ? 'Pakai Data Terbaru' : 'Buang'}
-            </button>
-            <button className="btn-primary text-xs" onClick={handleRestoreDraft}>
-              Lanjutkan Draft
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Section 1: Informasi Penawaran */}
-      <InformasiPenawaranSection
-        values={infoValues}
-        onChange={(patch) => setInfoValues((v) => ({ ...v, ...patch }))}
-        errors={{}}
-        isCivilMeMode={isCivilMeMode}
-      />
-
-      {/* Section 2: Costing Tabs */}
-      <CostingTabsSection
-        tabs={tabs}
-        setTabs={setTabs}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        isCivilMeMode={isCivilMeMode}
-      />
-
-      {/* Section 3: Bottom panel */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <div className="xl:col-span-2 space-y-5">
-          <TotalMarginSection tabs={tabs} discount={discount} isCivilMeMode={isCivilMeMode} />
-          <SyaratPembayaranSection
-            terms={paymentTerms}
-            onChange={setPaymentTerms}
-            netPayment={netPayment}
-            setNetPayment={setNetPayment}
-          />
-          <SyaratKetentuanSection value={termsAndConditions} onChange={setTermsAndConditions} />
-          <CatatanTambahanSection value={additionalNotes} onChange={setAdditionalNotes} />
-        </div>
-        <div className="xl:col-span-1">
-          <GrandTotalPanel
-            tabs={tabs}
-            discount={discount}
-            setDiscount={setDiscount}
-            taxRate={taxRate}
-            setTaxRate={setTaxRate}
-            isCivilMeMode={isCivilMeMode}
-          />
-        </div>
       </div>
-    </div>
 
-    <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-card border-t border-border shadow-[0_-4px_16px_rgba(15,23,42,0.08)]">
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-card border-t border-border shadow-[0_-4px_16px_rgba(15,23,42,0.08)]">
         {mobileSummaryOpen && (
           <div className="px-4 py-3 border-b border-border space-y-1.5 text-xs animate-fade-in">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Total Material</span>
-              <span className="font-600 font-tabular text-foreground">{formatRp(mTotalMaterial)}</span>
+              <span className="font-600 font-tabular text-foreground">
+                {formatRp(mTotalMaterial)}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Total Jasa</span>
               <span className="font-600 font-tabular text-foreground">{formatRp(mTotalJasa)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Diskon ({discount}%) / PPN ({taxRate}%)</span>
-              <span className="font-600 font-tabular text-foreground">{formatRp(mGrandTotalWithTax)}</span>
+              <span className="text-muted-foreground">
+                Diskon ({discount}%) / PPN ({taxRate}%)
+              </span>
+              <span className="font-600 font-tabular text-foreground">
+                {formatRp(mGrandTotalWithTax)}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Margin</span>
@@ -723,10 +844,15 @@ export default function BuatPenawaranForm() {
           <span className="flex-1 flex items-center justify-between gap-2 min-w-0">
             <span className="text-left min-w-0">
               <span className="block text-xs text-muted-foreground">Grand Total</span>
-              <span className="block text-xl font-800 font-tabular text-foreground truncate">{formatRp(mGrandTotalWithTax)}</span>
+              <span className="block text-xl font-800 font-tabular text-foreground truncate">
+                {formatRp(mGrandTotalWithTax)}
+              </span>
             </span>
-            <span className={`text-sm font-700 font-tabular px-2 py-1 rounded-lg flex-shrink-0 ${mTc.bg} ${mTc.text}`}>
-              {mMarginPercent >= 0 ? '' : '-'}{Math.abs(mMarginPercent).toFixed(1)}%
+            <span
+              className={`text-sm font-700 font-tabular px-2 py-1 rounded-lg flex-shrink-0 ${mTc.bg} ${mTc.text}`}
+            >
+              {mMarginPercent >= 0 ? '' : '-'}
+              {Math.abs(mMarginPercent).toFixed(1)}%
             </span>
           </span>
         </button>

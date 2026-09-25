@@ -8,9 +8,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Plus, Trash2, AlertTriangle } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
-import { createDeliveryOrder, getShippableItemsForSO, ShippableSoItem } from '@/services/inventory.service';
+import {
+  createDeliveryOrder,
+  getShippableItemsForSO,
+  linkSoItemToItemMaster,
+  ShippableSoItem,
+  UnmatchedSoItem,
+} from '@/services/inventory.service';
 import { salesOrderService } from '@/services/salesorder.service';
-import type { SalesOrder } from '@/types';
+import ItemAutocomplete from '@/app/buat-penawaran-baru/components/ItemAutocomplete';
+import type { SalesOrder, ItemMaster } from '@/types';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -60,6 +67,12 @@ export default function BuatDOPage() {
   const [shippableItems, setShippableItems] = useState<ShippableSoItem[]>([]);
   const [loadingShippable, setLoadingShippable] = useState(false);
 
+  // Baris SO yang belum ada Item Master eksplisit — dulu ditebak dari nama (bisa salah sasaran,
+  // lihat insiden "Server Blade 2U"), sekarang harus di-link manual oleh user di sini.
+  const [unmatchedItems, setUnmatchedItems] = useState<UnmatchedSoItem[]>([]);
+  const [linkSearch, setLinkSearch] = useState<Record<string, string>>({});
+  const [linkingSoItemId, setLinkingSoItemId] = useState<string | null>(null);
+
   // Per-row item meta
   const [rowMetas, setRowMetas] = useState<ItemRowMeta[]>([emptyMeta()]);
 
@@ -91,6 +104,21 @@ export default function BuatDOPage() {
     return () => clearTimeout(t);
   }, [soSearch]);
 
+  const loadShippable = async (soId: string) => {
+    setLoadingShippable(true);
+    try {
+      const result = await getShippableItemsForSO(soId);
+      setShippableItems(result.matched);
+      setUnmatchedItems(result.unmatched);
+    } catch {
+      toast.error('Gagal memuat item yang bisa di-DO-kan dari SO ini');
+      setShippableItems([]);
+      setUnmatchedItems([]);
+    } finally {
+      setLoadingShippable(false);
+    }
+  };
+
   const selectSO = async (so: SalesOrder) => {
     setSelectedSO(so);
     setValue('salesOrderId', so.id);
@@ -98,16 +126,7 @@ export default function BuatDOPage() {
     setShowSODropdown(false);
     setSoSearch('');
 
-    setLoadingShippable(true);
-    try {
-      const items = await getShippableItemsForSO(so.id);
-      setShippableItems(items);
-    } catch {
-      toast.error('Gagal memuat item yang bisa di-DO-kan dari SO ini');
-      setShippableItems([]);
-    } finally {
-      setLoadingShippable(false);
-    }
+    await loadShippable(so.id);
 
     // Reset baris item — pilihan sebelumnya (dari SO lain, kalau ada) tidak relevan lagi.
     reset((prev) => ({
@@ -117,6 +136,24 @@ export default function BuatDOPage() {
       items: [{ itemMasterId: '', qty: 1, uom: '', notes: '', sortOrder: 0 }],
     }));
     setRowMetas([emptyMeta()]);
+  };
+
+  const handleLinkItem = async (soItemId: string, item: ItemMaster) => {
+    setLinkingSoItemId(soItemId);
+    try {
+      await linkSoItemToItemMaster(soItemId, item.id);
+      toast.success(`Berhasil ditautkan ke ${item.name}`);
+      if (selectedSO) await loadShippable(selectedSO.id);
+      setLinkSearch((prev) => {
+        const next = { ...prev };
+        delete next[soItemId];
+        return next;
+      });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal menautkan item');
+    } finally {
+      setLinkingSoItemId(null);
+    }
   };
 
   const selectItem = (rowIndex: number, item: ShippableSoItem) => {
@@ -507,6 +544,42 @@ export default function BuatDOPage() {
             </>
           )}
         </div>
+
+        {/* ── Section 2b: Item belum terhubung ke Item Master ── */}
+        {selectedSO && unmatchedItems.length > 0 && (
+          <div className="erp-card shadow-card border border-amber-300/60 bg-amber-50/30">
+            <h3 className="text-sm font-700 text-foreground mb-1 flex items-center gap-1.5">
+              <AlertTriangle size={14} className="text-amber-600" />
+              Item Belum Terhubung ke Item Master
+            </h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Baris SO ini belum punya Item Master yang jelas (SKU tidak cocok), jadi tidak bisa dihitung stoknya
+              secara otomatis. Pilih Item Master yang benar untuk masing-masing baris supaya bisa di-DO-kan.
+            </p>
+            <div className="space-y-2">
+              {unmatchedItems.map((u) => (
+                <div key={u.soItemId} className="flex items-center gap-3 bg-card border border-border rounded-lg p-2.5">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[13px] font-600">{u.description}</span>
+                    <span className="text-[11px] text-muted-foreground ml-2">
+                      Sku: {u.sku || '—'} · Qty: {u.qty} {u.uom}
+                    </span>
+                  </div>
+                  <div className="w-72">
+                    <ItemAutocomplete
+                      value={linkSearch[u.soItemId] ?? ''}
+                      onChange={(v) => setLinkSearch((prev) => ({ ...prev, [u.soItemId]: v }))}
+                      onSelect={(item) => handleLinkItem(u.soItemId, item)}
+                    />
+                  </div>
+                  {linkingSoItemId === u.soItemId && (
+                    <span className="text-xs text-muted-foreground">Menautkan...</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Section 3: Summary ── */}
         <div className="erp-card shadow-card">

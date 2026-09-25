@@ -1,4 +1,4 @@
-> Roadmap ini mencakup evolusi **Finance/Accounting** Syntera ERP — dari kondisi sekarang (operational tracking, lihat `02_ACCOUNTING_MODULE_PROPOSAL.md` bagian Gap Analysis) menuju sistem akuntansi double-entry penuh, termasuk modul baru **Expense Management** (OPEX). Prioritas non-Finance (celah otorisasi, Project Management frontend, Export Excel, dll) tetap dilacak terpisah di `00_PROJECT_STATUS.md` bagian "Next Recommended Priorities" — tidak diduplikasi di sini.
+> Roadmap ini mencakup evolusi **Finance/Accounting** Syntera ERP — dari kondisi sekarang (operational tracking, lihat `02_ACCOUNTING_MODULE_PROPOSAL.md` bagian Gap Analysis) menuju sistem akuntansi double-entry penuh, termasuk modul baru **Expense Management** (OPEX). Prioritas non-Finance (celah otorisasi, Project Management frontend, Export Excel, dll) tetap dilacak terpisah di `00_PROJECT_STATUS.md` bagian "Next Recommended Priorities" — tidak diduplikasi di sini. **[Catatan 2026-09-24]** Ini termasuk **Portal Vendor RAB Self-Input (Civil ME)** — fitur Sales/Quotation, bukan Finance/Accounting, jadi statusnya dilacak di `00_PROJECT_STATUS.md` (baris Authentication + baris fitur baru) dan `TODO_SYNTERA_ERP.md`, bukan sebagai fase di roadmap ini.
 >
 > Sumber acuan fase Accounting: `02_ACCOUNTING_MODULE_PROPOSAL.md` bagian 5 ("Rencana Implementasi Bertahap", Fase 0-6). Dokumen ini menyusun ulang fase-fase itu (lihat bagian "Catatan" di bawah untuk riwayat penomoran ulang).
 >
@@ -263,6 +263,36 @@ pemilik proyek):
   sepenuhnya, pindahkan juga ke pola seeder idempotent (sama seperti `NumberingConfigSeeder.cs`) di
   masa depan — belum mendesak karena mitigasi dokumentasi di atas sudah cukup untuk risiko serendah
   ini.
+
+## ⚠️ Technical Debt — Race Condition `MigrateAsync()` Paralel di Test Suite
+**Prioritas: Rendah — flakiness, bukan bug produksi. Ditemukan saat menambah test regresi untuk fix
+transaction QuotationService/JournalPostingService (2026-09-08), bukan bagian dari fitur Aruna Civil.**
+
+- **Gejala**: `dotnet test` (tanpa filter, seluruh suite jalan) kadang menghasilkan lebih banyak test
+  gagal dibanding kalau di-filter satu-satu (mis. `Reversal_normal_case_still_succeeds_and_links_both_entries`
+  di `JournalPostingReverseTransactionTests.cs` selalu lolos sendirian, tapi kadang gagal saat seluruh
+  suite dijalankan bareng). Error tipikal: `SqlException: Column names in each table must be unique.
+  Column name 'X' in table 'Y' is specified more than once.` saat proses `MigrateAsync()`.
+- **Root cause**: hampir setiap test class (`InvoiceStatusAndSalesOrderDeleteTests`,
+  `BankReconciliationTests`, `CashBankAccountReconciliationTests`, `JournalPostingReverseTransactionTests`,
+  dst) memanggil `db.Database.MigrateAsync()` sendiri-sendiri di awal test-nya, semuanya menunjuk ke
+  SATU database yang sama (`SynteraERP_Scratch`). xUnit secara default menjalankan test class secara
+  paralel (beda class = beda thread) — kalau dua `MigrateAsync()` kebetulan jalan bersamaan, keduanya
+  berebut meng-CREATE/ALTER tabel yang sama, dan salah satu gagal dengan pesan di atas.
+- **Kenapa belum masuk scope sekarang**: ini murni flakiness test infrastructure, bukan bug logika
+  produksi — test yang sama selalu lolos deterministik kalau dijalankan terisolasi (`dotnet test
+  --filter`). Sudah ada SEBELUM sesi 2026-09-08 (baseline sebelum perubahan apa pun di sesi itu sudah
+  menunjukkan 3-4 test fluktuatif gagal antar-run), jadi bukan regresi dari fitur/fix apa pun yang baru
+  dikerjakan.
+- **Opsi perbaikan (belum dipilih/dikerjakan)**:
+  1. Database scratch terpisah per test class (mis. `SynteraERP_Scratch_{ClassName}`), atau
+  2. Disable parallelization untuk test class yang memanggil `MigrateAsync()` — xUnit:
+     `[CollectionDefinition("ScratchDbTests", DisableParallelization = true)]` lalu tandai semua test
+     class terkait dengan `[Collection("ScratchDbTests")]`, atau
+  3. Pindahkan `MigrateAsync()` ke satu `IAsyncLifetime`/fixture bersama yang jalan sekali di awal
+     seluruh test run, bukan diulang per test class.
+- **Dampak kalau dibiarkan**: hanya bikin `dotnet test` (full run) kadang perlu di-rerun untuk lihat
+  hasil bersih; tidak mempengaruhi kebenaran kode produksi maupun test individual.
 
 ### 2. Opening Balance (Saldo Awal)
 **Status: ✅ Selesai**

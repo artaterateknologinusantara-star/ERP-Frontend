@@ -10,7 +10,7 @@ import TablePagination from '@/components/ui/TablePagination';
 import ERPModal from '@/components/ui/ERPModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { formatRp, formatDate } from '@/lib/format';
-import { Eye, CreditCard, Trash2 } from 'lucide-react';
+import { Eye, CreditCard, Trash2, FileText, FileDown, X } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import {
@@ -38,6 +38,55 @@ function todayIso(): string {
 }
 
 export const INVOICES_QUERY_KEY = 'invoices';
+
+// ── PDF Preview Modal ──────────────────────────────────────────────────────────
+function PdfPreviewModal({ row, url, onClose }: {
+  row: InvoiceListItem;
+  url: string;
+  onClose: () => void;
+}) {
+  const handleDownload = () => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Invoice_${row.no.replace(/\//g, '-')}.pdf`;
+    a.click();
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="bg-card rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ width: '90vw', maxWidth: 900, height: '92vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/30 flex-shrink-0">
+          <div className="min-w-0">
+            <p className="text-[10px] font-600 text-muted-foreground uppercase tracking-widest">Preview Invoice</p>
+            <p className="font-700 text-[15px] text-foreground leading-tight truncate">{row.no}</p>
+            <p className="text-[12px] text-muted-foreground truncate">{row.customerName}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted transition-colors font-600"
+              onClick={handleDownload}
+            >
+              <FileDown size={13} /> Download PDF
+            </button>
+            <button
+              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              onClick={onClose}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 bg-slate-200 overflow-hidden">
+          <iframe src={url} className="w-full h-full" title={`Invoice ${row.no}`} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function InvoiceTable() {
   const router = useRouter();
@@ -71,6 +120,9 @@ export default function InvoiceTable() {
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<InvoiceListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [pdfPreview, setPdfPreview] = useState<{ row: InvoiceListItem; url: string } | null>(null);
+  const [pdfPreviewLoading, setPdfPreviewLoading] = useState<string | null>(null);
 
   // Server-side pagination + a real server-side status filter (InvoiceQueryParams.Status, added
   // alongside this migration -- the status dropdown used to filter the already-paginated page
@@ -147,6 +199,23 @@ export default function InvoiceTable() {
   const openDeleteModal = (row: InvoiceListItem) => {
     setDeleteTarget(row);
     setDeleteModal(true);
+  };
+
+  const handleOpenPdfPreview = async (row: InvoiceListItem) => {
+    setPdfPreviewLoading(row.id);
+    try {
+      const blob = await invoiceService.exportPdf(row.id);
+      setPdfPreview({ row, url: URL.createObjectURL(blob) });
+    } catch {
+      toast.error('Gagal memuat PDF');
+    } finally {
+      setPdfPreviewLoading(null);
+    }
+  };
+
+  const handleClosePdfPreview = () => {
+    if (pdfPreview?.url) URL.revokeObjectURL(pdfPreview.url);
+    setPdfPreview(null);
   };
 
   const handleDelete = async () => {
@@ -229,6 +298,14 @@ export default function InvoiceTable() {
                   <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />,      label: 'Lihat Detail',    onClick: () => router.push(`/invoice/${row.id}`) },
+                      {
+                        icon: pdfPreviewLoading === row.id
+                          ? <div className="w-[13px] h-[13px] border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          : <FileText size={13} />,
+                        label: 'Lihat PDF',
+                        onClick: () => handleOpenPdfPreview(row),
+                        disabled: pdfPreviewLoading === row.id,
+                      },
                       { icon: <CreditCard size={13} />, label: 'Record Payment', onClick: () => openPayModal(row), disabled: row.status === 'Paid' || row.status === 'Draft' },
                       { icon: <Trash2 size={13} />,   label: 'Hapus Invoice',   onClick: () => openDeleteModal(row), danger: true, separator: true },
                     ]} />
@@ -344,6 +421,11 @@ export default function InvoiceTable() {
         confirmLabel="Hapus"
         loading={deleting}
       />
+
+      {/* PDF Preview Modal */}
+      {pdfPreview && (
+        <PdfPreviewModal row={pdfPreview.row} url={pdfPreview.url} onClose={handleClosePdfPreview} />
+      )}
     </>
   );
 }

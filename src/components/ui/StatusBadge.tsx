@@ -83,6 +83,10 @@ const statusMap: Record<string, BadgeConfig> = {
 
   // Supplier Invoice
   PartiallyPaid: { className: 'bg-amber-100 text-amber-700', label: 'Partially Paid' },
+
+  // Vendor RAB Portal (VendorRabSubmissionStatus) — VendorRabRequestStatus's "Sent" reuses the
+  // Invoice "Sent" entry above (same className, close-enough label).
+  PendingReview: { className: 'bg-amber-100 text-amber-700', label: 'Menunggu Review' },
 };
 
 interface StatusBadgeProps {
