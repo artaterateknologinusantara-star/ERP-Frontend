@@ -4,6 +4,7 @@ import React from 'react';
 import { TrendingUp } from 'lucide-react';
 import { formatRp } from '@/lib/format';
 import { getMarginTier, marginTierClasses } from '@/lib/margin';
+import { calcMaterialSubtotal, calcServiceSubtotal, calcCostSubtotal, applyDiscount } from '@/lib/quotationCalc';
 import type { CostingTab } from '@/types';
 
 interface Props {
@@ -13,19 +14,12 @@ interface Props {
 }
 
 export default function TotalMarginSection({ tabs, discount = 0, isCivilMeMode = false }: Props) {
-  const rows = tabs.flatMap((t) => t.groups.flatMap((g) => g.rows));
   const groups = tabs.flatMap((t) => t.groups);
 
-  // Civil & ME has no per-row cost/sell split — margin comes from FinalSellingPrice (harga jual)
-  // vs FinalSubconCost (harga beli dari subkontraktor) per Group instead of Item rows.
-  const totalJasa = isCivilMeMode
-    ? groups.reduce((s, g) => s + (g.finalSellingPrice ?? 0), 0)
-    : rows.reduce((s, r) => s + r.qty * r.servicePrice, 0);
-  const totalMaterial = isCivilMeMode ? 0 : rows.reduce((s, r) => s + r.qty * r.materialPrice, 0);
-  const totalCost = isCivilMeMode
-    ? groups.reduce((s, g) => s + (g.finalSubconCost ?? 0), 0)
-    : rows.reduce((s, r) => s + r.qty * r.costPrice, 0);
-  const totalRevenue = (totalJasa + totalMaterial) * (1 - discount / 100);
+  const totalJasa = calcServiceSubtotal(groups, isCivilMeMode);
+  const totalMaterial = calcMaterialSubtotal(groups, isCivilMeMode);
+  const totalCost = calcCostSubtotal(groups, isCivilMeMode);
+  const totalRevenue = applyDiscount(totalJasa + totalMaterial, discount);
   const totalMargin = totalRevenue - totalCost;
   const marginPercent = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
   const tier = getMarginTier(marginPercent);

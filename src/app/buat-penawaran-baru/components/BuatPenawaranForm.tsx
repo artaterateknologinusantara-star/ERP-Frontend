@@ -18,6 +18,7 @@ import { quotationService, mapTabsToBackend } from '@/services/quotation.service
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { formatRp, formatDate } from '@/lib/format';
 import { getMarginTier, marginTierClasses } from '@/lib/margin';
+import { calcMaterialSubtotal, calcServiceSubtotal, calcCostSubtotal, applyDiscount, applyTax } from '@/lib/quotationCalc';
 
 const makeEmptyRow = (groupId: string, no: string, sortOrder: number): CostingRow => ({
   id: `row-${groupId}-${sortOrder + 1}`,
@@ -609,22 +610,13 @@ export default function BuatPenawaranForm() {
   // Mobile-only sticky summary bar — grand total + margin, always visible while scrolling
   // the form on small screens (mirrors the checkout-summary pattern from e-commerce/enterprise apps).
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
-  const allRows = tabs.flatMap((t) => t.groups.flatMap((g) => g.rows));
   const allGroups = tabs.flatMap((t) => t.groups);
-  // Civil & ME has no per-row cost/sell split — totals come from FinalSellingPrice/FinalSubconCost
-  // per Group instead of Item rows (mirrors GrandTotalPanel/TotalMarginSection above).
-  const mTotalMaterial = isCivilMeMode
-    ? 0
-    : allRows.reduce((s, r) => s + r.qty * r.materialPrice, 0);
-  const mTotalJasa = isCivilMeMode
-    ? allGroups.reduce((s, g) => s + (g.finalSellingPrice ?? 0), 0)
-    : allRows.reduce((s, r) => s + r.qty * r.servicePrice, 0);
-  const mTotalCost = isCivilMeMode
-    ? allGroups.reduce((s, g) => s + (g.finalSubconCost ?? 0), 0)
-    : allRows.reduce((s, r) => s + r.qty * r.costPrice, 0);
+  const mTotalMaterial = calcMaterialSubtotal(allGroups, isCivilMeMode);
+  const mTotalJasa = calcServiceSubtotal(allGroups, isCivilMeMode);
+  const mTotalCost = calcCostSubtotal(allGroups, isCivilMeMode);
   const mGrandTotal = mTotalMaterial + mTotalJasa;
-  const mAfterDiscount = mGrandTotal - mGrandTotal * (discount / 100);
-  const mGrandTotalWithTax = mAfterDiscount + mAfterDiscount * (taxRate / 100);
+  const mAfterDiscount = applyDiscount(mGrandTotal, discount);
+  const mGrandTotalWithTax = applyTax(mAfterDiscount, taxRate);
   const mMargin = mAfterDiscount - mTotalCost;
   const mMarginPercent = mAfterDiscount > 0 ? (mMargin / mAfterDiscount) * 100 : 0;
   const mTier = getMarginTier(mMarginPercent);

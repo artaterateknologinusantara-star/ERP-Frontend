@@ -57,6 +57,10 @@ export function formatNumber(value: number): string {
   return value.toLocaleString('id-ID');
 }
 
+export function formatInt(value: number): string {
+  return Math.round(value).toLocaleString('id-ID');
+}
+
 // ─── String ───────────────────────────────────────────────────────────────────
 
 export function truncate(str: string, max: number): string {

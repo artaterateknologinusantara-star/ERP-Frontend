@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { demoLeadService, DemoLeadItem } from '@/services/demoLead.service';
 import { hasPermission } from '@/lib/permissions';
+import { formatDateShort } from '@/lib/format';
 
 const STATUS_OPTIONS = ['New', 'Contacted', 'Converted', 'Rejected'] as const;
 
@@ -70,7 +71,7 @@ export default function DemoLeadsTab() {
             ) : leads.map((lead) => (
               <tr key={lead.id} className="border-b border-border hover:bg-primary/5 transition-colors">
                 <td className="erp-table-cell text-muted-foreground whitespace-nowrap">
-                  {new Date(lead.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  {formatDateShort(lead.createdAt)}
                 </td>
                 <td className="erp-table-cell font-600">{lead.fullName}</td>
                 <td className="erp-table-cell">{lead.companyName}</td>

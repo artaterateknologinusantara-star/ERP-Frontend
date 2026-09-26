@@ -6,6 +6,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { getMonthlyChart, MonthlyChartItem } from '@/services/finance.service';
+import { formatRp } from '@/lib/format';
 
 const formatAxis = (val: number): string => {
   const abs = Math.abs(val);
@@ -16,7 +17,7 @@ const formatAxis = (val: number): string => {
 };
 
 const formatTooltip = (val: number): string => {
-  return 'Rp ' + Math.abs(val).toLocaleString('id-ID');
+  return formatRp(Math.abs(val));
 };
 
 export default function FinanceCharts() {
