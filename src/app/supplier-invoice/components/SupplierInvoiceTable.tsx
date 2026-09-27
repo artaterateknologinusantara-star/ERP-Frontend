@@ -33,7 +33,7 @@ export default function SupplierInvoiceTable() {
     setLoading(true);
     getSupplierInvoiceList({ perPage: 100 })
       .then((res) => setItems(res.data))
-      .catch(() => toast.error('Gagal memuat data Supplier Invoice'))
+      .catch(() => toast.error('Gagal memuat data Bill'))
       .finally(() => setLoading(false));
   }, []);
 

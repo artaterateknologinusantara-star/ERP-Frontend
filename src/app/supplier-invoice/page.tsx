@@ -5,8 +5,8 @@ import SupplierInvoiceTable from './components/SupplierInvoiceTable';
 export default function SupplierInvoicePage() {
   return (
     <AppLayout
-      title="Supplier Invoice"
-      breadcrumbs={[{ label: 'Purchasing' }, { label: 'Supplier Invoice' }]}
+      title="Bill"
+      breadcrumbs={[{ label: 'Purchasing' }, { label: 'Bill' }]}
     >
       <div className="space-y-5">
         <SupplierInvoiceTable />

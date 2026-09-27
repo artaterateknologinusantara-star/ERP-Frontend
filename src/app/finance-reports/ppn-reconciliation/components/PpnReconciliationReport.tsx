@@ -103,7 +103,7 @@ export default function PpnReconciliationReport() {
         <div>
           <h3 className="text-[13px] font-700 text-foreground">Rekapitulasi PPN</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            PPN Keluaran (Invoice AR) vs PPN Masukan (Supplier Invoice) untuk periode terpilih — dibaca
+            PPN Keluaran (Invoice AR) vs PPN Masukan (Bill) untuk periode terpilih — dibaca
             langsung dari General Ledger, siap dicocokkan ke SPT Masa PPN
           </p>
         </div>

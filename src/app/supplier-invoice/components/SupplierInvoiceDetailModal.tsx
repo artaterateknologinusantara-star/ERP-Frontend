@@ -30,7 +30,7 @@ export default function SupplierInvoiceDetailModal({ isOpen, onClose, invoiceId 
     <ERPModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Detail Supplier Invoice"
+      title="Detail Bill"
       subtitle={invoice?.no}
       size="lg"
       footer={<button className="btn-secondary" onClick={onClose}>Tutup</button>}
@@ -38,7 +38,7 @@ export default function SupplierInvoiceDetailModal({ isOpen, onClose, invoiceId 
       {loading ? (
         <div className="flex items-center justify-center py-10 text-muted-foreground text-sm">Memuat data...</div>
       ) : !invoice ? (
-        <div className="text-center py-10 text-muted-foreground text-sm">Supplier Invoice tidak ditemukan.</div>
+        <div className="text-center py-10 text-muted-foreground text-sm">Bill tidak ditemukan.</div>
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
