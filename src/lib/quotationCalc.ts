@@ -23,24 +23,50 @@ export function applyTax(amount: number, taxRate: number): number {
 }
 
 // ─── Material / Jasa / Cost subtotal ───────────────────────────────────────────
-// Civil & ME: grup di-price lewat Subkontraktor SOW (FinalSellingPrice/FinalSubconCost),
-// bukan split Jasa/Material per baris — jadi seluruh nilai grup dibawa sebagai "Jasa",
-// dan Material selalu 0. Dipakai identik di GrandTotalPanel, TotalMarginSection, dan
-// sticky summary bar mobile BuatPenawaranForm.
+// Civil & ME: grup di-price lewat QuotationItem (rows) + QuotationWorkDetail (RAB/BQ) — mirror
+// persis formula backend QuotationService.RecalcTotals (2-source, task RAB vendor-authored Sep
+// 2026). Sebelumnya ada sumber ke-3 (QuotationGroup.FinalSellingPrice/FinalSubconCost, manual
+// entry lewat panel Subkontraktor) yang dihapus total dari schema — lihat migration
+// MigrateFinalSellingPriceToWorkDetailAndDropSubconFields (nilai lama sudah dipindah jadi
+// WorkDetail asli sebelum kolomnya di-drop, jadi tetap ke-hitung lewat WorkDetail di bawah, bukan
+// hilang). Dipakai identik di GrandTotalPanel, TotalMarginSection, dan sticky summary bar mobile
+// BuatPenawaranForm.
 
 export function calcMaterialSubtotal(groups: CostingGroup[], isCivilMeMode: boolean): number {
-  if (isCivilMeMode) return 0;
+  if (isCivilMeMode) {
+    const itemSum = groups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.materialPrice, 0), 0);
+    const workDetailSum = groups.reduce(
+      (s, g) =>
+        s + (g.workItems ?? []).reduce((ws, w) => ws + w.workDetails.reduce((ds, d) => ds + d.volume * d.materialPrice, 0), 0),
+      0,
+    );
+    return itemSum + workDetailSum;
+  }
   return groups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.materialPrice, 0), 0);
 }
 
 export function calcServiceSubtotal(groups: CostingGroup[], isCivilMeMode: boolean): number {
-  return isCivilMeMode
-    ? groups.reduce((s, g) => s + (g.finalSellingPrice ?? 0), 0)
-    : groups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.servicePrice, 0), 0);
+  if (isCivilMeMode) {
+    const itemSum = groups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.servicePrice, 0), 0);
+    const workDetailSum = groups.reduce(
+      (s, g) =>
+        s + (g.workItems ?? []).reduce((ws, w) => ws + w.workDetails.reduce((ds, d) => ds + d.volume * d.servicePrice, 0), 0),
+      0,
+    );
+    return itemSum + workDetailSum;
+  }
+  return groups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.servicePrice, 0), 0);
 }
 
+// Civil & ME never had a per-row cost-basis field (WorkDetail/QuotationItem only carry the
+// selling price) — the group-level FinalSubconCost manual entry was the ONLY cost source, and it
+// had no schema replacement when removed (its value is preserved as a text audit note, not a
+// number, on the migrated WorkDetail's Spesifikasi — see the migration above). Returning 0 here
+// is the honest answer ("no cost data available"), NOT "0 cost incurred" — callers must not
+// present the resulting margin as 100% real margin. TotalMarginSection hides itself in Civil & ME
+// mode for exactly this reason.
 export function calcCostSubtotal(groups: CostingGroup[], isCivilMeMode: boolean): number {
   return isCivilMeMode
-    ? groups.reduce((s, g) => s + (g.finalSubconCost ?? 0), 0)
+    ? 0
     : groups.reduce((s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.costPrice, 0), 0);
 }

@@ -250,11 +250,6 @@ export interface CostingGroup {
   /** Hanya dipakai kalau Mode Civil & ME aktif — nilai default (Volume=1, Unit="Ls") di backend kalau kosong. */
   recapVolume?: number | null;
   recapUnit?: string | null;
-  /** Subkontraktor + biaya final RAB per group — dipakai kalau Mode Civil & ME aktif. */
-  subcontractorId?: string | null;
-  subcontractorName?: string | null;
-  finalSubconCost?: number | null;
-  finalSellingPrice?: number | null;
   /** Struktur RAB/BQ (Item Pekerjaan → Detail Kerja) — dipakai kalau Mode Civil & ME aktif. */
   workItems?: WorkItem[];
 }

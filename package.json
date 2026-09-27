@@ -46,7 +46,8 @@
     "lint:fix": "next lint --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md,json}\"",
     "serve": "next start",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@dhiwise/component-tagger": "^1.0.15",
@@ -62,6 +63,7 @@
     "react-hook-form": "^7.75.0",
     "recharts": "^2.15.2",
     "sonner": "^1.7.4",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.3",
     "zustand": "^5.0.13"
   },
@@ -83,6 +85,8 @@
     "prettier": "^3.5.3",
     "tailwindcss": "3.4.6",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
   }
 }

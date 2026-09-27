@@ -8,7 +8,26 @@ import {
   calcServiceSubtotal,
   calcTaxAmount,
 } from './quotationCalc';
-import type { CostingGroup } from '@/types';
+import type { CostingGroup, WorkDetail, WorkItem } from '@/types';
+
+function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
+  return {
+    id: 'wd1',
+    name: 'Detail',
+    spesifikasi: '',
+    volume: 0,
+    unit: 'm3',
+    servicePrice: 0,
+    materialPrice: 0,
+    sortOrder: 0,
+    attachments: [],
+    ...overrides,
+  };
+}
+
+function workItem(workDetails: WorkDetail[]): WorkItem {
+  return { id: 'wi1', name: 'Pekerjaan', sortOrder: 0, workDetails };
+}
 
 function row(overrides: Partial<CostingGroup['rows'][number]> = {}): CostingGroup['rows'][number] {
   return {
@@ -78,40 +97,55 @@ describe('quotationCalc — subtotal (standard mode)', () => {
   });
 });
 
+// Civil & ME mode used to price a Group via QuotationGroup.FinalSellingPrice/FinalSubconCost
+// (manual entry, panel Subkontraktor) — that field pair was removed entirely from the schema
+// (see backend migration MigrateFinalSellingPriceToWorkDetailAndDropSubconFields) once vendors
+// started authoring real RAB/BQ (QuotationItem + QuotationWorkDetail) instead. Civil & ME now
+// mirrors the backend's 2-source RecalcTotals formula: Item (rows) + WorkDetail.
 describe('quotationCalc — subtotal (Civil & ME mode)', () => {
   const groups: CostingGroup[] = [
     {
       id: 'g1',
       name: 'Group 1',
       sortOrder: 0,
-      rows: [row({ qty: 5, materialPrice: 100_000, servicePrice: 100_000, costPrice: 100_000 })],
-      finalSellingPrice: 12_000_000,
-      finalSubconCost: 9_000_000,
+      rows: [row({ qty: 2, materialPrice: 100_000, servicePrice: 50_000, costPrice: 999 })],
+      workItems: [workItem([workDetail({ volume: 3, materialPrice: 10_000, servicePrice: 20_000 })])],
     },
     {
       id: 'g2',
       name: 'Group 2',
       sortOrder: 1,
+      rows: [row({ qty: 1, materialPrice: 5_000, servicePrice: 7_000, costPrice: 999 })],
+    },
+    {
+      id: 'g3',
+      name: 'Group 3 (empty)',
+      sortOrder: 2,
       rows: [],
-      finalSellingPrice: 3_000_000,
-      finalSubconCost: 2_000_000,
     },
   ];
 
-  it('calcMaterialSubtotal is always 0 in Civil & ME mode, regardless of row data', () => {
-    expect(calcMaterialSubtotal(groups, true)).toBe(0);
+  // Group 1: item material 2*100.000=200.000 + WD material 3*10.000=30.000 = 230.000
+  // Group 2: item material 1*5.000=5.000
+  // Group 3: 0
+  it('calcMaterialSubtotal sums Item.qty*materialPrice + WorkDetail.volume*materialPrice', () => {
+    expect(calcMaterialSubtotal(groups, true)).toBe(230_000 + 5_000);
   });
 
-  it('calcServiceSubtotal sums finalSellingPrice per group, ignoring row servicePrice', () => {
-    expect(calcServiceSubtotal(groups, true)).toBe(12_000_000 + 3_000_000);
+  // Group 1: item service 2*50.000=100.000 + WD service 3*20.000=60.000 = 160.000
+  // Group 2: item service 1*7.000=7.000
+  // Group 3: 0
+  it('calcServiceSubtotal sums Item.qty*servicePrice + WorkDetail.volume*servicePrice', () => {
+    expect(calcServiceSubtotal(groups, true)).toBe(160_000 + 7_000);
   });
 
-  it('calcCostSubtotal sums finalSubconCost per group, ignoring row costPrice', () => {
-    expect(calcCostSubtotal(groups, true)).toBe(9_000_000 + 2_000_000);
+  it('calcCostSubtotal is always 0 in Civil & ME mode — no cost-basis data source exists anymore', () => {
+    expect(calcCostSubtotal(groups, true)).toBe(0);
   });
 
-  it('treats missing finalSellingPrice/finalSubconCost as 0', () => {
-    const groupsWithNull: CostingGroup[] = [{ id: 'g3', name: 'G3', sortOrder: 0, rows: [] }];
+  it('treats a Group with no rows/workItems as 0, not an error', () => {
+    const groupsWithNull: CostingGroup[] = [{ id: 'g4', name: 'G4', sortOrder: 0, rows: [] }];
+    expect(calcMaterialSubtotal(groupsWithNull, true)).toBe(0);
     expect(calcServiceSubtotal(groupsWithNull, true)).toBe(0);
     expect(calcCostSubtotal(groupsWithNull, true)).toBe(0);
   });

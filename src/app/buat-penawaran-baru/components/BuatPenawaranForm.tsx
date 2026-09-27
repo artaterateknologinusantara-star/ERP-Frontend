@@ -91,9 +91,6 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
       sortOrder: g.sortOrder ?? 0,
       recapVolume: g.recapVolume ?? null,
       recapUnit: g.recapUnit ?? null,
-      subcontractorId: g.subcontractorId ?? null,
-      finalSubconCost: g.finalSubconCost ?? null,
-      finalSellingPrice: g.finalSellingPrice ?? null,
       workItems: (g.workItems ?? []).map((w: any) => ({
         id: w.id,
         name: w.name,
@@ -767,6 +764,15 @@ export default function BuatPenawaranForm() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           isCivilMeMode={isCivilMeMode}
+          // Mirror read-only untuk panel "Informasi Dokumen" di modal Detail RAB/BQ — field ini
+          // sudah ada di form utama (Section 1), jadi bukan field baru, cuma ditampilkan lagi di
+          // konteks modal supaya kelihatan apa yang akan tercetak di kop PDF.
+          documentInfo={{
+            projectName: infoValues.projectName,
+            quotationNo: infoValues.quotationNo,
+            date: infoValues.date,
+          }}
+          onExportPdf={handleExportPdf}
         />
 
         {/* Section 3: Bottom panel */}

@@ -73,9 +73,6 @@ interface BackendGroup {
   sortOrder: number;
   recapVolume?: number | null;
   recapUnit?: string | null;
-  subcontractorId?: string | null;
-  finalSubconCost?: number | null;
-  finalSellingPrice?: number | null;
   items: BackendItem[];
   // Always sent as a full array (never omitted) once a group has RAB/BQ data — the backend
   // treats an omitted field as "leave WorkItems untouched" but an explicit array (even []) as
@@ -130,9 +127,6 @@ export function mapTabsToBackend(tabs: CostingTab[]): BackendTab[] {
       sortOrder: group.sortOrder ?? gi,
       recapVolume: group.recapVolume ?? undefined,
       recapUnit: group.recapUnit ?? undefined,
-      subcontractorId: group.subcontractorId ?? undefined,
-      finalSubconCost: group.finalSubconCost ?? undefined,
-      finalSellingPrice: group.finalSellingPrice ?? undefined,
       items: group.rows.map((row, ri) => ({
         itemNo: row.no,
         equipment: row.equipment,

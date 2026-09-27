@@ -16,9 +16,18 @@ interface Props {
 export default function TotalMarginSection({ tabs, discount = 0, isCivilMeMode = false }: Props) {
   const groups = tabs.flatMap((t) => t.groups);
 
-  const totalJasa = calcServiceSubtotal(groups, isCivilMeMode);
-  const totalMaterial = calcMaterialSubtotal(groups, isCivilMeMode);
-  const totalCost = calcCostSubtotal(groups, isCivilMeMode);
+  // Civil & ME has no cost-basis data source anymore (QuotationGroup.FinalSubconCost — the only
+  // one it ever had — was removed with no schema replacement; WorkDetail/QuotationItem only carry
+  // selling price, never cost). calcCostSubtotal returns 0 for Civil & ME to mean "no data", not
+  // "zero cost incurred" — rendering a margin number from that would show a fake 100% margin on
+  // every Civil & ME quotation, which is actively misleading rather than merely incomplete.
+  if (isCivilMeMode) return null;
+
+  // Past this point isCivilMeMode is always false (guaranteed by the early return above), so the
+  // standard-mode branch of each calc function is the only one ever reached here.
+  const totalJasa = calcServiceSubtotal(groups, false);
+  const totalMaterial = calcMaterialSubtotal(groups, false);
+  const totalCost = calcCostSubtotal(groups, false);
   const totalRevenue = applyDiscount(totalJasa + totalMaterial, discount);
   const totalMargin = totalRevenue - totalCost;
   const marginPercent = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
@@ -56,9 +65,9 @@ export default function TotalMarginSection({ tabs, discount = 0, isCivilMeMode =
       </div>
 
       <p className="text-xs text-muted-foreground mt-3">
-        {isCivilMeMode
-          ? 'Dihitung dari Harga Jual dikurangi Harga Beli (Biaya Final Subcon) per Kategori (Group) pada panel Subkontraktor di atas. Nilai ini tidak tersimpan ke server — dihitung ulang setiap kali form dibuka.'
-          : 'Dihitung dari harga beli/satuan pada tabel di atas (otomatis terisi dari Item Master saat memilih equipment, bisa diedit manual). Jasa dihitung 100% margin. Nilai ini tidak tersimpan ke server — dihitung ulang setiap kali form dibuka.'}
+        Dihitung dari harga beli/satuan pada tabel di atas (otomatis terisi dari Item Master saat
+        memilih equipment, bisa diedit manual). Jasa dihitung 100% margin. Nilai ini tidak tersimpan
+        ke server — dihitung ulang setiap kali form dibuka.
       </p>
     </div>
   );
