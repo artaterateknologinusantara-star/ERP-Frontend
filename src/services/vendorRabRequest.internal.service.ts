@@ -41,10 +41,16 @@ export const vendorRabSubmissionService = {
   },
 
   approve(submissionId: string) {
-    return api.post<string>(`/vendor-submissions/${submissionId}/approve`, {});
+    return api.post<string[]>(`/vendor-submissions/${submissionId}/approve`, {});
   },
 
   reject(submissionId: string, reason?: string) {
     return api.post(`/vendor-submissions/${submissionId}/reject`, { reason });
+  },
+
+  // "Minta Revisi" — beda dari reject total: submission tidak ditolak seluruhnya, cuma baris
+  // yang di-flag di sini yang perlu diubah vendor. Tidak membuat attempt baru di backend.
+  requestRevision(submissionId: string, lines: { lineId: string; note: string }[]) {
+    return api.post(`/vendor-submissions/${submissionId}/request-revision`, { lines });
   },
 };

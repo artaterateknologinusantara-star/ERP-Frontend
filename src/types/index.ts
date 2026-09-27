@@ -108,13 +108,16 @@ export interface VendorRabRequestLine {
 }
 
 export type VendorRabRequestStatus = 'Draft' | 'Sent' | 'Approved' | 'Cancelled';
-export type VendorRabSubmissionStatus = 'PendingReview' | 'Approved' | 'Rejected';
+export type VendorRabSubmissionStatus = 'PendingReview' | 'RevisionRequested' | 'Approved' | 'Rejected';
 
 export interface VendorRabSubmissionSummary {
   id: string;
   attemptNumber: number;
   status: VendorRabSubmissionStatus;
   submittedAt: string;
+  // Baris lengkap (bukan cuma ringkasan) — dipakai portal vendor untuk pre-fill form saat
+  // RevisionRequested, tanpa endpoint terpisah.
+  lines: VendorRabSubmissionLine[];
 }
 
 export interface VendorRabRequest {
@@ -126,18 +129,20 @@ export interface VendorRabRequest {
   status: VendorRabRequestStatus;
   sentAt?: string | null;
   dueDate?: string | null;
-  approvedWorkItemId?: string | null;
+  approvedWorkItemIds: string[];
   lines: VendorRabRequestLine[];
   submissions: VendorRabSubmissionSummary[];
 }
 
 export interface VendorRabSubmissionLine {
   id: string;
-  vendorRabRequestLineId: string;
+  vendorRabRequestLineId?: string | null;
+  workItemName?: string | null;
   name: string;
   spesifikasi?: string | null;
   volume: number;
   unit: string;
+  sortOrder: number;
   servicePrice: number;
   materialPrice: number;
   serviceMarkup: number;
@@ -145,6 +150,7 @@ export interface VendorRabSubmissionLine {
   finalServicePrice: number;
   finalMaterialPrice: number;
   totalHarga: number;
+  negotiationNote?: string | null;
 }
 
 export interface VendorRabSubmission {
