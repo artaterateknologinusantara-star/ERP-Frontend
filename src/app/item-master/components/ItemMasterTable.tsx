@@ -213,19 +213,27 @@ export default function ItemMasterTable() {
   const marginNumberField = (label: string, key: 'marginDefault' | 'marginMinimum') => (
     <div>
       <label className="erp-form-label">{label}</label>
-      <input
-        type="number"
-        min={0}
-        step="0.01"
-        className="erp-input"
-        value={form[key] ?? ''}
-        placeholder={form.marginType === 'percent' ? '%' : 'Rp'}
-        onChange={(e) => {
-          const raw = e.target.value;
-          const v = parseFloat(raw);
-          setForm((f) => ({ ...f, [key]: raw === '' || isNaN(v) ? undefined : v }));
-        }}
-      />
+      {form.marginType === 'percent' ? (
+        <input
+          type="number"
+          min={0}
+          step="0.01"
+          className="erp-input"
+          value={form[key] ?? ''}
+          placeholder="%"
+          onChange={(e) => {
+            const raw = e.target.value;
+            const v = parseFloat(raw);
+            setForm((f) => ({ ...f, [key]: raw === '' || isNaN(v) ? undefined : v }));
+          }}
+        />
+      ) : (
+        <CurrencyInput
+          value={form[key] ?? 0}
+          placeholder="Kosongkan jika belum diketahui"
+          onChange={(v) => setForm((f) => ({ ...f, [key]: v || undefined }))}
+        />
+      )}
     </div>
   );
 
