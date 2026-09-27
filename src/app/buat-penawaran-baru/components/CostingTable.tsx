@@ -14,6 +14,7 @@ import {
   ListChecks,
 } from 'lucide-react';
 import { formatRp } from '@/lib/format';
+import { calcServiceSubtotal, calcMaterialSubtotal } from '@/lib/quotationCalc';
 import { getMarginTier, marginTierClasses } from '@/lib/margin';
 import { computeFloorPrice, floorWarningText } from '@/lib/itemMargin';
 import { isGuid } from '@/lib/guid';
@@ -227,20 +228,11 @@ export default function CostingTable({
     onUpdate({ ...tabData, groups: tabData.groups.filter((g) => g.id !== groupId) });
   };
 
-  // Civil & ME: Group di-price lewat QuotationItem (rows) + QuotationWorkDetail (RAB/BQ) — mirror
-  // formula backend RecalcTotals (2-source). QuotationGroup.FinalSellingPrice (manual entry lewat
-  // panel Subkontraktor) dulu jadi satu-satunya sumber di sini, dihapus total dari schema — lihat
-  // migration MigrateFinalSellingPriceToWorkDetailAndDropSubconFields.
-  const groupJasa = (g: CostingGroup) =>
-    isCivilMeMode
-      ? g.rows.reduce((s, r) => s + r.qty * r.servicePrice, 0)
-        + (g.workItems ?? []).reduce((ws, w) => ws + w.workDetails.reduce((ds, d) => ds + d.volume * d.servicePrice, 0), 0)
-      : g.rows.reduce((s, r) => s + r.qty * r.servicePrice, 0);
-  const groupMaterial = (g: CostingGroup) =>
-    isCivilMeMode
-      ? g.rows.reduce((s, r) => s + r.qty * r.materialPrice, 0)
-        + (g.workItems ?? []).reduce((ws, w) => ws + w.workDetails.reduce((ds, d) => ds + d.volume * d.materialPrice, 0), 0)
-      : g.rows.reduce((s, r) => s + r.qty * r.materialPrice, 0);
+  // Formula sama persis dengan GrandTotalPanel/TotalMarginSection/sticky bar mobile
+  // BuatPenawaranForm — reuse calcServiceSubtotal/calcMaterialSubtotal (src/lib/quotationCalc.ts)
+  // per Group tunggal (dibungkus array 1 elemen) daripada duplikasi formula inline di sini.
+  const groupJasa = (g: CostingGroup) => calcServiceSubtotal([g], isCivilMeMode);
+  const groupMaterial = (g: CostingGroup) => calcMaterialSubtotal([g], isCivilMeMode);
   const groupTotal = (g: CostingGroup) => groupJasa(g) + groupMaterial(g);
   const tabJasa = () => tabData.groups.reduce((s, g) => s + groupJasa(g), 0);
   const tabMaterial = () => tabData.groups.reduce((s, g) => s + groupMaterial(g), 0);
