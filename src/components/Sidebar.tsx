@@ -8,7 +8,7 @@ import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { companySettingsService } from '@/services/companySettings.service';
 import { hasModuleAccess, hasAnyApprovePermission } from '@/lib/permissions';
 import { usePendingApprovals } from '@/hooks/usePendingApprovals';
-import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database, Calculator, X, ClipboardCheck, Link2 } from 'lucide-react';
+import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database, Calculator, X, ClipboardCheck, Link2, Percent } from 'lucide-react';
 
 interface NavItem {
   id: string;
@@ -135,6 +135,7 @@ const navGroups: NavGroup[] = [
     defaultOpen: false,
     items: [
       { id: 'nav-sales-report', label: 'Sales Report', icon: <TrendingUp size={15} />, href: '/reports/sales', module: 'Sales' },
+      { id: 'nav-subcon-margin', label: 'Margin Subkontraktor', icon: <Percent size={15} />, href: '/reports/subcon-margin', module: 'Sales' },
       { id: 'nav-finance-report', label: 'Finance Report', icon: <DollarSign size={15} />, href: '/reports/finance', module: 'Finance' },
       { id: 'nav-purchasing-report', label: 'Purchasing Report', icon: <ShoppingBag size={15} />, href: '/reports/purchasing', module: 'Purchasing' },
       { id: 'nav-inventory-report', label: 'Inventory Report', icon: <Package size={15} />, href: '/reports/inventory', module: 'Inventory' },
