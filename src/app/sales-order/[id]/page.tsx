@@ -607,8 +607,11 @@ export default function SalesOrderDetailPage() {
               )}
 
               {/* Buat Invoice — SO tanpa termin saja; SO dengan termin pakai daftar per-termin
-                  di kartu Invoice (sidebar), bukan tombol tunggal ini. */}
-              {canBuatInvoice && so.termins.length === 0 && canCreateInvoice && (
+                  di kartu Invoice (sidebar), bukan tombol tunggal ini. Disembunyikan begitu SO
+                  ini sudah punya 1 Invoice (backend cuma izinkan 1 invoice penuh per SO tanpa
+                  termin — lihat InvoiceService.CreateAsync cap projectedInvoiceTotal) supaya user
+                  tidak sempat klik lalu baru kena error submit. */}
+              {canBuatInvoice && so.termins.length === 0 && relatedInvoices.length === 0 && canCreateInvoice && (
                 <button
                   onClick={() => openInvoiceModal(null)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-purple-300 text-purple-700 rounded-md hover:bg-purple-50 transition-colors font-600"
@@ -943,7 +946,7 @@ export default function SalesOrderDetailPage() {
                     ))}
                   </div>
                 ) : (
-                  canBuatInvoice && canCreateInvoice && (
+                  canBuatInvoice && relatedInvoices.length === 0 && canCreateInvoice && (
                     <button onClick={() => openInvoiceModal(null)}
                       className="text-xs text-purple-600 hover:underline font-500">
                       + Buat Invoice
