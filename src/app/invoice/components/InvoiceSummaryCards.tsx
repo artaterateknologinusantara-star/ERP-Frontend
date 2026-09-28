@@ -11,7 +11,9 @@ export default function InvoiceSummaryCards() {
   const [stats, setStats] = useState<InvoiceStats | null>(null);
 
   useEffect(() => {
-    getInvoiceStats().then(setStats).catch(() => {});
+    getInvoiceStats()
+      .then(setStats)
+      .catch(() => {});
   }, []);
 
   const s = stats;
@@ -24,7 +26,7 @@ export default function InvoiceSummaryCards() {
       value: s ? String(s.total) : '0',
       sub: 'Semua invoice',
       icon: <Receipt size={16} />,
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
     },
     {

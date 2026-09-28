@@ -11,7 +11,9 @@ export default function APSummaryCards() {
   const [stats, setStats] = useState<APStats | null>(null);
 
   useEffect(() => {
-    getAPStats().then(setStats).catch(() => {});
+    getAPStats()
+      .then(setStats)
+      .catch(() => {});
   }, []);
 
   const s = stats;
@@ -32,7 +34,7 @@ export default function APSummaryCards() {
       value: s ? formatRp(s.ordered) : 'Rp 0',
       sub: 'Menunggu pengiriman',
       icon: <Package size={16} />,
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
     },
     {

@@ -26,7 +26,7 @@ export default function RiwayatSummaryCards({ quotations, loading }: Props) {
       value: dash ?? String(total),
       sub: 'Sepanjang waktu',
       icon: <FileText size={16} />,
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
     },
     {

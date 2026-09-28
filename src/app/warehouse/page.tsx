@@ -61,16 +61,24 @@ export default function WarehousePage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load, refreshKey]);
+  useEffect(() => {
+    load();
+  }, [load, refreshKey]);
 
   // Item search
   useEffect(() => {
     if (!modal) return;
     const t = setTimeout(async () => {
       try {
-        const res = await itemMasterService.list({ search: itemSearch || undefined, perPage: 20, isActive: true });
+        const res = await itemMasterService.list({
+          search: itemSearch || undefined,
+          perPage: 20,
+          isActive: true,
+        });
         setItemOptions(res.data);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }, 300);
     return () => clearTimeout(t);
   }, [itemSearch, modal]);
@@ -88,13 +96,25 @@ export default function WarehousePage() {
   };
 
   const handleStockIn = async () => {
-    if (!selectedItem && !preselectedItem) { toast.error('Pilih item'); return; }
-    if (!qty || Number(qty) <= 0) { toast.error('Qty harus > 0'); return; }
+    if (!selectedItem && !preselectedItem) {
+      toast.error('Pilih item');
+      return;
+    }
+    if (!qty || Number(qty) <= 0) {
+      toast.error('Qty harus > 0');
+      return;
+    }
     const itemId = selectedItem?.id ?? preselectedItem?.id;
     if (!itemId) return;
     setSaving(true);
     try {
-      await recordStockIn({ itemMasterId: itemId, qty: Number(qty), refNo: refNo || undefined, notes: notes || undefined, source: 'Manual' });
+      await recordStockIn({
+        itemMasterId: itemId,
+        qty: Number(qty),
+        refNo: refNo || undefined,
+        notes: notes || undefined,
+        source: 'Manual',
+      });
       toast.success('Stock In berhasil');
       setModal(false);
       refresh();
@@ -106,24 +126,50 @@ export default function WarehousePage() {
   };
 
   const summaryCards = [
-    { label: 'Total Item', value: stats ? stats.totalItems.toLocaleString('id-ID') : '—', sub: `${stats?.activeItems ?? 0} aktif`, icon: <Package size={16} />, iconBg: 'bg-blue-50', iconColor: 'text-primary' },
-    { label: 'Nilai Stok', value: stats ? formatRp(stats.totalStockValue, true) : '—', sub: 'HPP × Stok', icon: <DollarSign size={16} />, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
-    { label: 'Stok Menipis', value: stats ? stats.lowStockItems.toLocaleString('id-ID') : '—', sub: 'Di bawah minimum', icon: <AlertTriangle size={16} />, iconBg: stats && stats.lowStockItems > 0 ? 'bg-amber-50' : 'bg-muted', iconColor: stats && stats.lowStockItems > 0 ? 'text-amber-600' : 'text-muted-foreground' },
-    { label: 'Habis', value: stats ? stats.outOfStockItems.toLocaleString('id-ID') : '—', sub: 'Stok = 0', icon: <XCircle size={16} />, iconBg: stats && stats.outOfStockItems > 0 ? 'bg-red-50' : 'bg-muted', iconColor: stats && stats.outOfStockItems > 0 ? 'text-red-500' : 'text-muted-foreground' },
+    {
+      label: 'Total Item',
+      value: stats ? stats.totalItems.toLocaleString('id-ID') : '—',
+      sub: `${stats?.activeItems ?? 0} aktif`,
+      icon: <Package size={16} />,
+      iconBg: 'bg-primary/10',
+      iconColor: 'text-primary',
+    },
+    {
+      label: 'Nilai Stok',
+      value: stats ? formatRp(stats.totalStockValue, true) : '—',
+      sub: 'HPP × Stok',
+      icon: <DollarSign size={16} />,
+      iconBg: 'bg-green-50',
+      iconColor: 'text-green-600',
+    },
+    {
+      label: 'Stok Menipis',
+      value: stats ? stats.lowStockItems.toLocaleString('id-ID') : '—',
+      sub: 'Di bawah minimum',
+      icon: <AlertTriangle size={16} />,
+      iconBg: stats && stats.lowStockItems > 0 ? 'bg-amber-50' : 'bg-muted',
+      iconColor: stats && stats.lowStockItems > 0 ? 'text-amber-600' : 'text-muted-foreground',
+    },
+    {
+      label: 'Habis',
+      value: stats ? stats.outOfStockItems.toLocaleString('id-ID') : '—',
+      sub: 'Stok = 0',
+      icon: <XCircle size={16} />,
+      iconBg: stats && stats.outOfStockItems > 0 ? 'bg-red-50' : 'bg-muted',
+      iconColor: stats && stats.outOfStockItems > 0 ? 'text-red-500' : 'text-muted-foreground',
+    },
   ];
 
   return (
-    <AppLayout
-      title="Warehouse"
-      breadcrumbs={[{ label: 'Inventory' }, { label: 'Warehouse' }]}
-    >
+    <AppLayout title="Warehouse" breadcrumbs={[{ label: 'Inventory' }, { label: 'Warehouse' }]}>
       <div className="space-y-6">
-
         {/* ── Stats ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {summaryCards.map((card) => (
             <div key={card.label} className="erp-card shadow-card flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg ${card.iconBg} flex items-center justify-center flex-shrink-0`}>
+              <div
+                className={`w-10 h-10 rounded-lg ${card.iconBg} flex items-center justify-center flex-shrink-0`}
+              >
                 <span className={card.iconColor}>{card.icon}</span>
               </div>
               <div className="min-w-0">
@@ -143,10 +189,15 @@ export default function WarehousePage() {
                 <AlertTriangle size={14} className="text-amber-500" />
                 Item Stok Menipis
               </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">{lowStock.length} item di bawah stok minimum</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {lowStock.length} item di bawah stok minimum
+              </p>
             </div>
             {canCreateStockIn && (
-              <button className="btn-primary flex items-center gap-1.5" onClick={() => openStockIn()}>
+              <button
+                className="btn-primary flex items-center gap-1.5"
+                onClick={() => openStockIn()}
+              >
                 <Plus size={13} /> Stock In Manual
               </button>
             )}
@@ -155,24 +206,36 @@ export default function WarehousePage() {
           {loading ? (
             <p className="text-sm text-muted-foreground text-center py-6">Memuat...</p>
           ) : lowStock.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6 text-green-600">✓ Semua stok dalam kondisi aman</p>
+            <p className="text-sm text-muted-foreground text-center py-6 text-green-600">
+              ✓ Semua stok dalam kondisi aman
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-[13px] border-collapse">
                 <thead>
                   <tr className="border-b-2 border-border bg-muted/40">
                     {['Kode', 'Nama', 'Stok', 'Min Stok', 'Kekurangan', 'Aksi'].map((h) => (
-                      <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
+                      <th
+                        key={h}
+                        className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider"
+                      >
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {lowStock.map((item) => (
-                    <tr key={item.id} className="border-b border-border hover:bg-amber-50/30 transition-colors">
+                    <tr
+                      key={item.id}
+                      className="border-b border-border hover:bg-amber-50/30 transition-colors"
+                    >
                       <td className="erp-table-cell font-600 text-primary">{item.code}</td>
                       <td className="erp-table-cell font-500">
                         <p>{item.name}</p>
-                        {item.category && <p className="text-xs text-muted-foreground">{item.category}</p>}
+                        {item.category && (
+                          <p className="text-xs text-muted-foreground">{item.category}</p>
+                        )}
                       </td>
                       <td className="erp-table-cell font-tabular font-700 text-amber-600">
                         {item.stock.toLocaleString('id-ID')} {item.uom}
@@ -209,40 +272,67 @@ export default function WarehousePage() {
               <p className="text-xs text-muted-foreground mt-0.5">10 transaksi terakhir</p>
             </div>
             <div className="flex gap-2">
-              <button className="btn-secondary text-[12px]" onClick={() => router.push('/stock-in')}>Semua Stock In</button>
-              <button className="btn-secondary text-[12px]" onClick={() => router.push('/stock-out')}>Semua DO</button>
+              <button
+                className="btn-secondary text-[12px]"
+                onClick={() => router.push('/stock-in')}
+              >
+                Semua Stock In
+              </button>
+              <button
+                className="btn-secondary text-[12px]"
+                onClick={() => router.push('/stock-out')}
+              >
+                Semua DO
+              </button>
             </div>
           </div>
 
           {loading ? (
             <p className="text-sm text-muted-foreground text-center py-6">Memuat...</p>
           ) : history.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">Belum ada transaksi stok.</p>
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Belum ada transaksi stok.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-[13px] border-collapse">
                 <thead>
                   <tr className="border-b-2 border-border bg-muted/40">
                     {['Tanggal', 'Item', 'Tipe', 'Qty', 'Ref'].map((h) => (
-                      <th key={h} className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider">{h}</th>
+                      <th
+                        key={h}
+                        className="erp-table-cell text-left text-muted-foreground font-600 text-xs uppercase tracking-wider"
+                      >
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {history.map((tx) => (
-                    <tr key={tx.id} className="border-b border-border hover:bg-muted/20 transition-colors">
-                      <td className="erp-table-cell text-muted-foreground whitespace-nowrap">{formatDate(tx.createdAt)}</td>
+                    <tr
+                      key={tx.id}
+                      className="border-b border-border hover:bg-muted/20 transition-colors"
+                    >
+                      <td className="erp-table-cell text-muted-foreground whitespace-nowrap">
+                        {formatDate(tx.createdAt)}
+                      </td>
                       <td className="erp-table-cell">
                         <p className="font-500">{tx.itemName}</p>
                         <p className="text-xs text-muted-foreground">{tx.itemCode}</p>
                       </td>
                       <td className="erp-table-cell">
-                        <span className={`inline-flex items-center text-[11px] font-600 px-2 py-0.5 rounded-full ${tx.type === 'StockIn' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                        <span
+                          className={`inline-flex items-center text-[11px] font-600 px-2 py-0.5 rounded-full ${tx.type === 'StockIn' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}
+                        >
                           {tx.type === 'StockIn' ? 'Masuk' : 'Keluar'}
                         </span>
                       </td>
-                      <td className={`erp-table-cell font-tabular font-700 ${tx.qty > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {tx.qty > 0 ? '+' : ''}{tx.qty.toLocaleString('id-ID')}
+                      <td
+                        className={`erp-table-cell font-tabular font-700 ${tx.qty > 0 ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        {tx.qty > 0 ? '+' : ''}
+                        {tx.qty.toLocaleString('id-ID')}
                       </td>
                       <td className="erp-table-cell text-muted-foreground">{tx.refNo ?? '—'}</td>
                     </tr>
@@ -263,7 +353,9 @@ export default function WarehousePage() {
         size="md"
         footer={
           <>
-            <button className="btn-secondary" onClick={() => setModal(false)} disabled={saving}>Batal</button>
+            <button className="btn-secondary" onClick={() => setModal(false)} disabled={saving}>
+              Batal
+            </button>
             <button className="btn-primary" onClick={handleStockIn} disabled={saving}>
               {saving ? 'Menyimpan...' : 'Catat Stock In'}
             </button>
@@ -278,16 +370,31 @@ export default function WarehousePage() {
               <div className="erp-input bg-muted/30 text-[13px]">
                 <span className="font-600 text-primary">{preselectedItem.code}</span>
                 <span className="ml-2">{preselectedItem.name}</span>
-                <span className="text-xs text-amber-600 ml-2">Stok: {preselectedItem.stock} {preselectedItem.uom}</span>
+                <span className="text-xs text-amber-600 ml-2">
+                  Stok: {preselectedItem.stock} {preselectedItem.uom}
+                </span>
               </div>
             </div>
           ) : (
             <div className="relative">
-              <label className="erp-form-label">Item <span className="text-red-500">*</span></label>
+              <label className="erp-form-label">
+                Item <span className="text-red-500">*</span>
+              </label>
               {selectedItem ? (
                 <div className="erp-input flex items-center justify-between">
-                  <span><span className="font-600">{selectedItem.code}</span> {selectedItem.name}</span>
-                  <button type="button" className="ml-2 text-muted-foreground hover:text-foreground" onClick={() => { setSelectedItem(null); setItemSearch(''); }}>×</button>
+                  <span>
+                    <span className="font-600">{selectedItem.code}</span> {selectedItem.name}
+                  </span>
+                  <button
+                    type="button"
+                    className="ml-2 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setSelectedItem(null);
+                      setItemSearch('');
+                    }}
+                  >
+                    ×
+                  </button>
                 </div>
               ) : (
                 <>
@@ -296,17 +403,29 @@ export default function WarehousePage() {
                     className="erp-input"
                     placeholder="Cari item..."
                     value={itemSearch}
-                    onChange={(e) => { setItemSearch(e.target.value); setShowDropdown(true); }}
+                    onChange={(e) => {
+                      setItemSearch(e.target.value);
+                      setShowDropdown(true);
+                    }}
                     onFocus={() => setShowDropdown(true)}
                   />
                   {showDropdown && itemOptions.length > 0 && (
                     <div className="absolute z-50 left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {itemOptions.map((item) => (
-                        <button key={item.id} type="button" className="w-full text-left px-3 py-2.5 hover:bg-muted text-[13px] border-b border-border last:border-0"
-                          onClick={() => { setSelectedItem(item); setShowDropdown(false); }}>
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2.5 hover:bg-muted text-[13px] border-b border-border last:border-0"
+                          onClick={() => {
+                            setSelectedItem(item);
+                            setShowDropdown(false);
+                          }}
+                        >
                           <span className="font-600 text-primary">{item.code}</span>
                           <span className="ml-2">{item.name}</span>
-                          <span className="text-xs text-muted-foreground ml-2">Stok: {item.stock} {item.uom}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            Stok: {item.stock} {item.uom}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -317,17 +436,41 @@ export default function WarehousePage() {
           )}
 
           <div>
-            <label className="erp-form-label">Qty <span className="text-red-500">*</span></label>
-            <input type="number" min={1} step="any" className="erp-input" placeholder="0"
-              value={qty} onChange={(e) => setQty(e.target.value === '' ? '' : parseFloat(e.target.value))} />
+            <label className="erp-form-label">
+              Qty <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              min={1}
+              step="any"
+              className="erp-input"
+              placeholder="0"
+              value={qty}
+              onChange={(e) => setQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
+            />
           </div>
           <div>
-            <label className="erp-form-label">Nomor Referensi <span className="text-xs text-muted-foreground">(opsional)</span></label>
-            <input type="text" className="erp-input" placeholder="Nomor PO, GR, dll." value={refNo} onChange={(e) => setRefNo(e.target.value)} />
+            <label className="erp-form-label">
+              Nomor Referensi <span className="text-xs text-muted-foreground">(opsional)</span>
+            </label>
+            <input
+              type="text"
+              className="erp-input"
+              placeholder="Nomor PO, GR, dll."
+              value={refNo}
+              onChange={(e) => setRefNo(e.target.value)}
+            />
           </div>
           <div>
-            <label className="erp-form-label">Catatan <span className="text-xs text-muted-foreground">(opsional)</span></label>
-            <textarea className="erp-input resize-none" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <label className="erp-form-label">
+              Catatan <span className="text-xs text-muted-foreground">(opsional)</span>
+            </label>
+            <textarea
+              className="erp-input resize-none"
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </div>
         </div>
       </ERPModal>

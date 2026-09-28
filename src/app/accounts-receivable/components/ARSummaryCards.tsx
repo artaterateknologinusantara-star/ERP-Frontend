@@ -11,13 +11,13 @@ export default function ARSummaryCards() {
   const [stats, setStats] = useState<ARStats | null>(null);
 
   useEffect(() => {
-    getARStats().then(setStats).catch(() => {});
+    getARStats()
+      .then(setStats)
+      .catch(() => {});
   }, []);
 
   const s = stats;
-  const overdue = s
-    ? s.overdue1to30 + s.overdue31to60 + s.overdue61to90 + s.overdueOver90
-    : 0;
+  const overdue = s ? s.overdue1to30 + s.overdue31to60 + s.overdue61to90 + s.overdueOver90 : 0;
 
   const cards: SummaryCardData[] = [
     {
@@ -26,7 +26,7 @@ export default function ARSummaryCards() {
       value: s ? formatRp(s.totalOutstanding) : 'Rp 0',
       sub: `${s?.totalInvoices ?? 0} invoice aktif`,
       icon: <TrendingUp size={16} />,
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
     },
     {

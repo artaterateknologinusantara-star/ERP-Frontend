@@ -13,7 +13,9 @@ export default function StockInSummaryCards({ refreshKey }: StockInSummaryCardsP
   const [stats, setStats] = useState<InventoryStats | null>(null);
 
   useEffect(() => {
-    getInventoryStats().then(setStats).catch(() => {});
+    getInventoryStats()
+      .then(setStats)
+      .catch(() => {});
   }, [refreshKey]);
 
   const cards = [
@@ -23,7 +25,7 @@ export default function StockInSummaryCards({ refreshKey }: StockInSummaryCardsP
       value: stats ? stats.activeItems.toLocaleString('id-ID') : '—',
       sub: `${stats ? stats.totalItems.toLocaleString('id-ID') : '—'} total item`,
       icon: <Package size={16} />,
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
     },
     {
@@ -59,7 +61,9 @@ export default function StockInSummaryCards({ refreshKey }: StockInSummaryCardsP
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {cards.map((card) => (
         <div key={card.id} className="erp-card shadow-card flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-lg ${card.iconBg} flex items-center justify-center flex-shrink-0`}>
+          <div
+            className={`w-10 h-10 rounded-lg ${card.iconBg} flex items-center justify-center flex-shrink-0`}
+          >
             <span className={card.iconColor}>{card.icon}</span>
           </div>
           <div className="min-w-0">

@@ -35,17 +35,23 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) { toast.error('Email dan password wajib diisi'); return; }
+    if (!email || !password) {
+      toast.error('Email dan password wajib diisi');
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.post<LoginResponse>('/auth/login', { email, password });
       localStorage.setItem('syntera_token', res.data.token);
-      localStorage.setItem('syntera_user', JSON.stringify({
-        name: res.data.name,
-        email: res.data.email,
-        role: res.data.role,
-        permissions: res.data.permissions,
-      }));
+      localStorage.setItem(
+        'syntera_user',
+        JSON.stringify({
+          name: res.data.name,
+          email: res.data.email,
+          role: res.data.role,
+          permissions: res.data.permissions,
+        })
+      );
       toast.success(`Selamat datang, ${res.data.name}`);
       router.replace('/');
     } catch {
@@ -104,7 +110,7 @@ export default function LoginPage() {
           <button type="submit" className="btn-primary w-full justify-center" disabled={loading}>
             {loading ? (
               <span className="flex items-center gap-2 justify-center">
-                <span className="w-3.5 h-3.5 border-2 border-blue-200 border-t-white rounded-full animate-spin" />
+                <span className="w-3.5 h-3.5 border-2 border-primary/30 border-t-white rounded-full animate-spin" />
                 Masuk...
               </span>
             ) : (

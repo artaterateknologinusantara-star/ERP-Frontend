@@ -10,7 +10,9 @@ export default function PurchaseRequestSummaryCards() {
   const [stats, setStats] = useState<PurchaseRequestStats | null>(null);
 
   useEffect(() => {
-    getPRStats().then(setStats).catch(() => {});
+    getPRStats()
+      .then(setStats)
+      .catch(() => {});
   }, []);
 
   const s = stats;
@@ -40,7 +42,7 @@ export default function PurchaseRequestSummaryCards() {
       value: s ? String(s.submitted) : '0',
       sub: 'Menunggu approval',
       icon: <Send size={16} />,
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
     },
     {

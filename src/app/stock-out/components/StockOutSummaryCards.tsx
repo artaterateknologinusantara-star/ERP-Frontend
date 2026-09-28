@@ -12,7 +12,9 @@ export default function StockOutSummaryCards({ refreshKey }: Props) {
   const [stats, setStats] = useState<InventoryStats | null>(null);
 
   useEffect(() => {
-    getInventoryStats().then(setStats).catch(() => {});
+    getInventoryStats()
+      .then(setStats)
+      .catch(() => {});
   }, [refreshKey]);
 
   const totalDO = stats ? stats.pendingDOs + stats.activeDOs : 0;
@@ -24,7 +26,7 @@ export default function StockOutSummaryCards({ refreshKey }: Props) {
       value: stats ? totalDO.toLocaleString('id-ID') : '—',
       sub: 'Semua Delivery Order',
       icon: <Truck size={16} />,
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
     },
     {
@@ -60,7 +62,9 @@ export default function StockOutSummaryCards({ refreshKey }: Props) {
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {cards.map((card) => (
         <div key={card.id} className="erp-card shadow-card flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-lg ${card.iconBg} flex items-center justify-center flex-shrink-0`}>
+          <div
+            className={`w-10 h-10 rounded-lg ${card.iconBg} flex items-center justify-center flex-shrink-0`}
+          >
             <span className={card.iconColor}>{card.icon}</span>
           </div>
           <div className="min-w-0">

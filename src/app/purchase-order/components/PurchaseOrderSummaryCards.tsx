@@ -10,7 +10,9 @@ export default function PurchaseOrderSummaryCards() {
   const [stats, setStats] = useState<PurchaseOrderStats | null>(null);
 
   useEffect(() => {
-    getPOStats().then(setStats).catch(() => {});
+    getPOStats()
+      .then(setStats)
+      .catch(() => {});
   }, []);
 
   const s = stats;
@@ -40,7 +42,7 @@ export default function PurchaseOrderSummaryCards() {
       value: s ? String(s.ordered) : '0',
       sub: 'Menunggu pengiriman',
       icon: <Package size={16} />,
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
     },
     {
