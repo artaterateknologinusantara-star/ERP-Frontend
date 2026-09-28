@@ -14,6 +14,7 @@ import { downloadCsv } from '@/lib/export';
 import { Eye, Edit2, Plus, Trash2 } from 'lucide-react';
 import RowActionMenu from '@/components/ui/RowActionMenu';
 import SupplierPortalUsersPanel from './SupplierPortalUsersPanel';
+import { hasPermission } from '@/lib/permissions';
 
 interface SupplierRow {
   id: string;
@@ -53,6 +54,9 @@ const EMPTY_FORM: CreateSupplierDto = {
 };
 
 export default function VendorTable() {
+  const canCreateVendor = hasPermission('Purchasing', 'canCreate');
+  const canEditVendor = hasPermission('Purchasing', 'canEdit');
+  const canDeleteVendor = hasPermission('Purchasing', 'canDelete');
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(PER_PAGE);
@@ -189,9 +193,11 @@ export default function VendorTable() {
           statusOptions={STATUS_OPTIONS}
           onExport={handleExport}
           actions={
-            <button className="btn-primary" onClick={openCreate}>
-              <Plus size={14} /> Tambah Vendor
-            </button>
+            canCreateVendor ? (
+              <button className="btn-primary" onClick={openCreate}>
+                <Plus size={14} /> Tambah Vendor
+              </button>
+            ) : undefined
           }
         />
 
@@ -230,8 +236,8 @@ export default function VendorTable() {
                   <td className="erp-table-cell erp-action-col" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu items={[
                       { icon: <Eye size={13} />,    label: 'Detail Vendor', onClick: () => openDetail(row) },
-                      { icon: <Edit2 size={13} />,  label: 'Edit Vendor',   onClick: () => openEdit(row) },
-                      { icon: <Trash2 size={13} />, label: 'Hapus Vendor',  onClick: () => setDeleteTarget(row), danger: true, separator: true },
+                      ...(canEditVendor ? [{ icon: <Edit2 size={13} />, label: 'Edit Vendor', onClick: () => openEdit(row) }] : []),
+                      ...(canDeleteVendor ? [{ icon: <Trash2 size={13} />, label: 'Hapus Vendor', onClick: () => setDeleteTarget(row), danger: true, separator: true }] : []),
                     ]} />
                   </td>
                 </tr>
@@ -296,7 +302,9 @@ export default function VendorTable() {
         footer={
           <>
             <button className="btn-secondary" onClick={closeModal}>Tutup</button>
-            <button className="btn-primary" onClick={() => { closeModal(); if (selected) openEdit(selected); }}>Edit</button>
+            {canEditVendor && (
+              <button className="btn-primary" onClick={() => { closeModal(); if (selected) openEdit(selected); }}>Edit</button>
+            )}
           </>
         }
       >
@@ -325,12 +333,14 @@ export default function VendorTable() {
             )}
             <div className="flex items-center justify-between pt-2 border-t border-border">
               <StatusBadge status={(selected.isActive ? 'Aktif' : 'Tidak Aktif') as ActiveStatus} />
-              <button
-                className={`text-xs px-3 py-1.5 rounded-md font-600 transition-colors ${selected.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
-                onClick={() => { handleToggleStatus(selected); closeModal(); }}
-              >
-                {selected.isActive ? 'Nonaktifkan' : 'Aktifkan'}
-              </button>
+              {canEditVendor && (
+                <button
+                  className={`text-xs px-3 py-1.5 rounded-md font-600 transition-colors ${selected.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                  onClick={() => { handleToggleStatus(selected); closeModal(); }}
+                >
+                  {selected.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                </button>
+              )}
             </div>
             {(selected.supplierType === 'Subcontractor' || selected.supplierType === 'Both') && (
               <SupplierPortalUsersPanel supplierId={selected.id} />

@@ -108,13 +108,16 @@ export interface VendorRabRequestLine {
 }
 
 export type VendorRabRequestStatus = 'Draft' | 'Sent' | 'Approved' | 'Cancelled';
-export type VendorRabSubmissionStatus = 'PendingReview' | 'Approved' | 'Rejected';
+export type VendorRabSubmissionStatus = 'PendingReview' | 'RevisionRequested' | 'Approved' | 'Rejected';
 
 export interface VendorRabSubmissionSummary {
   id: string;
   attemptNumber: number;
   status: VendorRabSubmissionStatus;
   submittedAt: string;
+  // Baris lengkap (bukan cuma ringkasan) — dipakai portal vendor untuk pre-fill form saat
+  // RevisionRequested, tanpa endpoint terpisah.
+  lines: VendorRabSubmissionLine[];
 }
 
 export interface VendorRabRequest {
@@ -126,22 +129,28 @@ export interface VendorRabRequest {
   status: VendorRabRequestStatus;
   sentAt?: string | null;
   dueDate?: string | null;
-  approvedWorkItemId?: string | null;
+  approvedWorkItemIds: string[];
   lines: VendorRabRequestLine[];
   submissions: VendorRabSubmissionSummary[];
 }
 
 export interface VendorRabSubmissionLine {
   id: string;
-  vendorRabRequestLineId: string;
+  vendorRabRequestLineId?: string | null;
+  workItemName?: string | null;
   name: string;
   spesifikasi?: string | null;
   volume: number;
   unit: string;
-  unitPrice: number;
-  markupAmount: number;
-  finalUnitPrice: number;
+  sortOrder: number;
+  servicePrice: number;
+  materialPrice: number;
+  serviceMarkup: number;
+  materialMarkup: number;
+  finalServicePrice: number;
+  finalMaterialPrice: number;
   totalHarga: number;
+  negotiationNote?: string | null;
 }
 
 export interface VendorRabSubmission {
@@ -241,11 +250,6 @@ export interface CostingGroup {
   /** Hanya dipakai kalau Mode Civil & ME aktif — nilai default (Volume=1, Unit="Ls") di backend kalau kosong. */
   recapVolume?: number | null;
   recapUnit?: string | null;
-  /** Subkontraktor + biaya final RAB per group — dipakai kalau Mode Civil & ME aktif. */
-  subcontractorId?: string | null;
-  subcontractorName?: string | null;
-  finalSubconCost?: number | null;
-  finalSellingPrice?: number | null;
   /** Struktur RAB/BQ (Item Pekerjaan → Detail Kerja) — dipakai kalau Mode Civil & ME aktif. */
   workItems?: WorkItem[];
 }
@@ -262,7 +266,8 @@ export interface WorkDetail {
   spesifikasi: string;
   volume: number;
   unit: string;
-  unitPrice: number;
+  servicePrice: number;
+  materialPrice: number;
   sortOrder: number;
   attachments: WorkDetailAttachment[];
 }
@@ -318,7 +323,6 @@ export interface Quotation {
   location?: string | null;
   contractor?: string | null;
   validityPeriod?: string | null;
-  areaBlockTender?: string | null;
   paymentTerms: string;
   termins?: QuotationTermin[];
   termsAndConditions: string;
@@ -349,6 +353,8 @@ export interface QuotationListItem {
   isLatestRevision: boolean;
   sentAt?: string;
   hasCustomerPO: boolean;
+  /** Null kalau status bukan Disetujui atau sudah ada SalesOrder aktif — monitoring read-only. */
+  daysApprovedWithoutSalesOrder?: number | null;
 }
 
 // ─── Customer PO ──────────────────────────────────────────────────────────────

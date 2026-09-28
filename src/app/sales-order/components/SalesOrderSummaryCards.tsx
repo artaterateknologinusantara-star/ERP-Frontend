@@ -10,7 +10,9 @@ export default function SalesOrderSummaryCards() {
   const [stats, setStats] = useState<SalesOrderStats | null>(null);
 
   useEffect(() => {
-    getSalesOrderStats().then(setStats).catch(() => {});
+    getSalesOrderStats()
+      .then(setStats)
+      .catch(() => {});
   }, []);
 
   const s = stats;
@@ -31,7 +33,7 @@ export default function SalesOrderSummaryCards() {
       value: s ? String(s.open) : '0',
       sub: 'Sedang berjalan',
       icon: <Clock size={16} />,
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
     },
     {

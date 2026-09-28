@@ -5,12 +5,15 @@ import SummaryCards from '@/components/ui/SummaryCards';
 import { SummaryCardData } from '@/types';
 import { Receipt, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 import { getInvoiceStats, InvoiceStats } from '@/services/invoice.service';
+import { formatRp } from '@/lib/format';
 
 export default function InvoiceSummaryCards() {
   const [stats, setStats] = useState<InvoiceStats | null>(null);
 
   useEffect(() => {
-    getInvoiceStats().then(setStats).catch(() => {});
+    getInvoiceStats()
+      .then(setStats)
+      .catch(() => {});
   }, []);
 
   const s = stats;
@@ -23,7 +26,7 @@ export default function InvoiceSummaryCards() {
       value: s ? String(s.total) : '0',
       sub: 'Semua invoice',
       icon: <Receipt size={16} />,
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
     },
     {
@@ -47,7 +50,7 @@ export default function InvoiceSummaryCards() {
     {
       id: 'inv-collected',
       label: 'Total Terkumpul',
-      value: s ? 'Rp ' + s.totalCollected.toLocaleString('id-ID') : 'Rp 0',
+      value: s ? formatRp(s.totalCollected) : 'Rp 0',
       sub: 'Total pembayaran diterima',
       icon: <CheckCircle size={16} />,
       iconBg: 'bg-green-50',

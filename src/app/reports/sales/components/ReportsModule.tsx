@@ -142,7 +142,7 @@ export default function ReportsModule({ reportType }: ReportsModuleProps) {
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
               <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} width={60} />
               <Tooltip
-                formatter={(val: number, name: string) => [`Rp ${Math.abs(val).toLocaleString('id-ID')}`, name]}
+                formatter={(val: number, name: string) => [formatRp(Math.abs(val)), name]}
                 labelFormatter={(l) => `Bulan: ${l}`}
               />
               <Legend wrapperStyle={{ fontSize: 11 }} />

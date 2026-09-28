@@ -7,21 +7,60 @@ import { projectService, ProjectStats } from '@/services/project.service';
 export default function ProjectSummaryCards() {
   const [stats, setStats] = useState<ProjectStats | null>(null);
 
-  useEffect(() => { projectService.getStats().then(setStats).catch(() => {}); }, []);
+  useEffect(() => {
+    projectService
+      .getStats()
+      .then(setStats)
+      .catch(() => {});
+  }, []);
 
   const s = stats;
   const cards = [
-    { id: 'prj-total',     label: 'Total Proyek',  value: s ? s.total.toString()     : '—', sub: 'Semua status',        icon: <FolderKanban size={16} />, iconBg: 'bg-blue-50',    iconColor: 'text-primary' },
-    { id: 'prj-running',   label: 'Running',        value: s ? s.running.toString()   : '—', sub: 'Sedang berjalan',     icon: <Play size={16} />,         iconBg: 'bg-green-50',   iconColor: 'text-green-600' },
-    { id: 'prj-hold',      label: 'On Hold',        value: s ? s.onHold.toString()    : '—', sub: 'Ditunda sementara',   icon: <PauseCircle size={16} />,  iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
-    { id: 'prj-completed', label: 'Completed',      value: s ? s.completed.toString() : '—', sub: `${s?.planning ?? 0} planning`, icon: <CheckCircle size={16} />, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
+    {
+      id: 'prj-total',
+      label: 'Total Proyek',
+      value: s ? s.total.toString() : '—',
+      sub: 'Semua status',
+      icon: <FolderKanban size={16} />,
+      iconBg: 'bg-primary/10',
+      iconColor: 'text-primary',
+    },
+    {
+      id: 'prj-running',
+      label: 'Running',
+      value: s ? s.running.toString() : '—',
+      sub: 'Sedang berjalan',
+      icon: <Play size={16} />,
+      iconBg: 'bg-green-50',
+      iconColor: 'text-green-600',
+    },
+    {
+      id: 'prj-hold',
+      label: 'On Hold',
+      value: s ? s.onHold.toString() : '—',
+      sub: 'Ditunda sementara',
+      icon: <PauseCircle size={16} />,
+      iconBg: 'bg-amber-50',
+      iconColor: 'text-amber-600',
+    },
+    {
+      id: 'prj-completed',
+      label: 'Completed',
+      value: s ? s.completed.toString() : '—',
+      sub: `${s?.planning ?? 0} planning`,
+      icon: <CheckCircle size={16} />,
+      iconBg: 'bg-emerald-50',
+      iconColor: 'text-emerald-600',
+    },
   ];
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {cards.map((card) => (
         <div key={card.id} className="erp-card shadow-card flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-lg ${card.iconBg} flex items-center justify-center flex-shrink-0`}>
+          <div
+            className={`w-10 h-10 rounded-lg ${card.iconBg} flex items-center justify-center flex-shrink-0`}
+          >
             <span className={card.iconColor}>{card.icon}</span>
           </div>
           <div className="min-w-0">

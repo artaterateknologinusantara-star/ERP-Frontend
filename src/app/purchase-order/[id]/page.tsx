@@ -25,6 +25,7 @@ import {
 import { getFlatAccounts, Account } from '@/services/account.service';
 import { PurchaseOrderStatus } from '@/types';
 import { SALES_ORDERS_QUERY_KEY } from '@/app/sales-order/components/SalesOrderTable';
+import { hasPermission } from '@/lib/permissions';
 
 const PAYMENT_METHODS = ['Transfer', 'Tunai', 'Giro', 'Cek'];
 
@@ -56,6 +57,8 @@ export default function PurchaseOrderDetailPage() {
   const params = useParams();
   const id     = params.id as string;
   const queryClient = useQueryClient();
+  const canEditPO = hasPermission('Purchasing', 'canEdit');
+  const canCreateSupplierInvoice = hasPermission('Purchasing', 'canCreate');
 
   const [po, setPo]           = useState<PurchaseOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -242,27 +245,27 @@ export default function PurchaseOrderDetailPage() {
               )}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              {po.status === 'Draft' && (
+              {po.status === 'Draft' && canEditPO && (
                 <button className="btn-primary flex items-center gap-1.5" onClick={handleConfirmOrder} disabled={saving}>
                   {saving ? 'Menyimpan...' : 'Konfirmasi Order'}
                 </button>
               )}
-              {canReceive && (
+              {canReceive && canEditPO && (
                 <button className="btn-primary flex items-center gap-1.5" onClick={openReceiveModal} disabled={pendingItems.length === 0}>
                   {po.status === 'Partial Receive' ? 'Terima Barang Lanjutan' : 'Terima Barang'}
                 </button>
               )}
-              {canInvoice && (
+              {canInvoice && canCreateSupplierInvoice && (
                 <button
                   className="btn-secondary flex items-center gap-1.5"
                   onClick={() => setSiModal(true)}
                   disabled={!hasInvoicableItems}
                   title={!hasInvoicableItems ? 'Semua item PO ini sudah selesai di-invoice' : undefined}
                 >
-                  <FileCheck size={14} /> Buat Supplier Invoice
+                  <FileCheck size={14} /> Buat Bill
                 </button>
               )}
-              {canPay && (
+              {canPay && canEditPO && (
                 <button
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
                   onClick={openPayModal}

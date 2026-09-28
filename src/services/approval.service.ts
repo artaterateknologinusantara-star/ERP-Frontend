@@ -45,7 +45,7 @@ export const approvalService = {
       case 'Quotation': return quotationService.reject(item.id);
       case 'Expense': return rejectExpense(item.id);
       case 'PurchaseRequest': return updatePRStatus(item.id, 'Rejected');
-      case 'SupplierInvoice': throw new Error('Supplier Invoice tidak memiliki alur tolak.');
+      case 'SupplierInvoice': throw new Error('Bill tidak memiliki alur tolak.');
       case 'JournalEntry': throw new Error('Journal Entry tidak memiliki alur tolak.');
     }
   },

@@ -36,7 +36,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   PURCHASE_REQUEST: 'Purchase Request',
   PURCHASE_ORDER: 'Purchase Order',
   JOURNAL_ENTRY: 'Journal Entry',
-  SUPPLIER_INVOICE: 'Supplier Invoice',
+  SUPPLIER_INVOICE: 'Bill',
   EXPENSE: 'Expense',
   DELIVERY_ORDER: 'Delivery Order',
 };

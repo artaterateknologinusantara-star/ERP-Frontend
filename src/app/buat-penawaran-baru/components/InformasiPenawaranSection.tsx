@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { ChevronDown, Search, X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import type { SelectOption, Customer } from '@/types';
 import { customerService } from '@/services/customer.service';
 import { api } from '@/lib/api';
@@ -24,7 +24,6 @@ export interface InfoFormValues {
   location: string;
   contractor: string;
   validityPeriod: string;
-  areaBlockTender: string;
 }
 
 interface Props {
@@ -34,9 +33,20 @@ interface Props {
   isCivilMeMode?: boolean;
 }
 
-export default function InformasiPenawaranSection({ values, onChange, errors, isCivilMeMode }: Props) {
+export default function InformasiPenawaranSection({
+  values,
+  onChange,
+  errors,
+  isCivilMeMode,
+}: Props) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [salesOptions, setSalesOptions] = useState<SelectOption[]>([]);
+  // "Tampilkan detail lainnya" — field selain Nama Pelanggan/Nama Proyek disembunyikan by default
+  // (7 kolom: Alamat Kantor, Attn, Tanggal Penawaran, Sales Person, No. Penawaran, Revisi, Tanggal
+  // Kadaluarsa) supaya card "Informasi Penawaran" tidak penuh sesak di awal.
+  const [showMoreInfo, setShowMoreInfo] = useState(false);
+  // Card "Header RAB (Civil & ME)" — accordion terpisah, default terbuka.
+  const [rabHeaderOpen, setRabHeaderOpen] = useState(true);
 
   // Combobox state
   const [customerSearch, setCustomerSearch] = useState('');
@@ -44,11 +54,13 @@ export default function InformasiPenawaranSection({ values, onChange, errors, is
   const comboRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    customerService.list({ perPage: 200, isActive: true })
+    customerService
+      .list({ perPage: 200, isActive: true })
       .then((res) => setCustomers(res.data))
       .catch(() => {});
 
-    api.get<{ id: string; name: string }[]>('/auth/users')
+    api
+      .get<{ id: string; name: string }[]>('/auth/users')
       .then((res) => setSalesOptions((res.data ?? []).map((u) => ({ value: u.id, label: u.name }))))
       .catch(() => {});
   }, []);
@@ -105,36 +117,50 @@ export default function InformasiPenawaranSection({ values, onChange, errors, is
   });
 
   return (
-    <div className="erp-card shadow-card">
-      <div className="erp-section-header">Informasi Penawaran</div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
+    <>
+      <div className="erp-card">
+        <div className="pnw-section-title">
+          <span className="pnw-section-mark" />
+          Informasi penawaran
+        </div>
 
-        {/* ── Left Column ─────────────────────────────────────────────────── */}
-        <div className="space-y-4">
-
+        {/* Default: hanya 2 field ini yang tampil — sisanya (7 kolom) di balik toggle di bawah. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
           {/* Nama Pelanggan — Searchable Combobox */}
           <div>
             <label className="erp-form-label">
               Nama Pelanggan <span className="required">*</span>
             </label>
-            <p className="text-xs text-muted-foreground mb-1.5">Pilih atau ketik nama pelanggan terdaftar</p>
+            <p className="text-xs text-muted-foreground mb-1.5">
+              Pilih atau ketik nama pelanggan terdaftar
+            </p>
             <div className="relative" ref={comboRef}>
               <div className="relative">
                 <input
                   type="text"
                   value={customerSearch}
-                  onChange={(e) => { setCustomerSearch(e.target.value); setComboOpen(true); }}
+                  onChange={(e) => {
+                    setCustomerSearch(e.target.value);
+                    setComboOpen(true);
+                  }}
                   onFocus={() => setComboOpen(true)}
                   placeholder="Ketik nama pelanggan..."
                   className={`erp-input pr-8 ${errors?.customerId ? 'border-red-400' : ''}`}
                   autoComplete="off"
                 />
                 {values.customerId ? (
-                  <button type="button" onClick={handleClearCustomer} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <button
+                    type="button"
+                    onClick={handleClearCustomer}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
                     <X size={14} />
                   </button>
                 ) : (
-                  <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <ChevronDown
+                    size={14}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                  />
                 )}
               </div>
 
@@ -152,12 +178,16 @@ export default function InformasiPenawaranSection({ values, onChange, errors, is
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleSelectCustomer(c)}
                         className={`w-full text-left px-3 py-2 text-sm hover:bg-primary/5 transition-colors ${
-                          values.customerId === c.id ? 'bg-primary/10 text-primary font-600' : 'text-foreground'
+                          values.customerId === c.id
+                            ? 'bg-primary/10 text-primary font-600'
+                            : 'text-foreground'
                         }`}
                       >
                         <span className="block font-500">{c.name}</span>
                         {c.contactPerson && (
-                          <span className="block text-xs text-muted-foreground">{c.contactPerson}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {c.contactPerson}
+                          </span>
                         )}
                       </button>
                     ))
@@ -165,7 +195,9 @@ export default function InformasiPenawaranSection({ values, onChange, errors, is
                 </div>
               )}
             </div>
-            {errors?.customerId && <p className="text-red-500 text-xs mt-1 font-500">{errors.customerId}</p>}
+            {errors?.customerId && (
+              <p className="text-red-500 text-xs mt-1 font-500">{errors.customerId}</p>
+            )}
           </div>
 
           {/* Nama Proyek */}
@@ -180,147 +212,221 @@ export default function InformasiPenawaranSection({ values, onChange, errors, is
               placeholder="Contoh: PRJ-2026-NETCORE"
               className="erp-input"
             />
-            {errors?.projectName && <p className="text-red-500 text-xs mt-1 font-500">{errors.projectName}</p>}
-          </div>
-
-          {/* Alamat Kantor */}
-          <div>
-            <label className="erp-form-label">Alamat Kantor</label>
-            <input
-              type="text"
-              {...field('projectLocation')}
-              placeholder="Contoh: Gedung Menara Astra, Jakarta Pusat"
-              className="erp-input"
-            />
-          </div>
-
-          {/* Kepada (Attn) */}
-          <div>
-            <label className="erp-form-label">
-              Kepada (Attn) <span className="required">*</span>
-            </label>
-            <p className="text-xs text-muted-foreground mb-1.5">Nama kontak penerima penawaran</p>
-            <input
-              type="text"
-              {...field('attn')}
-              placeholder="Contoh: Bpk. Andi Wijaya, Procurement Manager"
-              className="erp-input"
-            />
-            {errors?.attn && <p className="text-red-500 text-xs mt-1 font-500">{errors.attn}</p>}
-          </div>
-
-          {/* Tanggal Penawaran */}
-          <div>
-            <label className="erp-form-label">
-              Tanggal Penawaran <span className="required">*</span>
-            </label>
-            <input type="date" {...field('date')} className="erp-input" />
-            {errors?.date && <p className="text-red-500 text-xs mt-1 font-500">{errors.date}</p>}
+            {errors?.projectName && (
+              <p className="text-red-500 text-xs mt-1 font-500">{errors.projectName}</p>
+            )}
           </div>
         </div>
 
-        {/* ── Right Column ────────────────────────────────────────────────── */}
-        <div className="space-y-4">
+        {/* Toggle "Tampilkan detail lainnya" — 7 kolom: Alamat Kantor, Attn, Tanggal Penawaran,
+          Sales Person, No. Penawaran, Revisi, Tanggal Kadaluarsa. Animasi collapse pakai trik
+          grid-template-rows 0fr→1fr (Tailwind arbitrary value) supaya transisinya halus, bukan
+          langsung snap seperti hidden/block biasa. */}
+        <button
+          type="button"
+          onClick={() => setShowMoreInfo((v) => !v)}
+          aria-expanded={showMoreInfo}
+          className="inline-flex items-center gap-1.5 mt-4 py-1 text-sm font-500 text-primary hover:underline"
+        >
+          {showMoreInfo ? 'Sembunyikan detail lainnya' : 'Tampilkan detail lainnya'}
+          <span className="text-muted-foreground font-400">(7 kolom)</span>
+          <ChevronDown
+            size={15}
+            className={`transition-transform duration-200 ${showMoreInfo ? 'rotate-180' : ''}`}
+          />
+        </button>
 
-          {/* Sales Person */}
-          <div>
-            <label className="erp-form-label">
-              Sales Person <span className="required">*</span>
-            </label>
-            <div className="relative">
-              <select
-                value={values.salesId}
-                onChange={(e) => onChange({ salesId: e.target.value })}
-                className="erp-input appearance-none pr-8"
-              >
-                <option value="">— Pilih Sales —</option>
-                {salesOptions.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <div
+          className={`grid transition-[grid-template-rows] duration-200 ease-out ${showMoreInfo ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+        >
+          <div className="overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4 pt-4">
+              {/* ── Left Column ─────────────────────────────────────────── */}
+              <div className="space-y-4">
+                <div>
+                  <label className="erp-form-label">Alamat Kantor</label>
+                  <input
+                    type="text"
+                    {...field('projectLocation')}
+                    placeholder="Contoh: Gedung Menara Astra, Jakarta Pusat"
+                    className="erp-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="erp-form-label">
+                    Kepada (Attn) <span className="required">*</span>
+                  </label>
+                  <p className="text-xs text-muted-foreground mb-1.5">
+                    Nama kontak penerima penawaran
+                  </p>
+                  <input
+                    type="text"
+                    {...field('attn')}
+                    placeholder="Contoh: Bpk. Andi Wijaya, Procurement Manager"
+                    className="erp-input"
+                  />
+                  {errors?.attn && (
+                    <p className="text-red-500 text-xs mt-1 font-500">{errors.attn}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="erp-form-label">
+                    Tanggal Penawaran <span className="required">*</span>
+                  </label>
+                  <input type="date" {...field('date')} className="erp-input" />
+                  {errors?.date && (
+                    <p className="text-red-500 text-xs mt-1 font-500">{errors.date}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Right Column ────────────────────────────────────────── */}
+              <div className="space-y-4">
+                <div>
+                  <label className="erp-form-label">
+                    Sales Person <span className="required">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={values.salesId}
+                      onChange={(e) => onChange({ salesId: e.target.value })}
+                      className="erp-input appearance-none pr-8"
+                    >
+                      <option value="">— Pilih Sales —</option>
+                      {salesOptions.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={14}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                    />
+                  </div>
+                  {errors?.salesId && (
+                    <p className="text-red-500 text-xs mt-1 font-500">{errors.salesId}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="erp-form-label">No. Penawaran</label>
+                  <p className="text-xs text-muted-foreground mb-1.5">
+                    Dibuat otomatis oleh sistem
+                  </p>
+                  <input
+                    type="text"
+                    value={values.quotationNo}
+                    readOnly
+                    className="erp-input bg-muted/50 text-muted-foreground cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="erp-form-label">Revisi</label>
+                  <input
+                    type="text"
+                    value={
+                      values.revision > 0 ? `R.${String(values.revision).padStart(2, '0')}` : '—'
+                    }
+                    readOnly
+                    className="erp-input w-24 bg-muted/50 text-muted-foreground cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="erp-form-label">
+                    Tanggal Kadaluarsa <span className="required">*</span>
+                  </label>
+                  <p className="text-xs text-muted-foreground mb-1.5">
+                    Penawaran tidak berlaku setelah tanggal ini
+                  </p>
+                  <input type="date" {...field('validUntil')} className="erp-input" />
+                  {errors?.validUntil && (
+                    <p className="text-red-500 text-xs mt-1 font-500">{errors.validUntil}</p>
+                  )}
+                </div>
+              </div>
             </div>
-            {errors?.salesId && <p className="text-red-500 text-xs mt-1 font-500">{errors.salesId}</p>}
-          </div>
-
-          {/* No. Penawaran */}
-          <div>
-            <label className="erp-form-label">No. Penawaran</label>
-            <p className="text-xs text-muted-foreground mb-1.5">Dibuat otomatis oleh sistem</p>
-            <input
-              type="text"
-              value={values.quotationNo}
-              readOnly
-              className="erp-input bg-muted/50 text-muted-foreground cursor-not-allowed"
-            />
-          </div>
-
-          {/* Revisi */}
-          <div>
-            <label className="erp-form-label">Revisi</label>
-            <input
-              type="text"
-              value={values.revision > 0 ? `R.${String(values.revision).padStart(2, '0')}` : '—'}
-              readOnly
-              className="erp-input w-24 bg-muted/50 text-muted-foreground cursor-not-allowed"
-            />
-          </div>
-
-          {/* Tanggal Kadaluarsa */}
-          <div>
-            <label className="erp-form-label">
-              Tanggal Kadaluarsa <span className="required">*</span>
-            </label>
-            <p className="text-xs text-muted-foreground mb-1.5">Penawaran tidak berlaku setelah tanggal ini</p>
-            <input type="date" {...field('validUntil')} className="erp-input" />
-            {errors?.validUntil && <p className="text-red-500 text-xs mt-1 font-500">{errors.validUntil}</p>}
           </div>
         </div>
       </div>
 
-      {/* Header RAB — hanya relevan untuk mode Civil & ME */}
+      {/* Header RAB — card terpisah, accordion sendiri, hanya relevan untuk mode Civil & ME */}
       {isCivilMeMode && (
-        <div className="mt-5 pt-5 border-t border-border">
-          <h3 className="text-xs font-600 text-muted-foreground uppercase tracking-wider mb-3">
-            Header RAB (Civil &amp; ME)
-          </h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
-            <div>
-              <label className="erp-form-label">Facility ID</label>
-              <input type="text" {...field('facilityId')} className="erp-input" />
+        <div className="erp-card !p-0 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setRabHeaderOpen((v) => !v)}
+            aria-expanded={rabHeaderOpen}
+            className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="pnw-section-mark" />
+              <div>
+                <div className="text-sm font-600 text-foreground">Header RAB (Civil &amp; ME)</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Data fasilitas dan cakupan pekerjaan renovasi
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="erp-form-label">Renov PIC</label>
-              <input type="text" {...field('renovPic')} className="erp-input" />
-            </div>
-            <div>
-              <label className="erp-form-label">Facility Name</label>
-              <input type="text" {...field('facilityName')} className="erp-input" />
-            </div>
-            <div>
-              <label className="erp-form-label">Scope of Work</label>
-              <input type="text" {...field('scopeOfWork')} className="erp-input" />
-            </div>
-            <div>
-              <label className="erp-form-label">Location</label>
-              <input type="text" {...field('location')} className="erp-input" />
-            </div>
-            <div>
-              <label className="erp-form-label">Contractor</label>
-              <input type="text" {...field('contractor')} className="erp-input" />
-            </div>
-            <div>
-              <label className="erp-form-label">Validity Period</label>
-              <input type="text" {...field('validityPeriod')} className="erp-input" placeholder="Contoh: 14 hari sejak tanggal penawaran" />
-            </div>
-            <div>
-              <label className="erp-form-label">Area Block Tender</label>
-              <input type="text" {...field('areaBlockTender')} className="erp-input" />
+            <ChevronDown
+              size={18}
+              className={`text-muted-foreground flex-shrink-0 transition-transform duration-200 ${rabHeaderOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+          <div
+            className={`grid transition-[grid-template-rows] duration-200 ease-out ${rabHeaderOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+          >
+            <div className="overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4 px-5 pb-5">
+                <div className="space-y-4">
+                  <div>
+                    <label className="erp-form-label">Facility ID</label>
+                    <input type="text" {...field('facilityId')} className="erp-input" />
+                  </div>
+                  <div>
+                    <label className="erp-form-label">Facility Name</label>
+                    <input type="text" {...field('facilityName')} className="erp-input" />
+                  </div>
+                  <div>
+                    <label className="erp-form-label">Location</label>
+                    <input type="text" {...field('location')} className="erp-input" />
+                  </div>
+                  <div>
+                    <label className="erp-form-label">Validity Period</label>
+                    <p className="text-xs text-muted-foreground mb-1.5">
+                      Contoh: 14 hari sejak tanggal penawaran
+                    </p>
+                    <input
+                      type="text"
+                      {...field('validityPeriod')}
+                      className="erp-input"
+                      placeholder="14 hari"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="erp-form-label">Renov PIC</label>
+                    <input type="text" {...field('renovPic')} className="erp-input" />
+                  </div>
+                  <div>
+                    <label className="erp-form-label">Scope of Work</label>
+                    <input type="text" {...field('scopeOfWork')} className="erp-input" />
+                  </div>
+                  <div>
+                    <label className="erp-form-label">Contractor</label>
+                    <input type="text" {...field('contractor')} className="erp-input" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
-
-    </div>
+    </>
   );
 }

@@ -25,6 +25,7 @@ import { INVOICES_QUERY_KEY } from '@/app/invoice/components/InvoiceTable';
 import { getSalesOrderDownPayments, SalesOrderPaymentRecord } from '@/services/salesorder.service';
 import { getFlatAccounts, Account } from '@/services/account.service';
 import { InvoiceStatus } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 const PAYMENT_METHODS = ['Transfer', 'Tunai', 'Giro', 'Cek'];
 
@@ -61,6 +62,7 @@ export default function InvoiceDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const queryClient = useQueryClient();
+  const canEditInvoice = hasPermission('Sales', 'canEdit');
 
   const [inv, setInv] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -284,8 +286,10 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const canPay = inv && inv.status !== 'Paid' && inv.status !== 'Draft';
-  const payDisabledReason = inv?.status === 'Paid'
+  const canPay = inv && inv.status !== 'Paid' && inv.status !== 'Draft' && canEditInvoice;
+  const payDisabledReason = !canEditInvoice
+    ? 'Anda tidak memiliki izin mencatat pembayaran'
+    : inv?.status === 'Paid'
     ? 'Invoice sudah lunas'
     : inv?.status === 'Draft'
     ? 'Kirim invoice dulu'
@@ -348,7 +352,7 @@ export default function InvoiceDetailPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {inv.status === 'Draft' && (
+              {inv.status === 'Draft' && canEditInvoice && (
                 <button
                   onClick={handleMarkAsSent}
                   disabled={sending}
@@ -475,7 +479,7 @@ export default function InvoiceDetailPage() {
         )}
 
         {/* ── Down Payment tersedia ── */}
-        {!loadingDps && totalDpAvailable > 0 && inv.balance > 0 && (
+        {!loadingDps && totalDpAvailable > 0 && inv.balance > 0 && canEditInvoice && (
           <div className="flex items-center justify-between gap-3 flex-wrap bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3 rounded-lg">
             <span>
               DP tersedia dari Sales Order ini: <strong>{formatRp(totalDpAvailable)}</strong>
@@ -490,7 +494,7 @@ export default function InvoiceDetailPage() {
         )}
 
         {/* ── Retensi belum dilepas ── */}
-        {inv && retensiBelumDilepas > 0 && (
+        {inv && retensiBelumDilepas > 0 && canEditInvoice && (
           <div className="flex items-center justify-between gap-3 flex-wrap bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-lg">
             <span>
               Retensi belum dilepas: <strong>{formatRp(retensiBelumDilepas)}</strong>

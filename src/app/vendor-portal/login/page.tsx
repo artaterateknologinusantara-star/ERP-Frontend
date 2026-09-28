@@ -35,10 +35,16 @@ export default function VendorLoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) { toast.error('Email dan password wajib diisi'); return; }
+    if (!email || !password) {
+      toast.error('Email dan password wajib diisi');
+      return;
+    }
     setLoading(true);
     try {
-      const res = await vendorApi.post<VendorLoginResponse>('/vendor/auth/login', { email, password });
+      const res = await vendorApi.post<VendorLoginResponse>('/vendor/auth/login', {
+        email,
+        password,
+      });
       localStorage.setItem('vendor_token', res.data.token);
       const vendorUser: VendorUser = {
         name: res.data.name,
@@ -103,7 +109,7 @@ export default function VendorLoginPage() {
           <button type="submit" className="btn-primary w-full justify-center" disabled={loading}>
             {loading ? (
               <span className="flex items-center gap-2 justify-center">
-                <span className="w-3.5 h-3.5 border-2 border-blue-200 border-t-white rounded-full animate-spin" />
+                <span className="w-3.5 h-3.5 border-2 border-primary/30 border-t-white rounded-full animate-spin" />
                 Masuk...
               </span>
             ) : (

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Download } from 'lucide-react';
-import { formatRp } from '@/lib/format';
+import { formatRp, formatDate } from '@/lib/format';
 import { downloadBlob } from '@/lib/downloadBlob';
 import {
   getPpnReconciliation,
@@ -43,7 +43,7 @@ function Section({ title, rows, total }: { title: string; rows: PpnReconciliatio
               rows.map((r, i) => (
                 <tr key={`${r.entryNumber}-${i}`} className="border-b border-border">
                   <td className="erp-table-cell text-xs whitespace-nowrap">
-                    {new Date(r.date).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    {formatDate(r.date)}
                   </td>
                   <td className="erp-table-cell text-xs">{r.documentNo}</td>
                   <td className="erp-table-cell text-xs">{r.partnerName ?? '—'}</td>
@@ -103,7 +103,7 @@ export default function PpnReconciliationReport() {
         <div>
           <h3 className="text-[13px] font-700 text-foreground">Rekapitulasi PPN</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            PPN Keluaran (Invoice AR) vs PPN Masukan (Supplier Invoice) untuk periode terpilih — dibaca
+            PPN Keluaran (Invoice AR) vs PPN Masukan (Bill) untuk periode terpilih — dibaca
             langsung dari General Ledger, siap dicocokkan ke SPT Masa PPN
           </p>
         </div>

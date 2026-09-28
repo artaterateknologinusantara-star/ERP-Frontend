@@ -15,9 +15,11 @@ import CatatanTambahanSection from './CatatanTambahanSection';
 import PenawaranModePickerModal from './PenawaranModePickerModal';
 import type { CostingTab, CostingRow, PaymentTerm, QuotationStatus } from '@/types';
 import { quotationService, mapTabsToBackend } from '@/services/quotation.service';
+import { isGuid } from '@/lib/guid';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { formatRp, formatDate } from '@/lib/format';
 import { getMarginTier, marginTierClasses } from '@/lib/margin';
+import { calcMaterialSubtotal, calcServiceSubtotal, calcCostSubtotal, applyDiscount, applyTax } from '@/lib/quotationCalc';
 
 const makeEmptyRow = (groupId: string, no: string, sortOrder: number): CostingRow => ({
   id: `row-${groupId}-${sortOrder + 1}`,
@@ -76,7 +78,6 @@ const defaultInfo: InfoFormValues = {
   location: '',
   contractor: '',
   validityPeriod: '',
-  areaBlockTender: '',
 };
 
 // Maps backend QuotationDto tabs (items) back to frontend CostingTab (rows)
@@ -91,9 +92,6 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
       sortOrder: g.sortOrder ?? 0,
       recapVolume: g.recapVolume ?? null,
       recapUnit: g.recapUnit ?? null,
-      subcontractorId: g.subcontractorId ?? null,
-      finalSubconCost: g.finalSubconCost ?? null,
-      finalSellingPrice: g.finalSellingPrice ?? null,
       workItems: (g.workItems ?? []).map((w: any) => ({
         id: w.id,
         name: w.name,
@@ -104,7 +102,8 @@ function mapApiTabs(apiTabs: any[]): CostingTab[] {
           spesifikasi: d.spesifikasi ?? '',
           volume: d.volume,
           unit: d.unit,
-          unitPrice: d.unitPrice,
+          servicePrice: d.servicePrice,
+          materialPrice: d.materialPrice,
           sortOrder: d.sortOrder ?? 0,
           attachments: (d.attachments ?? []).map((a: any) => ({
             id: a.id,
@@ -289,7 +288,6 @@ export default function BuatPenawaranForm() {
           location: q.location ?? '',
           contractor: q.contractor ?? '',
           validityPeriod: q.validityPeriod ?? '',
-          areaBlockTender: q.areaBlockTender ?? '',
         });
         if (q.tabs?.length) setTabs(mapApiTabs(q.tabs as any[]));
         setDiscount(q.discount);
@@ -518,7 +516,6 @@ export default function BuatPenawaranForm() {
       location: infoValues.location || undefined,
       contractor: infoValues.contractor || undefined,
       validityPeriod: infoValues.validityPeriod || undefined,
-      areaBlockTender: infoValues.areaBlockTender || undefined,
       // Percentage breakdown now goes through `termins` (structured) — PaymentTerms is left
       // holding only the NET-days line, since the backend has no dedicated field for that yet
       // (see load effect above and the ambiguity noted in the implementation report).
@@ -534,18 +531,24 @@ export default function BuatPenawaranForm() {
     };
   };
 
-  const handleSaveDraft = async () => {
+  // `navigate: false` dipakai oleh ensureGroupSaved (auto-save transparan sebelum "Kirim RAB ke
+  // Vendor"/"Review RAB") — tombol "Simpan Penawaran" biasa tetap pakai default (navigate:true,
+  // redirect ke riwayat-penawaran seperti semula). Return value = tabs yang baru (dengan GUID
+  // asli, hasil mapApiTabs dari response) supaya pemanggil bisa cari group yang sama by posisi;
+  // null kalau validasi/simpan gagal (toast error sudah ditampilkan di sini).
+  const handleSaveDraft = async (opts?: { navigate?: boolean }): Promise<CostingTab[] | null> => {
+    const navigate = opts?.navigate ?? true;
     if (!infoValues.customerId) {
       toast.error('Pilih pelanggan terlebih dahulu');
-      return;
+      return null;
     }
     if (!infoValues.projectName.trim()) {
       toast.error('Nama proyek wajib diisi');
-      return;
+      return null;
     }
     if (!infoValues.salesId) {
       toast.error('Pilih sales person terlebih dahulu');
-      return;
+      return null;
     }
     setIsSaving(true);
     try {
@@ -560,12 +563,14 @@ export default function BuatPenawaranForm() {
         toast.success(
           isRevision ? 'Draft revisi berhasil diperbarui' : 'Draft penawaran berhasil diperbarui'
         );
-        if (q.tabs?.length) setTabs(mapApiTabs(q.tabs as any[]));
+        const newTabs = q.tabs?.length ? mapApiTabs(q.tabs as any[]) : tabs;
+        if (q.tabs?.length) setTabs(newTabs);
         setInfoValues((v) => ({ ...v, quotationNo: q.no, revision: q.revision }));
         setCurrentStatus(q.status);
         setSaveLabel(q.revision > 0 ? `Draft · R.${String(q.revision).padStart(2, '0')}` : 'Draft');
         clearDraftState();
-        router.push('/riwayat-penawaran');
+        if (navigate) router.push('/riwayat-penawaran');
+        return newTabs;
       } else {
         // CREATE new quotation — stay on this page, patch state from the response (real
         // GUIDs for groups/work items), and silently put ?id= in the URL (via the History
@@ -574,20 +579,42 @@ export default function BuatPenawaranForm() {
         const res = await quotationService.create(dto);
         const q = res.data;
         setCreatedId(q.id);
-        if (q.tabs?.length) setTabs(mapApiTabs(q.tabs as any[]));
+        const newTabs = q.tabs?.length ? mapApiTabs(q.tabs as any[]) : tabs;
+        if (q.tabs?.length) setTabs(newTabs);
         setInfoValues((v) => ({ ...v, quotationNo: q.no, revision: q.revision }));
         setCurrentStatus(q.status);
         setSaveLabel(q.revision > 0 ? `Draft · R.${String(q.revision).padStart(2, '0')}` : 'Draft');
         window.history.replaceState(null, '', `${window.location.pathname}?id=${q.id}`);
         toast.success('Draft penawaran berhasil disimpan');
         clearDraftState();
-        router.push('/riwayat-penawaran');
+        if (navigate) router.push('/riwayat-penawaran');
+        return newTabs;
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal menyimpan penawaran');
+      return null;
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Dipanggil dari CostingTable saat user klik "Kirim RAB ke Vendor"/"Review RAB" pada kategori
+  // yang belum tersimpan (group.id masih id sementara `grp-...`, bukan GUID — lihat isGuid di
+  // src/lib/guid.ts). VendorRabRequest.QuotationGroupId adalah FK wajib non-null di backend, jadi
+  // ini BUKAN sekadar validasi UI yang bisa dilonggarkan — group-nya harus benar-benar sudah jadi
+  // baris DB dulu. Auto-save di sini (navigate:false, tidak redirect seperti tombol "Simpan
+  // Penawaran" biasa), lalu cari GUID baru untuk group yang SAMA by posisi index tab+group (id
+  // sementaranya hilang begitu tersimpan, makanya tidak bisa dicocokkan by id lagi).
+  const ensureGroupSaved = async (tabId: string, groupId: string): Promise<string | null> => {
+    if (isGuid(groupId)) return groupId;
+    const tabIndex = tabs.findIndex((t) => t.id === tabId);
+    if (tabIndex === -1) return null;
+    const groupIndex = tabs[tabIndex].groups.findIndex((g) => g.id === groupId);
+    if (groupIndex === -1) return null;
+    const savedTabs = await handleSaveDraft({ navigate: false });
+    if (!savedTabs) return null;
+    const savedGroup = savedTabs[tabIndex]?.groups[groupIndex];
+    return savedGroup ? savedGroup.id : null;
   };
 
   const handleExportPdf = () => {
@@ -611,22 +638,13 @@ export default function BuatPenawaranForm() {
   // Mobile-only sticky summary bar — grand total + margin, always visible while scrolling
   // the form on small screens (mirrors the checkout-summary pattern from e-commerce/enterprise apps).
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
-  const allRows = tabs.flatMap((t) => t.groups.flatMap((g) => g.rows));
   const allGroups = tabs.flatMap((t) => t.groups);
-  // Civil & ME has no per-row cost/sell split — totals come from FinalSellingPrice/FinalSubconCost
-  // per Group instead of Item rows (mirrors GrandTotalPanel/TotalMarginSection above).
-  const mTotalMaterial = isCivilMeMode
-    ? 0
-    : allRows.reduce((s, r) => s + r.qty * r.materialPrice, 0);
-  const mTotalJasa = isCivilMeMode
-    ? allGroups.reduce((s, g) => s + (g.finalSellingPrice ?? 0), 0)
-    : allRows.reduce((s, r) => s + r.qty * r.servicePrice, 0);
-  const mTotalCost = isCivilMeMode
-    ? allGroups.reduce((s, g) => s + (g.finalSubconCost ?? 0), 0)
-    : allRows.reduce((s, r) => s + r.qty * r.costPrice, 0);
+  const mTotalMaterial = calcMaterialSubtotal(allGroups, isCivilMeMode);
+  const mTotalJasa = calcServiceSubtotal(allGroups, isCivilMeMode);
+  const mTotalCost = calcCostSubtotal(allGroups, isCivilMeMode);
   const mGrandTotal = mTotalMaterial + mTotalJasa;
-  const mAfterDiscount = mGrandTotal - mGrandTotal * (discount / 100);
-  const mGrandTotalWithTax = mAfterDiscount + mAfterDiscount * (taxRate / 100);
+  const mAfterDiscount = applyDiscount(mGrandTotal, discount);
+  const mGrandTotalWithTax = applyTax(mAfterDiscount, taxRate);
   const mMargin = mAfterDiscount - mTotalCost;
   const mMarginPercent = mAfterDiscount > 0 ? (mMargin / mAfterDiscount) * 100 : 0;
   const mTier = getMarginTier(mMarginPercent);
@@ -679,7 +697,7 @@ export default function BuatPenawaranForm() {
             )}
             <button
               className="btn-secondary min-h-11 flex-shrink-0"
-              onClick={handleSaveDraft}
+              onClick={() => handleSaveDraft()}
               disabled={isSaving}
             >
               {isSaving ? (
@@ -777,6 +795,16 @@ export default function BuatPenawaranForm() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           isCivilMeMode={isCivilMeMode}
+          // Mirror read-only untuk panel "Informasi Dokumen" di modal Detail RAB/BQ — field ini
+          // sudah ada di form utama (Section 1), jadi bukan field baru, cuma ditampilkan lagi di
+          // konteks modal supaya kelihatan apa yang akan tercetak di kop PDF.
+          documentInfo={{
+            projectName: infoValues.projectName,
+            quotationNo: infoValues.quotationNo,
+            date: infoValues.date,
+          }}
+          onExportPdf={handleExportPdf}
+          onEnsureGroupSaved={ensureGroupSaved}
         />
 
         {/* Section 3: Bottom panel */}
@@ -788,6 +816,7 @@ export default function BuatPenawaranForm() {
               onChange={setPaymentTerms}
               netPayment={netPayment}
               setNetPayment={setNetPayment}
+              grandTotal={mGrandTotal}
             />
             <SyaratKetentuanSection value={termsAndConditions} onChange={setTermsAndConditions} />
             <CatatanTambahanSection value={additionalNotes} onChange={setAdditionalNotes} />

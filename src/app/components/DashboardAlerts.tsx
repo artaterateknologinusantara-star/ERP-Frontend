@@ -7,6 +7,7 @@ import { quotationService } from '@/services/quotation.service';
 import { getLowStockItems, LowStockItem } from '@/services/inventory.service';
 import { getARStats, ARStats } from '@/services/finance.service';
 import type { QuotationListItem } from '@/types';
+import { formatRp } from '@/lib/format';
 
 interface Alert {
   id: string;
@@ -98,7 +99,7 @@ export default function DashboardAlerts() {
             id: 'ar-overdue',
             type: 'warning',
             title: `${ar.overdueCount} invoice AR overdue`,
-            desc: `Outstanding overdue: Rp ${overdueTotal.toLocaleString('id-ID')}`,
+            desc: `Outstanding overdue: ${formatRp(overdueTotal)}`,
             time: 'Perlu tindakan',
             icon: <AlertTriangle size={14} />,
             href: '/accounts-receivable',

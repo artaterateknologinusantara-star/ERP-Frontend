@@ -8,7 +8,52 @@ import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { companySettingsService } from '@/services/companySettings.service';
 import { hasModuleAccess, hasAnyApprovePermission } from '@/lib/permissions';
 import { usePendingApprovals } from '@/hooks/usePendingApprovals';
-import { LayoutDashboard, FileText, ShoppingCart, Users, ChevronLeft, ChevronRight, Settings, User, ChevronDown, ChevronUp, ShoppingBag, Truck, FileCheck, CreditCard, Wallet, Banknote, BarChart2, Package, Warehouse, ArrowDownCircle, ArrowUpCircle, RefreshCw, FolderKanban, CheckSquare, Calendar, UserCog, TrendingUp, PieChart, ClipboardList, Globe, GitBranch, Shield, Hash, Sliders, Receipt, DollarSign, BookOpen, Layers, Database, Calculator, X, ClipboardCheck, Link2 } from 'lucide-react';
+import {
+  LayoutDashboard,
+  FileText,
+  ShoppingCart,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  Settings,
+  User,
+  ChevronDown,
+  ChevronUp,
+  ShoppingBag,
+  Truck,
+  FileCheck,
+  CreditCard,
+  Wallet,
+  Banknote,
+  BarChart2,
+  Package,
+  Warehouse,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  RefreshCw,
+  FolderKanban,
+  CheckSquare,
+  Calendar,
+  UserCog,
+  TrendingUp,
+  PieChart,
+  ClipboardList,
+  Globe,
+  GitBranch,
+  Shield,
+  Hash,
+  Sliders,
+  Receipt,
+  DollarSign,
+  BookOpen,
+  Layers,
+  Database,
+  Calculator,
+  X,
+  ClipboardCheck,
+  Link2,
+  Percent,
+} from 'lucide-react';
 
 interface NavItem {
   id: string;
@@ -48,9 +93,24 @@ const navGroups: NavGroup[] = [
     module: 'Sales',
     defaultOpen: true,
     items: [
-      { id: 'nav-penawaran', label: 'Penawaran', icon: <FileText size={15} />, href: '/riwayat-penawaran' },
-      { id: 'nav-customer-po', label: 'Customer PO', icon: <FileCheck size={15} />, href: '/customer-po' },
-      { id: 'nav-sales-order', label: 'Sales Order', icon: <ShoppingCart size={15} />, href: '/sales-order' },
+      {
+        id: 'nav-penawaran',
+        label: 'Penawaran',
+        icon: <FileText size={15} />,
+        href: '/riwayat-penawaran',
+      },
+      {
+        id: 'nav-customer-po',
+        label: 'Customer PO',
+        icon: <FileCheck size={15} />,
+        href: '/customer-po',
+      },
+      {
+        id: 'nav-sales-order',
+        label: 'Sales Order',
+        icon: <ShoppingCart size={15} />,
+        href: '/sales-order',
+      },
       { id: 'nav-invoice', label: 'Invoice', icon: <Receipt size={15} />, href: '/invoice' },
       { id: 'nav-customer', label: 'Customer', icon: <Users size={15} />, href: '/customer' },
     ],
@@ -62,9 +122,24 @@ const navGroups: NavGroup[] = [
     module: 'Purchasing',
     defaultOpen: false,
     items: [
-      { id: 'nav-purchase-request', label: 'Purchase Request', icon: <ClipboardList size={15} />, href: '/purchase-request' },
-      { id: 'nav-purchase-order', label: 'Purchase Order', icon: <ShoppingBag size={15} />, href: '/purchase-order' },
-      { id: 'nav-supplier-invoice', label: 'Bill', icon: <FileCheck size={15} />, href: '/supplier-invoice' },
+      {
+        id: 'nav-purchase-request',
+        label: 'Purchase Request',
+        icon: <ClipboardList size={15} />,
+        href: '/purchase-request',
+      },
+      {
+        id: 'nav-purchase-order',
+        label: 'Purchase Order',
+        icon: <ShoppingBag size={15} />,
+        href: '/purchase-order',
+      },
+      {
+        id: 'nav-supplier-invoice',
+        label: 'Bill',
+        icon: <FileCheck size={15} />,
+        href: '/supplier-invoice',
+      },
       { id: 'nav-vendor', label: 'Vendor', icon: <Truck size={15} />, href: '/vendor' },
     ],
   },
@@ -75,15 +150,55 @@ const navGroups: NavGroup[] = [
     module: 'Finance',
     defaultOpen: false,
     items: [
-      { id: 'nav-ar', label: 'Accounts Receivable', icon: <TrendingUp size={15} />, href: '/accounts-receivable' },
-      { id: 'nav-ap', label: 'Accounts Payable', icon: <CreditCard size={15} />, href: '/accounts-payable' },
-      { id: 'nav-cash-in', label: 'Cash In', icon: <ArrowDownCircle size={15} />, href: '/cash-in' },
-      { id: 'nav-cash-out', label: 'Cash Out', icon: <ArrowUpCircle size={15} />, href: '/cash-out' },
-      { id: 'nav-expense', label: 'Expense Management', icon: <Receipt size={15} />, href: '/expense' },
-      { id: 'nav-expense-category', label: 'Kategori Pengeluaran', icon: <Layers size={15} />, href: '/expense-category' },
+      {
+        id: 'nav-ar',
+        label: 'Accounts Receivable',
+        icon: <TrendingUp size={15} />,
+        href: '/accounts-receivable',
+      },
+      {
+        id: 'nav-ap',
+        label: 'Accounts Payable',
+        icon: <CreditCard size={15} />,
+        href: '/accounts-payable',
+      },
+      {
+        id: 'nav-cash-in',
+        label: 'Cash In',
+        icon: <ArrowDownCircle size={15} />,
+        href: '/cash-in',
+      },
+      {
+        id: 'nav-cash-out',
+        label: 'Cash Out',
+        icon: <ArrowUpCircle size={15} />,
+        href: '/cash-out',
+      },
+      {
+        id: 'nav-expense',
+        label: 'Expense Management',
+        icon: <Receipt size={15} />,
+        href: '/expense',
+      },
+      {
+        id: 'nav-expense-category',
+        label: 'Kategori Pengeluaran',
+        icon: <Layers size={15} />,
+        href: '/expense-category',
+      },
       { id: 'nav-bank', label: 'Bank', icon: <Banknote size={15} />, href: '/bank' },
-      { id: 'nav-bank-reconciliation', label: 'Rekonsiliasi Bank', icon: <RefreshCw size={15} />, href: '/bank-reconciliation' },
-      { id: 'nav-finance-reports', label: 'Finance Reports', icon: <BookOpen size={15} />, href: '/finance-reports' },
+      {
+        id: 'nav-bank-reconciliation',
+        label: 'Rekonsiliasi Bank',
+        icon: <RefreshCw size={15} />,
+        href: '/bank-reconciliation',
+      },
+      {
+        id: 'nav-finance-reports',
+        label: 'Finance Reports',
+        icon: <BookOpen size={15} />,
+        href: '/finance-reports',
+      },
     ],
   },
   {
@@ -93,12 +208,42 @@ const navGroups: NavGroup[] = [
     module: 'Accounting',
     defaultOpen: false,
     items: [
-      { id: 'nav-journal-entry', label: 'Journal Entry', icon: <BookOpen size={15} />, href: '/journal-entry' },
-      { id: 'nav-opening-balance', label: 'Opening Balance', icon: <Calculator size={15} />, href: '/opening-balance' },
-      { id: 'nav-trial-balance', label: 'Trial Balance', icon: <Layers size={15} />, href: '/finance-reports/trial-balance' },
-      { id: 'nav-laba-rugi', label: 'Laba Rugi', icon: <TrendingUp size={15} />, href: '/finance-reports/laba-rugi' },
-      { id: 'nav-neraca', label: 'Neraca', icon: <Database size={15} />, href: '/finance-reports/neraca' },
-      { id: 'nav-ppn-reconciliation', label: 'Rekapitulasi PPN', icon: <Receipt size={15} />, href: '/finance-reports/ppn-reconciliation' },
+      {
+        id: 'nav-journal-entry',
+        label: 'Journal Entry',
+        icon: <BookOpen size={15} />,
+        href: '/journal-entry',
+      },
+      {
+        id: 'nav-opening-balance',
+        label: 'Opening Balance',
+        icon: <Calculator size={15} />,
+        href: '/opening-balance',
+      },
+      {
+        id: 'nav-trial-balance',
+        label: 'Trial Balance',
+        icon: <Layers size={15} />,
+        href: '/finance-reports/trial-balance',
+      },
+      {
+        id: 'nav-laba-rugi',
+        label: 'Laba Rugi',
+        icon: <TrendingUp size={15} />,
+        href: '/finance-reports/laba-rugi',
+      },
+      {
+        id: 'nav-neraca',
+        label: 'Neraca',
+        icon: <Database size={15} />,
+        href: '/finance-reports/neraca',
+      },
+      {
+        id: 'nav-ppn-reconciliation',
+        label: 'Rekapitulasi PPN',
+        icon: <Receipt size={15} />,
+        href: '/finance-reports/ppn-reconciliation',
+      },
     ],
   },
   {
@@ -108,11 +253,36 @@ const navGroups: NavGroup[] = [
     module: 'Inventory',
     defaultOpen: false,
     items: [
-      { id: 'nav-item-master', label: 'Item Master', icon: <Layers size={15} />, href: '/item-master' },
-      { id: 'nav-warehouse', label: 'Warehouse', icon: <Warehouse size={15} />, href: '/warehouse' },
-      { id: 'nav-stock-in', label: 'Stock In', icon: <ArrowDownCircle size={15} />, href: '/stock-in' },
-      { id: 'nav-stock-out', label: 'Stock Out', icon: <ArrowUpCircle size={15} />, href: '/stock-out' },
-      { id: 'nav-stock-adj', label: 'Stock Adjustment', icon: <RefreshCw size={15} />, href: '/stock-adjustment' },
+      {
+        id: 'nav-item-master',
+        label: 'Item Master',
+        icon: <Layers size={15} />,
+        href: '/item-master',
+      },
+      {
+        id: 'nav-warehouse',
+        label: 'Warehouse',
+        icon: <Warehouse size={15} />,
+        href: '/warehouse',
+      },
+      {
+        id: 'nav-stock-in',
+        label: 'Stock In',
+        icon: <ArrowDownCircle size={15} />,
+        href: '/stock-in',
+      },
+      {
+        id: 'nav-stock-out',
+        label: 'Stock Out',
+        icon: <ArrowUpCircle size={15} />,
+        href: '/stock-out',
+      },
+      {
+        id: 'nav-stock-adj',
+        label: 'Stock Adjustment',
+        icon: <RefreshCw size={15} />,
+        href: '/stock-adjustment',
+      },
     ],
   },
   {
@@ -122,10 +292,30 @@ const navGroups: NavGroup[] = [
     module: 'Project',
     defaultOpen: false,
     items: [
-      { id: 'nav-project-dashboard', label: 'Project Dashboard', icon: <FolderKanban size={15} />, href: '/project' },
-      { id: 'nav-tasks', label: 'Task Management', icon: <CheckSquare size={15} />, href: '/project/tasks' },
-      { id: 'nav-timeline', label: 'Timeline', icon: <Calendar size={15} />, href: '/project/timeline' },
-      { id: 'nav-engineer', label: 'Engineer Assignment', icon: <UserCog size={15} />, href: '/project/engineers' },
+      {
+        id: 'nav-project-dashboard',
+        label: 'Project Dashboard',
+        icon: <FolderKanban size={15} />,
+        href: '/project',
+      },
+      {
+        id: 'nav-tasks',
+        label: 'Task Management',
+        icon: <CheckSquare size={15} />,
+        href: '/project/tasks',
+      },
+      {
+        id: 'nav-timeline',
+        label: 'Timeline',
+        icon: <Calendar size={15} />,
+        href: '/project/timeline',
+      },
+      {
+        id: 'nav-engineer',
+        label: 'Engineer Assignment',
+        icon: <UserCog size={15} />,
+        href: '/project/engineers',
+      },
     ],
   },
   {
@@ -134,10 +324,41 @@ const navGroups: NavGroup[] = [
     icon: <BarChart2 size={16} />,
     defaultOpen: false,
     items: [
-      { id: 'nav-sales-report', label: 'Sales Report', icon: <TrendingUp size={15} />, href: '/reports/sales', module: 'Sales' },
-      { id: 'nav-finance-report', label: 'Finance Report', icon: <DollarSign size={15} />, href: '/reports/finance', module: 'Finance' },
-      { id: 'nav-purchasing-report', label: 'Purchasing Report', icon: <ShoppingBag size={15} />, href: '/reports/purchasing', module: 'Purchasing' },
-      { id: 'nav-inventory-report', label: 'Inventory Report', icon: <Package size={15} />, href: '/reports/inventory', module: 'Inventory' },
+      {
+        id: 'nav-sales-report',
+        label: 'Sales Report',
+        icon: <TrendingUp size={15} />,
+        href: '/reports/sales',
+        module: 'Sales',
+      },
+      {
+        id: 'nav-subcon-margin',
+        label: 'Margin Subkontraktor',
+        icon: <Percent size={15} />,
+        href: '/reports/subcon-margin',
+        module: 'Sales',
+      },
+      {
+        id: 'nav-finance-report',
+        label: 'Finance Report',
+        icon: <DollarSign size={15} />,
+        href: '/reports/finance',
+        module: 'Finance',
+      },
+      {
+        id: 'nav-purchasing-report',
+        label: 'Purchasing Report',
+        icon: <ShoppingBag size={15} />,
+        href: '/reports/purchasing',
+        module: 'Purchasing',
+      },
+      {
+        id: 'nav-inventory-report',
+        label: 'Inventory Report',
+        icon: <Package size={15} />,
+        href: '/reports/inventory',
+        module: 'Inventory',
+      },
     ],
   },
   {
@@ -147,16 +368,61 @@ const navGroups: NavGroup[] = [
     module: 'Settings',
     defaultOpen: false,
     items: [
-      { id: 'nav-company', label: 'Company Profile', icon: <Globe size={15} />, href: '/settings/company' },
-      { id: 'nav-branch', label: 'Branch', icon: <GitBranch size={15} />, href: '/settings/branch' },
-      { id: 'nav-users', label: 'User Management', icon: <Users size={15} />, href: '/settings/users' },
-      { id: 'nav-roles', label: 'Role Management', icon: <Shield size={15} />, href: '/settings/roles' },
-      { id: 'nav-demo-leads', label: 'Demo Leads', icon: <ClipboardCheck size={15} />, href: '/settings/demo-leads' },
+      {
+        id: 'nav-company',
+        label: 'Company Profile',
+        icon: <Globe size={15} />,
+        href: '/settings/company',
+      },
+      {
+        id: 'nav-branch',
+        label: 'Branch',
+        icon: <GitBranch size={15} />,
+        href: '/settings/branch',
+      },
+      {
+        id: 'nav-users',
+        label: 'User Management',
+        icon: <Users size={15} />,
+        href: '/settings/users',
+      },
+      {
+        id: 'nav-roles',
+        label: 'Role Management',
+        icon: <Shield size={15} />,
+        href: '/settings/roles',
+      },
+      {
+        id: 'nav-demo-leads',
+        label: 'Demo Leads',
+        icon: <ClipboardCheck size={15} />,
+        href: '/settings/demo-leads',
+      },
       { id: 'nav-tax', label: 'Tax Settings', icon: <PieChart size={15} />, href: '/settings/tax' },
-      { id: 'nav-numbering', label: 'Numbering Format', icon: <Hash size={15} />, href: '/settings/numbering' },
-      { id: 'nav-preferences', label: 'ERP Preferences', icon: <Sliders size={15} />, href: '/settings/preferences' },
-      { id: 'nav-system-admin', label: 'System Administration', icon: <Database size={15} />, href: '/settings/system-admin' },
-      { id: 'nav-item-master-links', label: 'Item Belum Terhubung', icon: <Link2 size={15} />, href: '/settings/item-master-links' },
+      {
+        id: 'nav-numbering',
+        label: 'Numbering Format',
+        icon: <Hash size={15} />,
+        href: '/settings/numbering',
+      },
+      {
+        id: 'nav-preferences',
+        label: 'ERP Preferences',
+        icon: <Sliders size={15} />,
+        href: '/settings/preferences',
+      },
+      {
+        id: 'nav-system-admin',
+        label: 'System Administration',
+        icon: <Database size={15} />,
+        href: '/settings/system-admin',
+      },
+      {
+        id: 'nav-item-master-links',
+        label: 'Item Belum Terhubung',
+        icon: <Link2 size={15} />,
+        href: '/settings/item-master-links',
+      },
     ],
   },
 ];
@@ -179,7 +445,12 @@ const findActiveHref = (pathname: string): string | undefined => {
   return matches.sort((a, b) => b.length - a.length)[0];
 };
 
-export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose }: SidebarProps) {
+export default function Sidebar({
+  collapsed,
+  onToggle,
+  mobileOpen = false,
+  onMobileClose,
+}: SidebarProps) {
   const pathname = usePathname();
   const { data: companySettings } = useCompanySettings();
   const companyName = companySettings?.companyName || 'ERP System';
@@ -199,13 +470,18 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
 
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   useEffect(() => {
-    if (!companySettings?.logoPath) { setLogoUrl(null); return; }
+    if (!companySettings?.logoPath) {
+      setLogoUrl(null);
+      return;
+    }
     let currentUrl: string | null = null;
     companySettingsService.getLogoObjectUrl().then((url) => {
       currentUrl = url;
       setLogoUrl(url);
     });
-    return () => { if (currentUrl) URL.revokeObjectURL(currentUrl); };
+    return () => {
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
   }, [companySettings?.logoPath]);
 
   // Same localStorage key + shape Topbar.tsx already reads correctly ({name, email, role} set at
@@ -225,15 +501,16 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
-    navGroups.forEach((g) => { init[g.id] = g.defaultOpen ?? false; });
+    navGroups.forEach((g) => {
+      init[g.id] = g.defaultOpen ?? false;
+    });
     return init;
   });
 
   const activeHref = findActiveHref(pathname);
   const isActive = (href: string) => href === activeHref;
 
-  const isGroupActive = (group: NavGroup) =>
-    group.items.some((item) => isActive(item.href));
+  const isGroupActive = (group: NavGroup) => group.items.some((item) => isActive(item.href));
 
   // Auto-open the group that contains the current page whenever route changes
   useEffect(() => {
@@ -260,10 +537,14 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
   // and the whole group is hidden if that leaves it empty.
   const otherGroups = navGroups
     .filter((g) => g.id !== 'main')
-    .map((g) => (g.id === 'reports'
-      ? { ...g, items: g.items.filter((item) => !item.module || hasModuleAccess(item.module)) }
-      : g))
-    .filter((g) => (g.id === 'reports' ? g.items.length > 0 : !g.module || hasModuleAccess(g.module)));
+    .map((g) =>
+      g.id === 'reports'
+        ? { ...g, items: g.items.filter((item) => !item.module || hasModuleAccess(item.module)) }
+        : g
+    )
+    .filter((g) =>
+      g.id === 'reports' ? g.items.length > 0 : !g.module || hasModuleAccess(g.module)
+    );
 
   return (
     <aside
@@ -299,12 +580,16 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
               href="/"
               onClick={onMobileClose}
               className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm font-500 transition-all duration-150 group relative
-                ${isActive('/')
-                  ? 'bg-primary/10 text-primary font-600' :'text-secondary-foreground hover:bg-muted hover:text-foreground'
+                ${
+                  isActive('/')
+                    ? 'bg-primary text-primary-foreground font-600'
+                    : 'text-secondary-foreground hover:bg-muted hover:text-foreground'
                 }`}
               title={effectiveCollapsed ? 'Dashboard' : undefined}
             >
-              <span className={`flex-shrink-0 ${isActive('/') ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>
+              <span
+                className={`flex-shrink-0 ${isActive('/') ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}
+              >
                 <LayoutDashboard size={16} />
               </span>
               {!effectiveCollapsed && <span className="truncate text-[13px]">Dashboard</span>}
@@ -319,17 +604,25 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
               href="/pending-approval"
               onClick={onMobileClose}
               className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm font-500 transition-all duration-150 group relative
-                ${pathname === '/pending-approval'
-                  ? 'bg-primary/10 text-primary font-600' : 'text-secondary-foreground hover:bg-muted hover:text-foreground'
+                ${
+                  pathname === '/pending-approval'
+                    ? 'bg-primary text-primary-foreground font-600'
+                    : 'text-secondary-foreground hover:bg-muted hover:text-foreground'
                 }`}
               title={effectiveCollapsed ? 'Pending Approval' : undefined}
             >
-              <span className={`flex-shrink-0 ${pathname === '/pending-approval' ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>
+              <span
+                className={`flex-shrink-0 ${pathname === '/pending-approval' ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}
+              >
                 <ClipboardCheck size={16} />
               </span>
-              {!effectiveCollapsed && <span className="flex-1 truncate text-[13px]">Pending Approval</span>}
+              {!effectiveCollapsed && (
+                <span className="flex-1 truncate text-[13px]">Pending Approval</span>
+              )}
               {pendingCount > 0 && (
-                <span className={`flex-shrink-0 bg-red-500 text-white text-[10px] font-700 rounded-full px-1.5 py-0.5 min-w-[18px] text-center ${effectiveCollapsed ? 'absolute top-0.5 right-0.5' : ''}`}>
+                <span
+                  className={`flex-shrink-0 bg-red-500 text-white text-[10px] font-700 rounded-full px-1.5 py-0.5 min-w-[18px] text-center ${effectiveCollapsed ? 'absolute top-0.5 right-0.5' : ''}`}
+                >
                   {pendingCount}
                 </span>
               )}
@@ -348,12 +641,16 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
               <button
                 onClick={() => toggleGroup(group.id)}
                 className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] font-500 transition-all duration-150 group
-                  ${groupActive
-                    ? 'text-primary bg-primary/5' :'text-secondary-foreground hover:bg-muted hover:text-foreground'
+                  ${
+                    groupActive
+                      ? 'text-primary bg-primary/5'
+                      : 'text-secondary-foreground hover:bg-muted hover:text-foreground'
                   }`}
                 title={effectiveCollapsed ? group.label : undefined}
               >
-                <span className={`flex-shrink-0 ${groupActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                <span
+                  className={`flex-shrink-0 ${groupActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}
+                >
                   {group.icon}
                 </span>
                 {!effectiveCollapsed && (
@@ -375,16 +672,22 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
                         href={item.href}
                         onClick={onMobileClose}
                         className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] font-500 transition-all duration-150 group relative
-                          ${isActive(item.href)
-                            ? 'bg-primary/10 text-primary font-600' :'text-secondary-foreground hover:bg-muted hover:text-foreground'
+                          ${
+                            isActive(item.href)
+                              ? 'bg-primary text-primary-foreground font-600'
+                              : 'text-secondary-foreground hover:bg-muted hover:text-foreground'
                           }`}
                       >
-                        <span className={`flex-shrink-0 ${isActive(item.href) ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                        <span
+                          className={`flex-shrink-0 ${isActive(item.href) ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}
+                        >
                           {item.icon}
                         </span>
                         <span className="truncate">{item.label}</span>
                         {item.badge && (
-                          <span className="ml-auto flex-shrink-0 bg-primary text-primary-foreground text-[10px] font-700 rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                          <span
+                            className={`ml-auto flex-shrink-0 text-[10px] font-700 rounded-full px-1.5 py-0.5 min-w-[18px] text-center ${isActive(item.href) ? 'bg-primary-foreground text-primary' : 'bg-primary text-primary-foreground'}`}
+                          >
                             {item.badge}
                           </span>
                         )}
@@ -411,7 +714,9 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
               <User size={14} className="text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-600 text-foreground truncate">{loggedInUser?.name || 'Pengguna'}</p>
+              <p className="text-[13px] font-600 text-foreground truncate">
+                {loggedInUser?.name || 'Pengguna'}
+              </p>
               <p className="text-xs text-muted-foreground truncate">{loggedInUser?.role || '—'}</p>
             </div>
             <Settings size={14} className="text-muted-foreground flex-shrink-0" />
@@ -422,7 +727,9 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onMob
           onClick={onToggle}
           className="hidden lg:flex w-full items-center justify-center gap-2 px-2.5 py-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-150 text-[13px] font-500"
         >
-          {collapsed ? <ChevronRight size={16} /> : (
+          {collapsed ? (
+            <ChevronRight size={16} />
+          ) : (
             <>
               <ChevronLeft size={16} />
               <span>Ciutkan</span>

@@ -4,6 +4,7 @@ import React from 'react';
 import { TrendingUp } from 'lucide-react';
 import { formatRp } from '@/lib/format';
 import { getMarginTier, marginTierClasses } from '@/lib/margin';
+import { calcMaterialSubtotal, calcServiceSubtotal, calcCostSubtotal, applyDiscount } from '@/lib/quotationCalc';
 import type { CostingTab } from '@/types';
 
 interface Props {
@@ -13,19 +14,21 @@ interface Props {
 }
 
 export default function TotalMarginSection({ tabs, discount = 0, isCivilMeMode = false }: Props) {
-  const rows = tabs.flatMap((t) => t.groups.flatMap((g) => g.rows));
   const groups = tabs.flatMap((t) => t.groups);
 
-  // Civil & ME has no per-row cost/sell split — margin comes from FinalSellingPrice (harga jual)
-  // vs FinalSubconCost (harga beli dari subkontraktor) per Group instead of Item rows.
-  const totalJasa = isCivilMeMode
-    ? groups.reduce((s, g) => s + (g.finalSellingPrice ?? 0), 0)
-    : rows.reduce((s, r) => s + r.qty * r.servicePrice, 0);
-  const totalMaterial = isCivilMeMode ? 0 : rows.reduce((s, r) => s + r.qty * r.materialPrice, 0);
-  const totalCost = isCivilMeMode
-    ? groups.reduce((s, g) => s + (g.finalSubconCost ?? 0), 0)
-    : rows.reduce((s, r) => s + r.qty * r.costPrice, 0);
-  const totalRevenue = (totalJasa + totalMaterial) * (1 - discount / 100);
+  // Civil & ME has no cost-basis data source anymore (QuotationGroup.FinalSubconCost — the only
+  // one it ever had — was removed with no schema replacement; WorkDetail/QuotationItem only carry
+  // selling price, never cost). calcCostSubtotal returns 0 for Civil & ME to mean "no data", not
+  // "zero cost incurred" — rendering a margin number from that would show a fake 100% margin on
+  // every Civil & ME quotation, which is actively misleading rather than merely incomplete.
+  if (isCivilMeMode) return null;
+
+  // Past this point isCivilMeMode is always false (guaranteed by the early return above), so the
+  // standard-mode branch of each calc function is the only one ever reached here.
+  const totalJasa = calcServiceSubtotal(groups, false);
+  const totalMaterial = calcMaterialSubtotal(groups, false);
+  const totalCost = calcCostSubtotal(groups, false);
+  const totalRevenue = applyDiscount(totalJasa + totalMaterial, discount);
   const totalMargin = totalRevenue - totalCost;
   const marginPercent = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
   const tier = getMarginTier(marginPercent);
@@ -62,9 +65,9 @@ export default function TotalMarginSection({ tabs, discount = 0, isCivilMeMode =
       </div>
 
       <p className="text-xs text-muted-foreground mt-3">
-        {isCivilMeMode
-          ? 'Dihitung dari Harga Jual dikurangi Harga Beli (Biaya Final Subcon) per Kategori (Group) pada panel Subkontraktor di atas. Nilai ini tidak tersimpan ke server — dihitung ulang setiap kali form dibuka.'
-          : 'Dihitung dari harga beli/satuan pada tabel di atas (otomatis terisi dari Item Master saat memilih equipment, bisa diedit manual). Jasa dihitung 100% margin. Nilai ini tidak tersimpan ke server — dihitung ulang setiap kali form dibuka.'}
+        Dihitung dari harga beli/satuan pada tabel di atas (otomatis terisi dari Item Master saat
+        memilih equipment, bisa diedit manual). Jasa dihitung 100% margin. Nilai ini tidak tersimpan
+        ke server — dihitung ulang setiap kali form dibuka.
       </p>
     </div>
   );

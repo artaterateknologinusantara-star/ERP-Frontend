@@ -21,6 +21,7 @@ import {
 } from '@/services/invoice.service';
 import { getFlatAccounts, Account } from '@/services/account.service';
 import { InvoiceStatus } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 const STATUS_OPTIONS = [
   { value: 'Semua', label: 'Semua Status' },
@@ -91,6 +92,8 @@ function PdfPreviewModal({ row, url, onClose }: {
 export default function InvoiceTable() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const canEditInvoice = hasPermission('Sales', 'canEdit');
+  const canDeleteInvoice = hasPermission('Sales', 'canDelete');
 
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -306,8 +309,8 @@ export default function InvoiceTable() {
                         onClick: () => handleOpenPdfPreview(row),
                         disabled: pdfPreviewLoading === row.id,
                       },
-                      { icon: <CreditCard size={13} />, label: 'Record Payment', onClick: () => openPayModal(row), disabled: row.status === 'Paid' || row.status === 'Draft' },
-                      { icon: <Trash2 size={13} />,   label: 'Hapus Invoice',   onClick: () => openDeleteModal(row), danger: true, separator: true },
+                      ...(canEditInvoice ? [{ icon: <CreditCard size={13} />, label: 'Record Payment', onClick: () => openPayModal(row), disabled: row.status === 'Paid' || row.status === 'Draft' }] : []),
+                      ...(canDeleteInvoice ? [{ icon: <Trash2 size={13} />, label: 'Hapus Invoice', onClick: () => openDeleteModal(row), danger: true, separator: true }] : []),
                     ]} />
                   </td>
                 </tr>

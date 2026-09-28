@@ -19,6 +19,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { itemMasterService } from '@/services/itemmaster.service';
 import { createPR } from '@/services/purchase.service';
 import type { ItemMaster } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 // ── Schema ──────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ function GrandTotal({ control }: { control: ReturnType<typeof useForm<FormValues
 
 export default function BuatPurchaseRequestPage() {
   const router = useRouter();
+  const canCreatePR = hasPermission('Purchasing', 'canCreate');
   const [suggestions, setSuggestions] = useState<ItemMaster[][]>([[]]);
   const [showDropdowns, setShowDropdowns] = useState<boolean[]>([false]);
   const debounceTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -439,7 +441,8 @@ export default function BuatPurchaseRequestPage() {
             </Link>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !canCreatePR}
+              title={!canCreatePR ? 'Anda tidak memiliki izin membuat Purchase Request' : undefined}
               className="btn-primary flex items-center gap-2 min-w-[160px] justify-center"
             >
               {isSubmitting ? (

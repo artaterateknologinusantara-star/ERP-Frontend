@@ -9,6 +9,10 @@ interface ERPModalProps {
   onClose: () => void;
   title: string;
   subtitle?: string;
+  // Konten tambahan di header, di sebelah blok title/subtitle (sebelum tombol close) — dipakai
+  // GroupWorkItemsPanel untuk panel "Informasi Dokumen". Header ERPModal sebelumnya cuma punya
+  // slot title+subtitle, tidak ada tempat untuk konten custom seperti ini.
+  headerExtra?: React.ReactNode;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   footer?: React.ReactNode;
@@ -22,7 +26,16 @@ const sizeClasses = {
   full: 'max-w-none w-[calc(100vw-2rem)] h-[calc(100vh-2rem)]',
 };
 
-export default function ERPModal({ isOpen, onClose, title, subtitle, children, size = 'md', footer }: ERPModalProps) {
+export default function ERPModal({
+  isOpen,
+  onClose,
+  title,
+  subtitle,
+  headerExtra,
+  children,
+  size = 'md',
+  footer,
+}: ERPModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,17 +58,24 @@ export default function ERPModal({ isOpen, onClose, title, subtitle, children, s
     <div
       className="modal-backdrop animate-fade-in text-left"
       ref={overlayRef}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+      onClick={(e) => {
+        if (e.target === overlayRef.current) onClose();
+      }}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
-      <div className={`bg-card rounded-xl shadow-modal w-full mx-4 ${sizeClasses[size]} animate-slide-up flex flex-col ${size === 'full' ? '' : 'max-h-[90vh]'}`}>
+      <div
+        className={`bg-card rounded-xl shadow-modal w-full mx-4 ${sizeClasses[size]} animate-slide-up flex flex-col ${size === 'full' ? '' : 'max-h-[90vh]'}`}
+      >
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-border flex-shrink-0">
-          <div>
-            <h2 className="text-xl font-700 text-foreground">{title}</h2>
-            {subtitle && <p className="text-base text-muted-foreground mt-0.5">{subtitle}</p>}
+        <div className="flex items-start justify-between gap-4 p-5 border-b border-border flex-shrink-0">
+          <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="flex-shrink-0">
+              <h2 className="text-xl font-700 text-foreground">{title}</h2>
+              {subtitle && <p className="text-base text-muted-foreground mt-0.5">{subtitle}</p>}
+            </div>
+            {headerExtra && <div className="flex-1 min-w-0">{headerExtra}</div>}
           </div>
           <button
             onClick={onClose}

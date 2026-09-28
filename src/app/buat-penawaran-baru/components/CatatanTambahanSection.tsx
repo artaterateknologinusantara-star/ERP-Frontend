@@ -9,13 +9,16 @@ interface Props {
 
 export default function CatatanTambahanSection({ value, onChange }: Props) {
   return (
-    <div className="erp-card shadow-card">
-      <div className="erp-section-header">Catatan Tambahan</div>
+    <div className="erp-card">
+      <div className="pnw-section-title">
+        <span className="pnw-section-mark" />
+        Catatan tambahan
+      </div>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={5}
-        className="erp-input resize-none w-full text-base leading-relaxed"
+        className="erp-input resize-y w-full text-base leading-relaxed min-h-[96px]"
         placeholder="Tambahkan catatan atau informasi tambahan untuk penawaran ini..."
       />
       <p className="text-xs text-muted-foreground mt-2">

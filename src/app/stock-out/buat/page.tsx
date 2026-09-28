@@ -18,6 +18,7 @@ import {
 import { salesOrderService } from '@/services/salesorder.service';
 import ItemAutocomplete from '@/app/buat-penawaran-baru/components/ItemAutocomplete';
 import type { SalesOrder, ItemMaster } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ const emptyMeta = (): ItemRowMeta => ({ selectedItem: null, showDropdown: false 
 
 export default function BuatDOPage() {
   const router = useRouter();
+  const canCreateDO = hasPermission('Inventory', 'canCreate');
   const [saving, setSaving] = useState(false);
 
   // SO search
@@ -600,7 +602,12 @@ export default function BuatDOPage() {
               <button type="button" className="btn-secondary" onClick={() => router.push('/stock-out')}>
                 Batal
               </button>
-              <button type="submit" className="btn-primary" disabled={saving || !selectedSO}>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={saving || !selectedSO || !canCreateDO}
+                title={!canCreateDO ? 'Anda tidak memiliki izin membuat Delivery Order' : undefined}
+              >
                 {saving ? 'Menyimpan...' : 'Simpan sebagai Draft'}
               </button>
             </div>

@@ -16,6 +16,13 @@ interface CurrencyInputProps {
   error?: boolean;
   /** Set to '' to hide the leading "Rp" prefix. */
   prefix?: string;
+  /**
+   * 'inline' (default): prefix floats absolutely inside the same bordered box as every other
+   * existing usage of this component — unchanged.
+   * 'chip': prefix renders as its own bordered/shaded box to the left of the input, matching the
+   * RAB/BQ mockup's boxed "Rp" chip (Main.dc.html / Kosong.dc.html) — only used there so far.
+   */
+  prefixVariant?: 'inline' | 'chip';
 }
 
 function formatDigits(n: number): string {
@@ -32,8 +39,22 @@ function formatDigits(n: number): string {
  * integer Rupiah value, never the formatted display string.
  */
 const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(function CurrencyInput(
-  { value, onChange, onBlur, name, id, placeholder = '0', className = '', disabled, required, autoFocus, error, prefix = 'Rp' },
-  ref,
+  {
+    value,
+    onChange,
+    onBlur,
+    name,
+    id,
+    placeholder = '0',
+    className = '',
+    disabled,
+    required,
+    autoFocus,
+    error,
+    prefix = 'Rp',
+    prefixVariant = 'inline',
+  },
+  ref
 ) {
   const [display, setDisplay] = useState(() => formatDigits(value));
   const focused = useRef(false);
@@ -49,6 +70,45 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(fun
     onChange(numeric);
   };
 
+  const sharedInputProps = {
+    ref,
+    type: 'text' as const,
+    inputMode: 'numeric' as const,
+    autoComplete: 'off',
+    name,
+    id,
+    value: display,
+    onChange: handleChange,
+    onFocus: () => {
+      focused.current = true;
+    },
+    onBlur: () => {
+      focused.current = false;
+      setDisplay(formatDigits(value));
+      onBlur?.();
+    },
+    placeholder,
+    disabled,
+    required,
+    autoFocus,
+  };
+
+  if (prefixVariant === 'chip' && prefix) {
+    return (
+      <div
+        className={`flex items-center h-10 box-border border border-[#c9ced6] rounded-lg bg-white overflow-hidden ${error ? 'border-red-400' : ''} ${className}`}
+      >
+        <span className="px-2 h-full inline-flex items-center bg-[#f4f5f7] text-[#5b6472] text-sm border-r border-[#e3e6eb] flex-shrink-0">
+          {prefix}
+        </span>
+        <input
+          {...sharedInputProps}
+          className="flex-1 min-w-0 h-full border-0 outline-none px-2 text-right font-tabular bg-transparent"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       {prefix && (
@@ -57,20 +117,7 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(fun
         </span>
       )}
       <input
-        ref={ref}
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        name={name}
-        id={id}
-        value={display}
-        onChange={handleChange}
-        onFocus={() => { focused.current = true; }}
-        onBlur={() => { focused.current = false; setDisplay(formatDigits(value)); onBlur?.(); }}
-        placeholder={placeholder}
-        disabled={disabled}
-        required={required}
-        autoFocus={autoFocus}
+        {...sharedInputProps}
         className={`erp-input font-tabular text-right ${prefix ? 'pl-8' : ''} ${error ? 'border-red-400' : ''} ${className}`}
       />
     </div>

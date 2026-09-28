@@ -13,6 +13,7 @@ import { formatDate } from '@/lib/format';
 import ERPModal from '@/components/ui/ERPModal';
 import TablePagination from '@/components/ui/TablePagination';
 import type { ItemMaster } from '@/types';
+import { hasPermission } from '@/lib/permissions';
 
 const PER_PAGE = 20;
 
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export default function StockInTable({ refreshKey, onStockIn }: Props) {
+  const canCreateStockIn = hasPermission('Inventory', 'canCreate');
   const [rows, setRows] = useState<StockTransaction[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -126,9 +128,11 @@ export default function StockInTable({ refreshKey, onStockIn }: Props) {
             <h3 className="text-[13px] font-700 text-foreground">Riwayat Stock In</h3>
             <p className="text-xs text-muted-foreground mt-0.5">{total} transaksi masuk</p>
           </div>
-          <button className="btn-primary flex items-center gap-1.5" onClick={openModal}>
-            <Plus size={14} /> Stock In Manual
-          </button>
+          {canCreateStockIn && (
+            <button className="btn-primary flex items-center gap-1.5" onClick={openModal}>
+              <Plus size={14} /> Stock In Manual
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">

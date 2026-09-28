@@ -2,6 +2,14 @@
 
 import React from 'react';
 import { formatRp } from '@/lib/format';
+import {
+  calcMaterialSubtotal,
+  calcServiceSubtotal,
+  calcDiscountAmount,
+  applyDiscount,
+  calcTaxAmount,
+  applyTax,
+} from '@/lib/quotationCalc';
 import type { CostingTab } from '@/types';
 
 interface Props {
@@ -21,43 +29,26 @@ export default function GrandTotalPanel({
   setTaxRate,
   isCivilMeMode,
 }: Props) {
-  // Civil & ME groups are priced by Subkontraktor SOW (FinalSellingPrice), not equipment/material
-  // rows — Jasa/Material split doesn't apply, so the whole group value is carried as "Jasa".
-  const calcMaterial = (tab: CostingTab) =>
-    isCivilMeMode
-      ? 0
-      : tab.groups.reduce(
-          (s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.materialPrice, 0),
-          0
-        );
-
-  const calcService = (tab: CostingTab) =>
-    isCivilMeMode
-      ? tab.groups.reduce((s, g) => s + (g.finalSellingPrice ?? 0), 0)
-      : tab.groups.reduce(
-          (s, g) => s + g.rows.reduce((rs, r) => rs + r.qty * r.servicePrice, 0),
-          0
-        );
-
   const tabTotals = tabs.map((t) => ({
     id: t.id,
     label: t.label,
-    total: calcMaterial(t) + calcService(t),
+    total:
+      calcMaterialSubtotal(t.groups, isCivilMeMode) + calcServiceSubtotal(t.groups, isCivilMeMode),
   }));
 
-  const totalMaterial = tabs.reduce((s, t) => s + calcMaterial(t), 0);
-  const totalService = tabs.reduce((s, t) => s + calcService(t), 0);
+  const totalMaterial = tabs.reduce((s, t) => s + calcMaterialSubtotal(t.groups, isCivilMeMode), 0);
+  const totalService = tabs.reduce((s, t) => s + calcServiceSubtotal(t.groups, isCivilMeMode), 0);
   const grandTotal = totalMaterial + totalService;
-  const discountAmount = grandTotal * (discount / 100);
-  const afterDiscount = grandTotal - discountAmount;
-  const taxAmount = afterDiscount * (taxRate / 100);
-  const grandTotalWithTax = afterDiscount + taxAmount;
+  const discountAmount = calcDiscountAmount(grandTotal, discount);
+  const afterDiscount = applyDiscount(grandTotal, discount);
+  const taxAmount = calcTaxAmount(afterDiscount, taxRate);
+  const grandTotalWithTax = applyTax(afterDiscount, taxRate);
 
   const tabLabels = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 
   return (
-    <div className="erp-card shadow-card lg:sticky lg:top-16">
-      <h3 className="text-xl font-700 text-foreground mb-4">Ringkasan Grand Total</h3>
+    <div className="erp-card lg:sticky lg:top-16">
+      <h3 className="text-lg font-600 text-foreground mb-4">Ringkasan Grand Total</h3>
 
       {/* Per-tab totals */}
       <div className="space-y-2 mb-4">

@@ -2,10 +2,18 @@
 
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { BookTemplate, Save } from 'lucide-react';
+import { BookTemplate, ClipboardList, Save } from 'lucide-react';
 import type { CostingTab } from '@/types';
 import CostingTable from './CostingTable';
 import TemplateLibraryModal from './TemplateLibraryModal';
+import GroupWorkItemsPanel from './GroupWorkItemsPanel';
+import { getGroupCategoryLetters } from '@/lib/categoryLetter';
+
+export interface DocumentInfo {
+  projectName: string;
+  quotationNo: string;
+  date: string;
+}
 
 // Template library belum terhubung ke backend (data masih hardcoded, tabs selalu kosong —
 // lihat TODO di TemplateLibraryModal.tsx) — disembunyikan dari UI sampai fiturnya jadi.
@@ -17,12 +25,38 @@ interface Props {
   activeTab: string;
   setActiveTab: (id: string) => void;
   isCivilMeMode: boolean;
+  documentInfo: DocumentInfo;
+  onExportPdf: () => void;
+  // Diteruskan langsung ke CostingTable — lihat komentar di Props CostingTable untuk kenapa ini
+  // dibutuhkan (auto-save transparan sebelum "Kirim RAB ke Vendor"/"Review RAB" pada kategori yang
+  // belum tersimpan).
+  onEnsureGroupSaved: (tabId: string, groupId: string) => Promise<string | null>;
 }
 
-export default function CostingTabsSection({ tabs, setTabs, activeTab, setActiveTab, isCivilMeMode }: Props) {
+export default function CostingTabsSection({
+  tabs,
+  setTabs,
+  activeTab,
+  setActiveTab,
+  isCivilMeMode,
+  documentInfo,
+  onExportPdf,
+  onEnsureGroupSaved,
+}: Props) {
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  // Modal Detail RAB/BQ — 1 instance untuk seluruh Tab aktif (bukan per-Group lagi), supaya bisa
+  // menampilkan semua Group sekaligus persis seperti mockup. focusGroupId null = dibuka dari
+  // tombol umum "Detail RAB/BQ" (semua Group terbuka); diisi = dibuka dari tombol per-baris Group
+  // di CostingTable (Group itu di-scroll-ke + dibuka, sisanya diciutkan).
+  const [rabModalOpen, setRabModalOpen] = useState(false);
+  const [focusGroupId, setFocusGroupId] = useState<string | null>(null);
 
   const activeTabData = tabs.find((t) => t.id === activeTab) || tabs[0];
+
+  // Huruf kategori (A, B, C...) dihitung lintas SEMUA Tab di sini — bukan di dalam CostingTable,
+  // yang cuma menerima 1 Tab (tabData) dan tidak tahu urutan Group di Tab lain. Lihat
+  // src/lib/categoryLetter.ts untuk alasan kenapa ini harus persis mirror backend.
+  const groupCategoryLetters = getGroupCategoryLetters(tabs);
 
   const handleLoadTemplate = (templateTabs: CostingTab[]) => {
     setTabs(templateTabs);
@@ -30,8 +64,13 @@ export default function CostingTabsSection({ tabs, setTabs, activeTab, setActive
     toast.success('Template berhasil dimuat ke dalam penawaran');
   };
 
+  const openRabDetail = (groupId?: string) => {
+    setFocusGroupId(groupId ?? null);
+    setRabModalOpen(true);
+  };
+
   return (
-    <div className="erp-card shadow-card">
+    <div className="erp-card">
       {/* Tab Header + Template Buttons */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
         {/* Tabs — horizontal scroll on mobile instead of wrapping */}
@@ -41,9 +80,10 @@ export default function CostingTabsSection({ tabs, setTabs, activeTab, setActive
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2.5 sm:py-2 rounded-md text-base font-600 transition-all duration-150 whitespace-nowrap flex-shrink-0
-                ${activeTab === tab.id
-                  ? 'bg-card text-primary shadow-sm border border-border'
-                  : 'text-muted-foreground hover:text-foreground'
+                ${
+                  activeTab === tab.id
+                    ? 'bg-card text-primary shadow-sm border border-border'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
             >
               {tab.label}
@@ -52,22 +92,32 @@ export default function CostingTabsSection({ tabs, setTabs, activeTab, setActive
         </div>
 
         {/* Template Actions */}
-        {TEMPLATE_FEATURE_ENABLED && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          {activeTabData && (
             <button
               className="btn-secondary text-xs justify-center min-h-11 lg:min-h-0"
-              onClick={() => setTemplateModalOpen(true)}
+              onClick={() => openRabDetail()}
             >
-              <BookTemplate size={13} /> Gunakan Template
+              <ClipboardList size={13} /> Detail RAB/BQ
             </button>
-            <button
-              className="btn-secondary text-xs justify-center min-h-11 lg:min-h-0"
-              onClick={() => toast.success('Struktur costing disimpan sebagai template baru')}
-            >
-              <Save size={13} /> Simpan Sebagai Template
-            </button>
-          </div>
-        )}
+          )}
+          {TEMPLATE_FEATURE_ENABLED && (
+            <>
+              <button
+                className="btn-secondary text-xs justify-center min-h-11 lg:min-h-0"
+                onClick={() => setTemplateModalOpen(true)}
+              >
+                <BookTemplate size={13} /> Gunakan Template
+              </button>
+              <button
+                className="btn-secondary text-xs justify-center min-h-11 lg:min-h-0"
+                onClick={() => toast.success('Struktur costing disimpan sebagai template baru')}
+              >
+                <Save size={13} /> Simpan Sebagai Template
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Active Tab Content */}
@@ -78,6 +128,24 @@ export default function CostingTabsSection({ tabs, setTabs, activeTab, setActive
             setTabs((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
           }}
           isCivilMeMode={isCivilMeMode}
+          groupCategoryLetters={groupCategoryLetters}
+          onOpenRabDetail={openRabDetail}
+          onEnsureGroupSaved={onEnsureGroupSaved}
+        />
+      )}
+
+      {activeTabData && (
+        <GroupWorkItemsPanel
+          tabData={activeTabData}
+          onUpdateTab={(updated) => {
+            setTabs((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+          }}
+          isOpen={rabModalOpen}
+          onClose={() => setRabModalOpen(false)}
+          focusGroupId={focusGroupId}
+          groupCategoryLetters={groupCategoryLetters}
+          documentInfo={documentInfo}
+          onExportPdf={onExportPdf}
         />
       )}
 

@@ -5,7 +5,7 @@
 :root {
   --background: #F8FAFC;
   --foreground: #0F172A;
-  --primary: #2563EB;
+  --primary: #1F5C3F;
   --primary-foreground: #FFFFFF;
   --secondary: #F1F5F9;
   --secondary-foreground: #475569;
@@ -17,7 +17,7 @@
   --card-foreground: #0F172A;
   --border: #E2E8F0;
   --input: #E2E8F0;
-  --ring: #2563EB;
+  --ring: #1F5C3F;
   --radius: 8px;
   --font-sans: var(--font-plus-jakarta-sans), sans-serif;
 
@@ -99,7 +99,7 @@
   }
   .erp-input:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    box-shadow: 0 0 0 3px rgba(31, 92, 63, 0.12);
   }
   .erp-input::placeholder {
     color: var(--muted-foreground);
@@ -136,11 +136,11 @@
     background-color: #F8FAFC;
   }
   .costing-subtotal-bar {
-    background-color: #EFF6FF;
-    border-top: 1px solid #BFDBFE;
+    background-color: #EBF5EF;
+    border-top: 1px solid #BFE0CC;
   }
   .grand-total-bar {
-    background-color: #2563EB;
+    background-color: #1F5C3F;
     color: #FFFFFF;
   }
   .animate-fade-in {
@@ -276,9 +276,9 @@
     white-space: nowrap;
   }
   .btn-primary:hover {
-    background-color: #1D4ED8;
+    background-color: #17452F;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px rgba(31, 92, 63, 0.3);
   }
   .btn-primary:active {
     transform: scale(0.97);

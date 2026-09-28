@@ -87,11 +87,11 @@ export default function CreateSupplierInvoiceModal({ isOpen, onClose, po, onCrea
         nomorFakturPajak: nomorFakturPajak.trim() || undefined,
         items,
       });
-      toast.success(`Supplier Invoice ${invoice.no} berhasil dibuat`);
+      toast.success(`Bill ${invoice.no} berhasil dibuat`);
       onClose();
       onCreated();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Gagal membuat Supplier Invoice');
+      setError(e instanceof Error ? e.message : 'Gagal membuat Bill');
     } finally {
       setSaving(false);
     }
@@ -101,14 +101,14 @@ export default function CreateSupplierInvoiceModal({ isOpen, onClose, po, onCrea
     <ERPModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Buat Supplier Invoice"
+      title="Buat Bill"
       subtitle={po.no}
       size="md"
       footer={
         <>
           <button className="btn-secondary" onClick={onClose} disabled={saving}>Batal</button>
           <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Menyimpan...' : 'Buat Supplier Invoice'}
+            {saving ? 'Menyimpan...' : 'Buat Bill'}
           </button>
         </>
       }
@@ -138,7 +138,7 @@ export default function CreateSupplierInvoiceModal({ isOpen, onClose, po, onCrea
           </label>
           {invoicableItems.length === 0 ? (
             <p className="text-xs text-amber-600 mt-1">
-              Semua item PO ini sudah selesai di-invoice — tidak ada sisa untuk Supplier Invoice baru.
+              Semua item PO ini sudah selesai di-invoice — tidak ada sisa untuk Bill baru.
             </p>
           ) : (
             <div className="border border-border rounded-lg overflow-hidden mt-1">

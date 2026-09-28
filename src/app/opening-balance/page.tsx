@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { Plus, Trash2, AlertTriangle } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
+import { formatDate } from '@/lib/format';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import BalanceSummary from '@/components/ui/BalanceSummary';
@@ -139,7 +140,7 @@ export default function OpeningBalancePage() {
               <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
               <span>
                 Opening Balance sudah pernah dibuat sebelumnya: <strong>{existing[0].entryNumber}</strong>{' '}
-                pada {new Date(existing[0].date).toLocaleDateString('id-ID')}
+                pada {formatDate(existing[0].date)}
                 {existing.length > 1 ? ` (dan ${existing.length - 1} entry lainnya)` : ''}. Anda tetap bisa
                 melanjutkan, tapi akan diminta konfirmasi ulang sebelum submit.
               </span>
@@ -316,7 +317,7 @@ export default function OpeningBalancePage() {
         onConfirm={handleSubmit(submitOpeningBalance)}
         title="Opening Balance Sudah Pernah Dibuat"
         description={`Opening Balance sudah pernah dibuat sebelumnya (${existing[0]?.entryNumber ?? '-'} pada ${
-          existing[0] ? new Date(existing[0].date).toLocaleDateString('id-ID') : '-'
+          existing[0] ? formatDate(existing[0].date) : '-'
         }). Apakah Anda yakin ingin membuat set Opening Balance baru?`}
         confirmLabel="Ya, Lanjutkan"
         loading={submitting}

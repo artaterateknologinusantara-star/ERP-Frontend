@@ -10,7 +10,9 @@
       "Bash(ls .claude/skills/)",
       "Bash(npx playwright *)",
       "PowerShell(Get-Process *)",
-      "PowerShell(netstat *)"
+      "PowerShell(netstat *)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

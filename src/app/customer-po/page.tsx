@@ -11,9 +11,12 @@ import { FileCheck, Download, Loader2, Search, ShoppingBag, History, Pencil } fr
 import type { CustomerPO } from '@/types';
 import PoHistoryModal from './components/PoHistoryModal';
 import EditPoNoModal from '../riwayat-penawaran/components/EditPoNoModal';
+import { hasPermission } from '@/lib/permissions';
 
 export default function CustomerPoPage() {
   const router = useRouter();
+  const canCreateSO = hasPermission('Sales', 'canCreate');
+  const canEditCustomerPo = hasPermission('Sales', 'canEdit');
   const [data,     setData]     = useState<CustomerPO[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [search,   setSearch]   = useState('');
@@ -184,8 +187,14 @@ export default function CustomerPoPage() {
                                 ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
                                 : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
                             }`}
-                            title={cpo.salesOrderId ? `SO ${cpo.salesOrderNo}` : 'Buat Sales Order dari Quotation ini'}
-                            disabled={soLoadingId === cpo.id}
+                            title={
+                              cpo.salesOrderId
+                                ? `SO ${cpo.salesOrderNo}`
+                                : canCreateSO
+                                ? 'Buat Sales Order dari Quotation ini'
+                                : 'Anda tidak memiliki izin membuat Sales Order'
+                            }
+                            disabled={soLoadingId === cpo.id || (!cpo.salesOrderId && !canCreateSO)}
                             onClick={() => handleBuatSO(cpo)}
                           >
                             {soLoadingId === cpo.id
@@ -194,14 +203,16 @@ export default function CustomerPoPage() {
                             }
                             {cpo.salesOrderId ? 'Lihat SO' : 'Buat SO'}
                           </button>
-                          <button
-                            className="inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"
-                            title="Edit Nomor / Lampiran PO"
-                            onClick={() => setEditCpo(cpo)}
-                          >
-                            <Pencil size={11} />
-                            Edit No. PO
-                          </button>
+                          {canEditCustomerPo && (
+                            <button
+                              className="inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"
+                              title="Edit Nomor / Lampiran PO"
+                              onClick={() => setEditCpo(cpo)}
+                            >
+                              <Pencil size={11} />
+                              Edit No. PO
+                            </button>
+                          )}
                           {cpo.hasHistory && (
                             <button
                               className="inline-flex items-center gap-1 text-[11px] font-600 px-2.5 py-[3px] rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"

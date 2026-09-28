@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronDown, ChevronRight, Check, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Check, X, AlertCircle } from 'lucide-react';
 import ERPModal from '@/components/ui/ERPModal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import CurrencyInput from '@/components/ui/CurrencyInput';
@@ -31,19 +31,25 @@ function SubmissionReview({ submissionId, onDecided }: { submissionId: string; o
 
   // Local editable copy, keyed by line id — synced from the fetched data whenever it changes
   // (e.g. after a save), edited via onChange, persisted on blur.
-  const [markups, setMarkups] = useState<Record<string, number>>({});
+  const [serviceMarkups, setServiceMarkups] = useState<Record<string, number>>({});
+  const [materialMarkups, setMaterialMarkups] = useState<Record<string, number>>({});
+  // "Minta Revisi" — per-baris, terpisah dari alur Approve/Reject di atas.
+  const [revisionFlags, setRevisionFlags] = useState<Record<string, boolean>>({});
+  const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({});
   useEffect(() => {
     if (submission) {
-      setMarkups(Object.fromEntries(submission.lines.map((l) => [l.id, l.markupAmount])));
+      setServiceMarkups(Object.fromEntries(submission.lines.map((l) => [l.id, l.serviceMarkup])));
+      setMaterialMarkups(Object.fromEntries(submission.lines.map((l) => [l.id, l.materialMarkup])));
     }
   }, [submission]);
 
   const handleMarkupBlur = async (lineId: string) => {
-    const original = submission?.lines.find((l) => l.id === lineId)?.markupAmount;
-    const value = markups[lineId] ?? 0;
-    if (value === original) return;
+    const original = submission?.lines.find((l) => l.id === lineId);
+    const serviceValue = serviceMarkups[lineId] ?? 0;
+    const materialValue = materialMarkups[lineId] ?? 0;
+    if (original && serviceValue === original.serviceMarkup && materialValue === original.materialMarkup) return;
     try {
-      await vendorRabSubmissionService.setLineMarkup(submissionId, lineId, value);
+      await vendorRabSubmissionService.setLineMarkup(submissionId, lineId, serviceValue, materialValue);
       queryClient.invalidateQueries({ queryKey: ['vendor-submission', submissionId] });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan markup');
@@ -77,6 +83,32 @@ function SubmissionReview({ submissionId, onDecided }: { submissionId: string; o
     }
   };
 
+  const handleRequestRevision = async () => {
+    const flaggedIds = Object.keys(revisionFlags).filter((id) => revisionFlags[id]);
+    if (flaggedIds.length === 0) {
+      toast.error('Pilih minimal 1 baris untuk diminta revisi.');
+      return;
+    }
+    const missingNote = flaggedIds.filter((id) => !revisionNotes[id]?.trim());
+    if (missingNote.length > 0) {
+      toast.error('Isi catatan untuk semua baris yang ditandai revisi.');
+      return;
+    }
+    setDeciding(true);
+    try {
+      await vendorRabSubmissionService.requestRevision(
+        submissionId,
+        flaggedIds.map((id) => ({ lineId: id, note: revisionNotes[id].trim() })),
+      );
+      toast.success('Permintaan revisi terkirim. Vendor bisa submit ulang dengan baris yang ditandai.');
+      onDecided();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Gagal mengirim permintaan revisi');
+    } finally {
+      setDeciding(false);
+    }
+  };
+
   if (isLoading || !submission) {
     return <div className="text-xs text-muted-foreground py-2">Memuat submission...</div>;
   }
@@ -86,27 +118,77 @@ function SubmissionReview({ submissionId, onDecided }: { submissionId: string; o
 
   return (
     <div className="space-y-2 pt-2 border-t border-border/60">
+      <div className="hidden sm:grid grid-cols-7 gap-2 text-[10px] text-muted-foreground uppercase tracking-wide">
+        <span className="col-span-2">Nama</span>
+        <span>Jasa (vendor)</span>
+        <span>Markup Jasa</span>
+        <span>Material (vendor)</span>
+        <span>Markup Material</span>
+        <span>Final / Total</span>
+      </div>
       {submission.lines.map((line) => (
-        <div key={line.id} className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-center text-xs">
-          <span className="sm:col-span-2 truncate" title={line.name}>{line.name}</span>
-          <span className="text-muted-foreground font-tabular">{formatRp(line.unitPrice)}</span>
-          <div className="w-28">
-            <CurrencyInput
-              value={markups[line.id] ?? line.markupAmount}
-              prefix=""
-              disabled={!isPending || !allowApprove}
-              onChange={(v) => setMarkups((prev) => ({ ...prev, [line.id]: v }))}
-              onBlur={() => handleMarkupBlur(line.id)}
-              className="text-xs py-1"
-            />
+        <div key={line.id}>
+          <div className="grid grid-cols-1 sm:grid-cols-7 gap-2 items-center text-xs">
+            <span className="sm:col-span-2 truncate" title={line.name}>{line.name}</span>
+            <span className="text-muted-foreground font-tabular">{formatRp(line.servicePrice)}</span>
+            <div className="w-28">
+              <CurrencyInput
+                value={serviceMarkups[line.id] ?? line.serviceMarkup}
+                prefix=""
+                disabled={!isPending || !allowApprove}
+                onChange={(v) => setServiceMarkups((prev) => ({ ...prev, [line.id]: v }))}
+                onBlur={() => handleMarkupBlur(line.id)}
+                className="text-xs py-1"
+              />
+            </div>
+            <span className="text-muted-foreground font-tabular">{formatRp(line.materialPrice)}</span>
+            <div className="w-28">
+              <CurrencyInput
+                value={materialMarkups[line.id] ?? line.materialMarkup}
+                prefix=""
+                disabled={!isPending || !allowApprove}
+                onChange={(v) => setMaterialMarkups((prev) => ({ ...prev, [line.id]: v }))}
+                onBlur={() => handleMarkupBlur(line.id)}
+                className="text-xs py-1"
+              />
+            </div>
+            <span className="font-600 font-tabular">
+              {formatRp(line.finalServicePrice)} + {formatRp(line.finalMaterialPrice)} / {formatRp(line.totalHarga)}
+            </span>
           </div>
-          <span className="font-600 font-tabular">{formatRp(line.finalUnitPrice)} / {formatRp(line.totalHarga)}</span>
+          {isPending && allowApprove && (
+            <div className="flex items-center gap-2 mt-1 mb-1.5">
+              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-shrink-0">
+                <input
+                  type="checkbox"
+                  checked={!!revisionFlags[line.id]}
+                  onChange={(e) => setRevisionFlags((prev) => ({ ...prev, [line.id]: e.target.checked }))}
+                />
+                Tandai untuk revisi
+              </label>
+              {revisionFlags[line.id] && (
+                <input
+                  value={revisionNotes[line.id] ?? ''}
+                  onChange={(e) => setRevisionNotes((prev) => ({ ...prev, [line.id]: e.target.value }))}
+                  placeholder="Catatan untuk vendor (wajib)"
+                  className="flex-1 h-7 px-2 border border-border rounded text-xs"
+                />
+              )}
+            </div>
+          )}
         </div>
       ))}
       <div className="flex items-center justify-between pt-1">
         <span className="text-xs font-700">Total: {formatRp(total)}</span>
         {isPending && allowApprove && (
           <div className="flex items-center gap-2">
+            <button
+              className="flex items-center gap-1 text-xs font-600 text-amber-700 hover:bg-amber-50 px-2 py-1 rounded"
+              onClick={handleRequestRevision}
+              disabled={deciding}
+            >
+              <AlertCircle size={13} /> Minta Revisi
+            </button>
             <button
               className="flex items-center gap-1 text-xs font-600 text-red-600 hover:bg-red-50 px-2 py-1 rounded"
               onClick={handleReject}

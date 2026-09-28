@@ -16,6 +16,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import TableToolbar from '@/components/ui/TableToolbar';
 import TablePagination from '@/components/ui/TablePagination';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import { hasPermission } from '@/lib/permissions';
 
 const PER_PAGE = 20;
 
@@ -37,6 +38,9 @@ interface Props {
 export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const canCreateDO = hasPermission('Inventory', 'canCreate');
+  const canEditDO = hasPermission('Inventory', 'canEdit');
+  const canDeleteDO = hasPermission('Inventory', 'canDelete');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Semua');
@@ -117,9 +121,11 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
         onStatusFilter={handleStatus}
         statusOptions={STATUS_OPTIONS}
         actions={
-          <button className="btn-primary flex items-center gap-1.5" onClick={() => router.push('/stock-out/buat')}>
-            <Plus size={14} /> Buat DO Baru
-          </button>
+          canCreateDO ? (
+            <button className="btn-primary flex items-center gap-1.5" onClick={() => router.push('/stock-out/buat')}>
+              <Plus size={14} /> Buat DO Baru
+            </button>
+          ) : undefined
         }
       />
 
@@ -141,9 +147,11 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Package size={28} className="opacity-40" />
                     <p className="text-sm">Belum ada Delivery Order.</p>
-                    <button className="btn-primary mt-1" onClick={() => router.push('/stock-out/buat')}>
-                      <Plus size={13} /> Buat DO Pertama
-                    </button>
+                    {canCreateDO && (
+                      <button className="btn-primary mt-1" onClick={() => router.push('/stock-out/buat')}>
+                        <Plus size={13} /> Buat DO Pertama
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -173,25 +181,29 @@ export default function DeliveryOrderTable({ refreshKey, onRefresh }: Props) {
                       </button>
                       {row.status === 'Draft' && (
                         <>
-                          <button
-                            className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600 disabled:opacity-40"
-                            title="Konfirmasi"
-                            disabled={busy}
-                            onClick={() => setConfirmAction({ type: 'confirm', id: row.id, no: row.no })}
-                          >
-                            <CheckCircle2 size={13} />
-                          </button>
-                          <button
-                            className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 disabled:opacity-40"
-                            title="Hapus"
-                            disabled={busy}
-                            onClick={() => setConfirmAction({ type: 'delete', id: row.id, no: row.no })}
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          {canEditDO && (
+                            <button
+                              className="p-1.5 rounded hover:bg-blue-50 text-muted-foreground hover:text-blue-600 disabled:opacity-40"
+                              title="Konfirmasi"
+                              disabled={busy}
+                              onClick={() => setConfirmAction({ type: 'confirm', id: row.id, no: row.no })}
+                            >
+                              <CheckCircle2 size={13} />
+                            </button>
+                          )}
+                          {canDeleteDO && (
+                            <button
+                              className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 disabled:opacity-40"
+                              title="Hapus"
+                              disabled={busy}
+                              onClick={() => setConfirmAction({ type: 'delete', id: row.id, no: row.no })}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </>
                       )}
-                      {row.status === 'Confirmed' && (
+                      {row.status === 'Confirmed' && canEditDO && (
                         <button
                           className="p-1.5 rounded hover:bg-green-50 text-muted-foreground hover:text-green-600 disabled:opacity-40"
                           title="Tandai Terkirim"

@@ -45,7 +45,6 @@ export interface CreateQuotationDto {
   location?: string;
   contractor?: string;
   validityPeriod?: string;
-  areaBlockTender?: string;
   paymentTerms?: string;
   termins?: BackendTermin[];
   termsAndConditions?: string;
@@ -74,9 +73,6 @@ interface BackendGroup {
   sortOrder: number;
   recapVolume?: number | null;
   recapUnit?: string | null;
-  subcontractorId?: string | null;
-  finalSubconCost?: number | null;
-  finalSellingPrice?: number | null;
   items: BackendItem[];
   // Always sent as a full array (never omitted) once a group has RAB/BQ data — the backend
   // treats an omitted field as "leave WorkItems untouched" but an explicit array (even []) as
@@ -114,7 +110,8 @@ interface BackendWorkDetail {
   spesifikasi?: string;
   volume: number;
   unit: string;
-  unitPrice: number;
+  servicePrice: number;
+  materialPrice: number;
   sortOrder: number;
 }
 
@@ -130,9 +127,6 @@ export function mapTabsToBackend(tabs: CostingTab[]): BackendTab[] {
       sortOrder: group.sortOrder ?? gi,
       recapVolume: group.recapVolume ?? undefined,
       recapUnit: group.recapUnit ?? undefined,
-      subcontractorId: group.subcontractorId ?? undefined,
-      finalSubconCost: group.finalSubconCost ?? undefined,
-      finalSellingPrice: group.finalSellingPrice ?? undefined,
       items: group.rows.map((row, ri) => ({
         itemNo: row.no,
         equipment: row.equipment,
@@ -158,7 +152,8 @@ export function mapTabsToBackend(tabs: CostingTab[]): BackendTab[] {
           spesifikasi: d.spesifikasi || undefined,
           volume: d.volume,
           unit: d.unit,
-          unitPrice: d.unitPrice,
+          servicePrice: d.servicePrice,
+          materialPrice: d.materialPrice,
           sortOrder: d.sortOrder ?? di,
         })),
       })),

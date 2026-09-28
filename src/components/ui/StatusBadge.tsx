@@ -87,6 +87,7 @@ const statusMap: Record<string, BadgeConfig> = {
   // Vendor RAB Portal (VendorRabSubmissionStatus) — VendorRabRequestStatus's "Sent" reuses the
   // Invoice "Sent" entry above (same className, close-enough label).
   PendingReview: { className: 'bg-amber-100 text-amber-700', label: 'Menunggu Review' },
+  RevisionRequested: { className: 'bg-orange-100 text-orange-700', label: 'Diminta Revisi' },
 };
 
 interface StatusBadgeProps {
