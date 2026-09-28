@@ -3,15 +3,28 @@
 import React from 'react';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import type { PaymentTerm } from '@/types';
+import { formatRp } from '@/lib/format';
 
 interface Props {
   terms: PaymentTerm[];
   onChange: (terms: PaymentTerm[]) => void;
   netPayment: number;
   setNetPayment: (v: number) => void;
+  // Dipakai murni untuk menampilkan "nominal otomatis" per termin (persentase × grand total
+  // sebelum diskon/PPN) — tidak menyimpan apa pun, tidak menyentuh skema data PaymentTerm.
+  // "Jatuh tempo (hari)" per-termin di mockup SENGAJA tidak diikutkan: itu field baru yang belum
+  // ada di skema `PaymentTerm` (id/description/percentage saja) — menambahkannya berarti migration
+  // backend, di luar cakupan redesign visual ini.
+  grandTotal: number;
 }
 
-export default function SyaratPembayaranSection({ terms, onChange, netPayment, setNetPayment }: Props) {
+export default function SyaratPembayaranSection({
+  terms,
+  onChange,
+  netPayment,
+  setNetPayment,
+  grandTotal,
+}: Props) {
   const totalPercentage = terms.reduce((s, t) => s + t.percentage, 0);
   const isValid = totalPercentage === 100;
 
@@ -28,18 +41,23 @@ export default function SyaratPembayaranSection({ terms, onChange, netPayment, s
   };
 
   return (
-    <div className="erp-card shadow-card">
-      <div className="erp-section-header">Syarat Pembayaran</div>
+    <div className="erp-card">
+      <div className="pnw-section-title">
+        <span className="pnw-section-mark" />
+        Syarat pembayaran
+      </div>
 
       <div className="space-y-2 mb-4">
         {terms.map((term, i) => (
           <div key={term.id} className="flex items-center gap-2 group/term">
-            <span className="text-xs font-700 text-muted-foreground w-5 flex-shrink-0 text-center">{i + 1}.</span>
+            <span className="text-xs font-700 text-muted-foreground w-5 flex-shrink-0 text-center">
+              {i + 1}.
+            </span>
             <input
               type="text"
               value={term.description}
               onChange={(e) => updateTerm(term.id, 'description', e.target.value)}
-              placeholder="Deskripsi termin pembayaran"
+              placeholder="Nama termin, contoh: Uang Muka"
               className="erp-input flex-1"
             />
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -53,6 +71,9 @@ export default function SyaratPembayaranSection({ terms, onChange, netPayment, s
               />
               <span className="text-base text-muted-foreground">%</span>
             </div>
+            <span className="font-tabular text-xs text-muted-foreground w-28 flex-shrink-0 text-right">
+              {formatRp((grandTotal * term.percentage) / 100)}
+            </span>
             <button
               onClick={() => deleteTerm(term.id)}
               className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors opacity-0 group-hover/term:opacity-100"
@@ -64,7 +85,9 @@ export default function SyaratPembayaranSection({ terms, onChange, netPayment, s
       </div>
 
       {/* Total Percentage Indicator */}
-      <div className={`flex items-center justify-between px-3 py-2 rounded-lg mb-3 ${isValid ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+      <div
+        className={`flex items-center justify-between px-3 py-2 rounded-lg mb-3 ${isValid ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}
+      >
         <div className="flex items-center gap-1.5">
           {!isValid && <AlertCircle size={14} className="text-red-500" />}
           <span className={`text-base font-600 ${isValid ? 'text-green-700' : 'text-red-600'}`}>
@@ -72,7 +95,9 @@ export default function SyaratPembayaranSection({ terms, onChange, netPayment, s
           </span>
         </div>
         {!isValid && (
-          <span className="text-xs text-red-500 font-500">Total harus 100% (sisa {100 - totalPercentage}%)</span>
+          <span className="text-xs text-red-500 font-500">
+            Total harus 100% (sisa {100 - totalPercentage}%)
+          </span>
         )}
         {isValid && (
           <span className="text-xs text-green-600 font-500">✓ Total pembayaran valid</span>
@@ -94,7 +119,10 @@ export default function SyaratPembayaranSection({ terms, onChange, netPayment, s
         </div>
       </div>
 
-      <button onClick={addTerm} className="flex items-center gap-1.5 text-base font-600 text-primary hover:underline">
+      <button
+        onClick={addTerm}
+        className="flex items-center gap-1.5 text-base font-600 text-primary hover:underline"
+      >
         <Plus size={14} /> Tambah Termin Pembayaran
       </button>
     </div>

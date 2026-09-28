@@ -1,0 +1,90 @@
+/* Tema visual "enterprise" khusus untuk route /buat-penawaran-baru — di-load HANYA lewat
+   layout.tsx di folder ini, TIDAK di-import di tailwind.css global, jadi TIDAK memengaruhi 50+
+   halaman lain di ERP ini.
+
+   Kenapa file ini pendek (bukan menyalin ulang semua style tiap komponen): hampir semua komponen
+   form Penawaran sudah dibangun di atas token warna semantik Tailwind (bg-primary, text-primary,
+   border-border, bg-card, bg-muted, text-muted-foreground, dst — lihat tailwind.config.js, semua
+   di-resolve ke CSS variable --primary/--border/--card/--muted di tailwind.css). Meng-override
+   variable itu di sini otomatis mengubah SEMUA util class itu ke palet baru, tanpa perlu menyentuh
+   className di tiap file komponen satu per satu. Yang di-override manual di bawah cuma utility
+   class lama yang masih hardcode hex literal (bukan var(...)) — lihat tailwind.css baris
+   .btn-primary:hover / .group-row-bg / .costing-subtotal-bar / .grand-total-bar. */
+
+.pnw-theme {
+  --background: #f3f5f8;
+  --foreground: #10151c;
+  --primary: #1F5C3F;
+  --primary-foreground: #ffffff;
+  --secondary: #edf0f4;
+  --secondary-foreground: #57616f;
+  --muted: #edf0f4;
+  --muted-foreground: #57616f;
+  --card: #ffffff;
+  --card-foreground: #10151c;
+  --border: #dee3ea;
+  --input: #dee3ea;
+  --ring: #1F5C3F;
+  --radius: 8px;
+
+  background: var(--background);
+  font-family:
+    var(--font-ibm-plex-sans),
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+/* Semua angka (Volume, harga satuan, subtotal, total, nominal termin/PPN) pakai `.font-tabular`
+   di seluruh komponen — override font-family-nya di sini saja cukup untuk membuat SEMUA angka di
+   halaman ini pakai IBM Plex Mono, tanpa menyentuh puluhan lokasi pemakaiannya. */
+.pnw-theme .font-tabular {
+  font-family:
+    var(--font-ibm-plex-mono),
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+.pnw-theme .btn-primary:hover {
+  background-color: #17452F;
+  box-shadow: 0 4px 12px rgba(31, 92, 63, 0.28);
+}
+.pnw-theme .group-row-bg {
+  background-color: #f8f9fb;
+}
+.pnw-theme .costing-subtotal-bar {
+  background-color: #eaf3ee;
+  border-top: 1px solid #c8ddcf;
+}
+.pnw-theme .grand-total-bar {
+  background-color: #123a28;
+  color: #edf7f0;
+}
+.pnw-theme .erp-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(31, 92, 63, 0.12);
+}
+
+/* Section header sentence-case + penanda kotak kecil warna aksen di kiri label — menggantikan
+   pola lama "ALL CAPS + tracking-wide" (`.erp-section-header`/`uppercase tracking-wider`) yang
+   dipakai komponen-komponen form ini, TANPA mengubah class globalnya sendiri (masih dipakai apa
+   adanya di halaman lain). Dipakai lewat 2 class baru `pnw-section-title`/`pnw-section-mark`. */
+.pnw-theme .pnw-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 16px;
+}
+.pnw-theme .pnw-section-mark {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--primary);
+  flex-shrink: 0;
+}

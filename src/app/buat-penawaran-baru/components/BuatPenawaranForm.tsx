@@ -15,6 +15,7 @@ import CatatanTambahanSection from './CatatanTambahanSection';
 import PenawaranModePickerModal from './PenawaranModePickerModal';
 import type { CostingTab, CostingRow, PaymentTerm, QuotationStatus } from '@/types';
 import { quotationService, mapTabsToBackend } from '@/services/quotation.service';
+import { isGuid } from '@/lib/guid';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { formatRp, formatDate } from '@/lib/format';
 import { getMarginTier, marginTierClasses } from '@/lib/margin';
@@ -530,18 +531,24 @@ export default function BuatPenawaranForm() {
     };
   };
 
-  const handleSaveDraft = async () => {
+  // `navigate: false` dipakai oleh ensureGroupSaved (auto-save transparan sebelum "Kirim RAB ke
+  // Vendor"/"Review RAB") — tombol "Simpan Penawaran" biasa tetap pakai default (navigate:true,
+  // redirect ke riwayat-penawaran seperti semula). Return value = tabs yang baru (dengan GUID
+  // asli, hasil mapApiTabs dari response) supaya pemanggil bisa cari group yang sama by posisi;
+  // null kalau validasi/simpan gagal (toast error sudah ditampilkan di sini).
+  const handleSaveDraft = async (opts?: { navigate?: boolean }): Promise<CostingTab[] | null> => {
+    const navigate = opts?.navigate ?? true;
     if (!infoValues.customerId) {
       toast.error('Pilih pelanggan terlebih dahulu');
-      return;
+      return null;
     }
     if (!infoValues.projectName.trim()) {
       toast.error('Nama proyek wajib diisi');
-      return;
+      return null;
     }
     if (!infoValues.salesId) {
       toast.error('Pilih sales person terlebih dahulu');
-      return;
+      return null;
     }
     setIsSaving(true);
     try {
@@ -556,12 +563,14 @@ export default function BuatPenawaranForm() {
         toast.success(
           isRevision ? 'Draft revisi berhasil diperbarui' : 'Draft penawaran berhasil diperbarui'
         );
-        if (q.tabs?.length) setTabs(mapApiTabs(q.tabs as any[]));
+        const newTabs = q.tabs?.length ? mapApiTabs(q.tabs as any[]) : tabs;
+        if (q.tabs?.length) setTabs(newTabs);
         setInfoValues((v) => ({ ...v, quotationNo: q.no, revision: q.revision }));
         setCurrentStatus(q.status);
         setSaveLabel(q.revision > 0 ? `Draft · R.${String(q.revision).padStart(2, '0')}` : 'Draft');
         clearDraftState();
-        router.push('/riwayat-penawaran');
+        if (navigate) router.push('/riwayat-penawaran');
+        return newTabs;
       } else {
         // CREATE new quotation — stay on this page, patch state from the response (real
         // GUIDs for groups/work items), and silently put ?id= in the URL (via the History
@@ -570,20 +579,42 @@ export default function BuatPenawaranForm() {
         const res = await quotationService.create(dto);
         const q = res.data;
         setCreatedId(q.id);
-        if (q.tabs?.length) setTabs(mapApiTabs(q.tabs as any[]));
+        const newTabs = q.tabs?.length ? mapApiTabs(q.tabs as any[]) : tabs;
+        if (q.tabs?.length) setTabs(newTabs);
         setInfoValues((v) => ({ ...v, quotationNo: q.no, revision: q.revision }));
         setCurrentStatus(q.status);
         setSaveLabel(q.revision > 0 ? `Draft · R.${String(q.revision).padStart(2, '0')}` : 'Draft');
         window.history.replaceState(null, '', `${window.location.pathname}?id=${q.id}`);
         toast.success('Draft penawaran berhasil disimpan');
         clearDraftState();
-        router.push('/riwayat-penawaran');
+        if (navigate) router.push('/riwayat-penawaran');
+        return newTabs;
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal menyimpan penawaran');
+      return null;
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Dipanggil dari CostingTable saat user klik "Kirim RAB ke Vendor"/"Review RAB" pada kategori
+  // yang belum tersimpan (group.id masih id sementara `grp-...`, bukan GUID — lihat isGuid di
+  // src/lib/guid.ts). VendorRabRequest.QuotationGroupId adalah FK wajib non-null di backend, jadi
+  // ini BUKAN sekadar validasi UI yang bisa dilonggarkan — group-nya harus benar-benar sudah jadi
+  // baris DB dulu. Auto-save di sini (navigate:false, tidak redirect seperti tombol "Simpan
+  // Penawaran" biasa), lalu cari GUID baru untuk group yang SAMA by posisi index tab+group (id
+  // sementaranya hilang begitu tersimpan, makanya tidak bisa dicocokkan by id lagi).
+  const ensureGroupSaved = async (tabId: string, groupId: string): Promise<string | null> => {
+    if (isGuid(groupId)) return groupId;
+    const tabIndex = tabs.findIndex((t) => t.id === tabId);
+    if (tabIndex === -1) return null;
+    const groupIndex = tabs[tabIndex].groups.findIndex((g) => g.id === groupId);
+    if (groupIndex === -1) return null;
+    const savedTabs = await handleSaveDraft({ navigate: false });
+    if (!savedTabs) return null;
+    const savedGroup = savedTabs[tabIndex]?.groups[groupIndex];
+    return savedGroup ? savedGroup.id : null;
   };
 
   const handleExportPdf = () => {
@@ -666,7 +697,7 @@ export default function BuatPenawaranForm() {
             )}
             <button
               className="btn-secondary min-h-11 flex-shrink-0"
-              onClick={handleSaveDraft}
+              onClick={() => handleSaveDraft()}
               disabled={isSaving}
             >
               {isSaving ? (
@@ -773,6 +804,7 @@ export default function BuatPenawaranForm() {
             date: infoValues.date,
           }}
           onExportPdf={handleExportPdf}
+          onEnsureGroupSaved={ensureGroupSaved}
         />
 
         {/* Section 3: Bottom panel */}
@@ -784,6 +816,7 @@ export default function BuatPenawaranForm() {
               onChange={setPaymentTerms}
               netPayment={netPayment}
               setNetPayment={setNetPayment}
+              grandTotal={mGrandTotal}
             />
             <SyaratKetentuanSection value={termsAndConditions} onChange={setTermsAndConditions} />
             <CatatanTambahanSection value={additionalNotes} onChange={setAdditionalNotes} />

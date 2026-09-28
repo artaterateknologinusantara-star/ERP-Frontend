@@ -32,6 +32,12 @@ import {
 import ImportBoqPreviewModal, { type BoqImportMode } from './ImportBoqPreviewModal';
 import type { CostingTab, CostingGroup, WorkItem, WorkDetail } from '@/types';
 import type { DocumentInfo } from './CostingTabsSection';
+import {
+  detailTotal,
+  addWorkDetailToGroup,
+  updateWorkDetailInGroup,
+  deleteWorkDetailInGroup,
+} from '@/lib/workDetailOps';
 
 // Pixel-perfect rebuild sesuai docs mockup Main.dc.html (terisi) / Kosong.dc.html (kosong) —
 // SEMUA ukuran/warna/jarak di bawah ini diambil LANGSUNG dari inline style di kedua file itu,
@@ -71,10 +77,6 @@ interface Props {
 
 const MAX_IMAGE_BYTES = 1 * 1024 * 1024;
 
-function detailTotal(d: WorkDetail) {
-  return { jasa: d.volume * d.servicePrice, material: d.volume * d.materialPrice };
-}
-
 function fmtVolume(n: number): string {
   return n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -99,6 +101,8 @@ function buildWorkDetailsFromParsedGroup(
   }));
 }
 
+// Saran saja (datalist), bukan daftar tertutup — user bebas ketik satuan apa pun tanpa perlu
+// edit kode setiap kali butuh satuan baru (konsisten dengan pola di CostingTable.tsx).
 const UNIT_OPTIONS = [
   'Titik',
   'Ls',
@@ -202,37 +206,7 @@ export default function GroupWorkItemsPanel({
   // mockup. Detail baru selalu masuk ke WorkItem TERAKHIR di Group itu (bukan bikin WorkItem baru
   // tiap kali) supaya penomoran WorkDetail (yang di PDF reset per-WorkItem) tetap 1..N berurutan.
   const handleAddDetail = (group: CostingGroup) => {
-    const workItems = group.workItems ?? [];
-    const newDetail: WorkDetail = {
-      id: `wd-${group.id}-${Date.now()}`,
-      name: '',
-      spesifikasi: '',
-      volume: 0,
-      unit: '',
-      servicePrice: 0,
-      materialPrice: 0,
-      sortOrder: 0,
-      attachments: [],
-    };
-    let targetWorkItemId: string;
-    let nextWorkItems: WorkItem[];
-    if (workItems.length === 0) {
-      const newWorkItem: WorkItem = {
-        id: `wi-${group.id}-${Date.now()}`,
-        name: '',
-        sortOrder: 0,
-        workDetails: [newDetail],
-      };
-      nextWorkItems = [newWorkItem];
-      targetWorkItemId = newWorkItem.id;
-    } else {
-      const last = workItems[workItems.length - 1];
-      newDetail.sortOrder = last.workDetails.length;
-      nextWorkItems = workItems.map((w, i) =>
-        i === workItems.length - 1 ? { ...w, workDetails: [...w.workDetails, newDetail] } : w
-      );
-      targetWorkItemId = last.id;
-    }
+    const { workItems: nextWorkItems, newDetail, targetWorkItemId } = addWorkDetailToGroup(group);
     updateGroup(group.id, (g) => ({ ...g, workItems: nextWorkItems }));
     setCollapsedGroupIds((prev) => prev.filter((id) => id !== group.id));
     editSnapshotRef.current = {
@@ -251,25 +225,14 @@ export default function GroupWorkItemsPanel({
   ) => {
     updateGroup(groupId, (g) => ({
       ...g,
-      workItems: (g.workItems ?? []).map((w) =>
-        w.id !== workItemId
-          ? w
-          : {
-              ...w,
-              workDetails: w.workDetails.map((d) => (d.id === detailId ? { ...d, ...patch } : d)),
-            }
-      ),
+      workItems: updateWorkDetailInGroup(g.workItems, workItemId, detailId, patch),
     }));
   };
 
   const handleDeleteDetail = (groupId: string, workItemId: string, detailId: string) => {
     updateGroup(groupId, (g) => ({
       ...g,
-      workItems: (g.workItems ?? []).map((w) =>
-        w.id !== workItemId
-          ? w
-          : { ...w, workDetails: w.workDetails.filter((d) => d.id !== detailId) }
-      ),
+      workItems: deleteWorkDetailInGroup(g.workItems, workItemId, detailId),
     }));
     if (editingKey === detailId) {
       editSnapshotRef.current = null;
@@ -484,6 +447,11 @@ export default function GroupWorkItemsPanel({
 
   return (
     <>
+      <datalist id="wd-unit-options">
+        {UNIT_OPTIONS.map((u) => (
+          <option key={u} value={u} />
+        ))}
+      </datalist>
       <ERPModal
         isOpen={isOpen}
         onClose={onClose}
@@ -886,30 +854,19 @@ export default function GroupWorkItemsPanel({
                                     className="h-10 box-border px-2.5 rounded-lg bg-white text-right min-w-0"
                                     style={{ border: `1px solid ${BORDER_INPUT_2}` }}
                                   />
-                                  <div className="relative">
-                                    <select
-                                      aria-label="Satuan"
-                                      value={detail.unit}
-                                      onChange={(e) =>
-                                        updateDetailLocal(group.id, workItem.id, detail.id, {
-                                          unit: e.target.value,
-                                        })
-                                      }
-                                      className="w-full h-10 box-border pl-2.5 pr-6 rounded-lg bg-white appearance-none"
-                                      style={{ border: `1px solid ${BORDER_INPUT_2}` }}
-                                    >
-                                      <option value="">Pilih</option>
-                                      {UNIT_OPTIONS.map((u) => (
-                                        <option key={u} value={u}>
-                                          {u}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <ChevronDown
-                                      size={16}
-                                      className="absolute right-2 top-3 pointer-events-none text-[#5b6472]"
-                                    />
-                                  </div>
+                                  <input
+                                    aria-label="Satuan"
+                                    list="wd-unit-options"
+                                    value={detail.unit}
+                                    onChange={(e) =>
+                                      updateDetailLocal(group.id, workItem.id, detail.id, {
+                                        unit: e.target.value,
+                                      })
+                                    }
+                                    placeholder="Satuan"
+                                    className="h-10 box-border px-2.5 rounded-lg bg-white min-w-0"
+                                    style={{ border: `1px solid ${BORDER_INPUT_2}` }}
+                                  />
                                   <CurrencyInput
                                     value={detail.servicePrice}
                                     prefix="Rp"

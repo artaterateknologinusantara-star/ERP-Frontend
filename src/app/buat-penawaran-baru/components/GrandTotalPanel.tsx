@@ -32,7 +32,8 @@ export default function GrandTotalPanel({
   const tabTotals = tabs.map((t) => ({
     id: t.id,
     label: t.label,
-    total: calcMaterialSubtotal(t.groups, isCivilMeMode) + calcServiceSubtotal(t.groups, isCivilMeMode),
+    total:
+      calcMaterialSubtotal(t.groups, isCivilMeMode) + calcServiceSubtotal(t.groups, isCivilMeMode),
   }));
 
   const totalMaterial = tabs.reduce((s, t) => s + calcMaterialSubtotal(t.groups, isCivilMeMode), 0);
@@ -46,8 +47,8 @@ export default function GrandTotalPanel({
   const tabLabels = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 
   return (
-    <div className="erp-card shadow-card lg:sticky lg:top-16">
-      <h3 className="text-xl font-700 text-foreground mb-4">Ringkasan Grand Total</h3>
+    <div className="erp-card lg:sticky lg:top-16">
+      <h3 className="text-lg font-600 text-foreground mb-4">Ringkasan Grand Total</h3>
 
       {/* Per-tab totals */}
       <div className="space-y-2 mb-4">

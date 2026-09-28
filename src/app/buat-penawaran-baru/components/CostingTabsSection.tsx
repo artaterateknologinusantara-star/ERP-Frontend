@@ -27,6 +27,10 @@ interface Props {
   isCivilMeMode: boolean;
   documentInfo: DocumentInfo;
   onExportPdf: () => void;
+  // Diteruskan langsung ke CostingTable — lihat komentar di Props CostingTable untuk kenapa ini
+  // dibutuhkan (auto-save transparan sebelum "Kirim RAB ke Vendor"/"Review RAB" pada kategori yang
+  // belum tersimpan).
+  onEnsureGroupSaved: (tabId: string, groupId: string) => Promise<string | null>;
 }
 
 export default function CostingTabsSection({
@@ -37,6 +41,7 @@ export default function CostingTabsSection({
   isCivilMeMode,
   documentInfo,
   onExportPdf,
+  onEnsureGroupSaved,
 }: Props) {
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   // Modal Detail RAB/BQ — 1 instance untuk seluruh Tab aktif (bukan per-Group lagi), supaya bisa
@@ -65,7 +70,7 @@ export default function CostingTabsSection({
   };
 
   return (
-    <div className="erp-card shadow-card">
+    <div className="erp-card">
       {/* Tab Header + Template Buttons */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
         {/* Tabs — horizontal scroll on mobile instead of wrapping */}
@@ -125,6 +130,7 @@ export default function CostingTabsSection({
           isCivilMeMode={isCivilMeMode}
           groupCategoryLetters={groupCategoryLetters}
           onOpenRabDetail={openRabDetail}
+          onEnsureGroupSaved={onEnsureGroupSaved}
         />
       )}
 
